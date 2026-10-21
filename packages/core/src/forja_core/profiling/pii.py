@@ -159,7 +159,7 @@ _NON_PERSON_TOKENS = frozenset(
 )
 
 
-def _column_tokens(name: str) -> tuple[str, set[str]]:
+def column_tokens(name: str) -> tuple[str, set[str]]:
     spaced = re.sub(r"([a-z])([A-Z])", r"\1 \2", strip_accents(name))
     lowered = spaced.lower()
     tokens = {t for t in re.split(r"[^a-z0-9]+", lowered) if t}
@@ -283,7 +283,7 @@ def detect_pii(column: str, values: ValueCounts) -> PiiDetection | None:
     """Return the most likely PII detection for a text column, if any."""
     if not values:
         return None
-    compact, tokens = _column_tokens(column)
+    compact, tokens = column_tokens(column)
     email_hint = any(h in compact for h in _EMAIL_HINTS)
     phone_hint = bool(tokens & _PHONE_HINTS) or "telephone" in compact or "phone" in compact
     iban_hint = any(h in compact for h in _IBAN_HINTS)

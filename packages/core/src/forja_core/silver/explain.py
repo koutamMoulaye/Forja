@@ -77,6 +77,10 @@ def format_label(date_format: str | None) -> str:
     return label
 
 
+def _decimal(value: float) -> str:
+    return f"{value:.1f}".replace(".", ",")
+
+
 def _count(value: int, singular: str, plural: str) -> str:
     return f"{value} {singular if value <= 1 else plural}"
 
@@ -195,7 +199,7 @@ def column_description(column: ColumnPlan) -> str:
     if column.from_text and column.target_type in (SilverType.DATE, SilverType.TIMESTAMP):
         parts.append(f"Source au format {format_label(column.cast.date_format)}.")
     parts.append(
-        f"{stats.null_pct:.1f} % de valeurs nulles, "
+        f"{_decimal(stats.null_pct)} % de valeurs nulles, "
         f"{_count(stats.distinct_count, 'valeur distincte', 'valeurs distinctes')} au profiling."
     )
     if column.pii_type is not None:

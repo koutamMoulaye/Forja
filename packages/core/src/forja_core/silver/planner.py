@@ -19,6 +19,7 @@ from forja_core.profiling.models import (
     PiiType,
     ProfileReport,
 )
+from forja_core.profiling.pii import column_tokens
 from forja_core.profiling.types import BOOLEAN_FALSE, BOOLEAN_TRUE, ISO8601, inferred_from_physical
 from forja_core.silver.explain import refresh_explanations
 from forja_core.silver.plan import (
@@ -40,6 +41,15 @@ from forja_core.silver.plan import (
 from forja_core.utils import strip_accents, unique_name
 
 FORMAT_RULE_MIN_RATIO = 0.9
+ACCEPTED_VALUES_MAX_RATIO = 0.2
+
+_FREE_TEXT_TOKENS = frozenset(
+    {
+        "comment", "comments", "commentaire", "commentaires", "description", "desc", "note",
+        "notes", "remarque", "remarques", "observation", "observations", "message", "texte",
+        "text", "libelle", "label", "details", "detail",
+    }
+)  # fmt: skip
 
 _TARGET_TYPES: dict[InferredType, SilverType] = {
     InferredType.INTEGER: SilverType.BIGINT,
@@ -125,15 +135,24 @@ def _cast_spec(column: ColumnProfile, target: SilverType) -> CastSpec:
 
 
 def _accepted_values(
-    column: ColumnProfile, target: SilverType, normalization: Normalization, settings: Settings
+    column: ColumnProfile,
+    row_count: int,
+    target: SilverType,
+    normalization: Normalization,
+    settings: Settings,
 ) -> list[str] | None:
+    """Closed list of values for code-like columns, checked by a dbt test (warning)."""
     if target is not SilverType.VARCHAR or column.pii is not None:
         return None
     distinct = column.distinct_count
     known = len(column.top_values)
     if not 1 <= distinct <= settings.accepted_values_max or distinct != known:
         return None
-    if column.is_unique:
+    non_null = row_count - column.null_count
+    if column.is_unique or non_null == 0 or distinct / non_null > ACCEPTED_VALUES_MAX_RATIO:
+        return None
+    _, tokens = column_tokens(column.name)
+    if tokens & _FREE_TEXT_TOKENS:
         return None
     values = {v.value.strip() for v in column.top_values}
     if normalization is Normalization.LOWERCASE:
@@ -173,7 +192,7 @@ def _default_column(
         normalization=normalization,
         pii_type=pii.pii_type if pii else None,
         pii_level=pii.level if pii else None,
-        accepted_values=_accepted_values(column, target, normalization, settings),
+        accepted_values=_accepted_values(column, row_count, target, normalization, settings),
         stats=_stats(column, row_count),
     )
     if pii is not None and pii.level in (ConfidenceLevel.HIGH, ConfidenceLevel.MEDIUM):
