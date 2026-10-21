@@ -101,6 +101,37 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         );
         """,
     ),
+    (
+        4,
+        """
+        CREATE TABLE jobs (
+            id VARCHAR PRIMARY KEY,
+            project_id VARCHAR NOT NULL,
+            type VARCHAR NOT NULL,
+            status VARCHAR NOT NULL,
+            params JSON NOT NULL,
+            metrics JSON,
+            logs VARCHAR NOT NULL,
+            error VARCHAR,
+            created_at TIMESTAMP NOT NULL,
+            started_at TIMESTAMP,
+            finished_at TIMESTAMP
+        );
+        CREATE TABLE silver_tables (
+            id VARCHAR PRIMARY KEY,
+            project_id VARCHAR NOT NULL,
+            source_id VARCHAR NOT NULL,
+            name VARCHAR NOT NULL,
+            plan_version INTEGER NOT NULL,
+            row_count BIGINT NOT NULL,
+            rejected_count BIGINT NOT NULL,
+            columns JSON NOT NULL,
+            built_at TIMESTAMP NOT NULL,
+            last_run_id VARCHAR,
+            UNIQUE (project_id, name)
+        );
+        """,
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]

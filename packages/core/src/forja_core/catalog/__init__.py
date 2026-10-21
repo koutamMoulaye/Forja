@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from forja_core.catalog.jobs import JobsMixin
 from forja_core.catalog.migrations import SCHEMA_VERSION
-from forja_core.catalog.plans import PlansMixin
 
 
-class Catalog(PlansMixin):
+class Catalog(JobsMixin):
     def __enter__(self) -> Catalog:
         return self
 

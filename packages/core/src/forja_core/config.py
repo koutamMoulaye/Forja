@@ -50,6 +50,13 @@ class Settings(BaseSettings):
     pii_default_treatment: Literal["hash", "mask", "drop", "none"] = "hash"
     accepted_values_max: int = Field(default=10, ge=0)
 
+    job_runner: Literal["thread", "inline"] = Field(
+        default="thread", description="thread: background worker; inline: run on submission"
+    )
+    dbt_executable: str | None = None
+    dbt_threads: int = Field(default=1, ge=1)
+    dbt_timeout_seconds: float = Field(default=1800, gt=0)
+
     @property
     def catalog_path(self) -> Path:
         return self.meta_db_path or self.data_dir / "forja_meta.duckdb"

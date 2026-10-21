@@ -12,7 +12,7 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 
 from forja_api.errors import register_error_handlers
-from forja_api.routes import plans, projects, sources
+from forja_api.routes import plans, projects, runs, sources
 from forja_api.schemas import HealthResponse
 from forja_api.state import AppState
 from forja_core import __version__
@@ -30,6 +30,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         state = AppState.build(settings)
         app.state.forja = state
+        state.start()
         log.info("api_started", data_dir=str(state.workspace.root))
         try:
             yield
@@ -73,6 +74,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(projects.router)
     app.include_router(sources.router)
     app.include_router(plans.router)
+    app.include_router(runs.router)
     return app
 
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
+from typing import Any
 
 from fastapi.testclient import TestClient
 
@@ -174,6 +176,37 @@ def test_upload_size_limit(settings: Settings, tmp_path: Path) -> None:
         )
     assert response.status_code == 413
     assert not any((small.data_dir / project_id / "_staging").iterdir())
+
+
+def wait_for_run(client: TestClient, run_id: str, timeout: float = 300) -> dict[str, Any]:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        run: dict[str, Any] = client.get(f"/runs/{run_id}").json()
+        if run["status"] in ("succeeded", "failed"):
+            return run
+        time.sleep(0.2)
+    raise AssertionError(f"run {run_id} did not finish within {timeout} s")
+
+
+def test_runs_endpoints(client: TestClient, fixtures_dir: Path) -> None:
+    project_id = _create_project(client)
+    _upload(client, project_id, fixtures_dir / fx.UTF8_COMMA_CSV)
+
+    response = client.post(f"/projects/{project_id}/runs", json={"type": "profile"})
+    assert response.status_code == 202
+    assert response.json()["status"] in ("queued", "running", "succeeded")
+    run = wait_for_run(client, response.json()["id"])
+    assert run["status"] == "succeeded"
+    assert run["metrics"]["profiled_sources"] == 1
+
+    logs = client.get(f"/runs/{run['id']}/logs")
+    assert logs.headers["content-type"].startswith("text/plain")
+    assert "profile succeeded" in logs.text
+    assert [r["id"] for r in client.get(f"/projects/{project_id}/runs").json()] == [run["id"]]
+
+    assert client.post(f"/projects/{project_id}/runs", json={"type": "nope"}).status_code == 422
+    assert client.get("/runs/missing").status_code == 404
+    assert client.get("/runs/missing/logs").status_code == 404
 
 
 def test_not_found(client: TestClient) -> None:

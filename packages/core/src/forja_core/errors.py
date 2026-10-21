@@ -76,3 +76,19 @@ class PlanValidationError(ForjaError):
 
 class PlanStateError(ConflictError):
     code = "invalid_plan_state"
+
+
+class JobNotFoundError(NotFoundError):
+    code = "run_not_found"
+
+
+class TableNotFoundError(NotFoundError):
+    code = "table_not_found"
+
+
+class BuildError(ForjaError):
+    code = "build_failed"
+
+
+class WarehouseBusyError(ConflictError):
+    code = "warehouse_busy"
