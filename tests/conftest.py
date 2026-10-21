@@ -11,6 +11,7 @@ from forja_core.catalog import Catalog
 from forja_core.config import Settings
 from forja_core.ingestion import IngestionService
 from forja_core.models import Project, ProjectCreate
+from forja_core.silver.service import PlanService
 from forja_core.storage import Workspace
 from tests.fixtures.generate import ALL_FILES, FIXTURES_DIR, generate_all
 
@@ -39,8 +40,17 @@ def workspace(settings: Settings) -> Workspace:
 
 
 @pytest.fixture
-def ingestion(catalog: Catalog, workspace: Workspace, settings: Settings) -> IngestionService:
-    return IngestionService(catalog, workspace, settings)
+def plan_service(catalog: Catalog, settings: Settings) -> PlanService:
+    return PlanService(catalog, settings)
+
+
+@pytest.fixture
+def ingestion(
+    catalog: Catalog, workspace: Workspace, settings: Settings, plan_service: PlanService
+) -> IngestionService:
+    service = IngestionService(catalog, workspace, settings)
+    service.subscribe(plan_service.on_version_ingested)
+    return service
 
 
 @pytest.fixture

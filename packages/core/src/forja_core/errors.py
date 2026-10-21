@@ -64,3 +64,15 @@ class FileTooLargeError(IngestionError):
 
 class ProfilingError(ForjaError):
     code = "profiling_error"
+
+
+class PlanNotFoundError(NotFoundError):
+    code = "plan_not_found"
+
+
+class PlanValidationError(ForjaError):
+    code = "invalid_plan"
+
+
+class PlanStateError(ConflictError):
+    code = "invalid_plan_state"

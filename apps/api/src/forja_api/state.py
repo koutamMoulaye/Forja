@@ -10,6 +10,7 @@ from fastapi import Depends, Request
 from forja_core.catalog import Catalog
 from forja_core.config import Settings
 from forja_core.ingestion import IngestionService
+from forja_core.silver.service import PlanService
 from forja_core.storage import Workspace
 
 
@@ -19,16 +20,21 @@ class AppState:
     catalog: Catalog
     workspace: Workspace
     ingestion: IngestionService
+    plans: PlanService
 
     @classmethod
     def build(cls, settings: Settings) -> AppState:
         catalog = Catalog(settings.catalog_path)
         workspace = Workspace(settings.data_dir)
+        ingestion = IngestionService(catalog, workspace, settings)
+        plans = PlanService(catalog, settings)
+        ingestion.subscribe(plans.on_version_ingested)
         return cls(
             settings=settings,
             catalog=catalog,
             workspace=workspace,
-            ingestion=IngestionService(catalog, workspace, settings),
+            ingestion=ingestion,
+            plans=plans,
         )
 
     def close(self) -> None:

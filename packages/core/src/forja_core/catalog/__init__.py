@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from forja_core.catalog.migrations import SCHEMA_VERSION
-from forja_core.catalog.sources import SourcesMixin
+from forja_core.catalog.plans import PlansMixin
 
 
-class Catalog(SourcesMixin):
+class Catalog(PlansMixin):
     def __enter__(self) -> Catalog:
         return self
 

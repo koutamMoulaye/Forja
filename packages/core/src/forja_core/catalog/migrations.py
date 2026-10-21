@@ -85,6 +85,22 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         ALTER TABLE profiles_v2 RENAME TO profiles;
         """,
     ),
+    (
+        3,
+        """
+        CREATE TABLE plans (
+            id VARCHAR PRIMARY KEY,
+            project_id VARCHAR NOT NULL,
+            source_id VARCHAR NOT NULL,
+            version INTEGER NOT NULL,
+            status VARCHAR NOT NULL,
+            plan JSON NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP NOT NULL,
+            UNIQUE (source_id, version)
+        );
+        """,
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]

@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     profiling_top_values: int = Field(default=5, ge=0)
     profiling_max_key_columns: int = Field(default=15, ge=2)
 
+    auto_approve_silver: bool = Field(
+        default=False, description="Approve generated Silver plans without review (local mode)"
+    )
+    pii_default_treatment: Literal["hash", "mask", "drop", "none"] = "hash"
+    accepted_values_max: int = Field(default=10, ge=0)
+
     @property
     def catalog_path(self) -> Path:
         return self.meta_db_path or self.data_dir / "forja_meta.duckdb"
