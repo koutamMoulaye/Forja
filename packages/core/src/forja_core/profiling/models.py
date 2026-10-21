@@ -8,7 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-PROFILER_VERSION = "1"
+PROFILER_VERSION = "2"
 
 
 class InferredType(StrEnum):
@@ -123,6 +123,8 @@ class QualityScore(BaseModel):
 class ProfileReport(BaseModel):
     source_id: str
     source_name: str
+    version_id: str | None = None
+    version: int | None = None
     profiler_version: str = PROFILER_VERSION
     profiled_at: datetime
     row_count: int

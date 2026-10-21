@@ -80,7 +80,7 @@ def test_upload_profile_and_preview(client: TestClient, fixtures_dir: Path) -> N
     assert preview["limit"] == 5
     assert preview["total_rows"] == 32
     assert len(preview["rows"]) == 5
-    assert preview["columns"][-3:] == list(TECHNICAL_COLUMNS)
+    assert preview["columns"][-len(TECHNICAL_COLUMNS) :] == list(TECHNICAL_COLUMNS)
     assert preview["rows"][0]["prénom"] == "Jean"
 
 
@@ -90,6 +90,48 @@ def test_preview_default_limit(client: TestClient, fixtures_dir: Path) -> None:
     preview = client.get(f"/sources/{source['id']}/preview").json()
     assert preview["limit"] == 100
     assert len(preview["rows"]) == 32
+
+
+def test_upload_modes_and_versions(client: TestClient, fixtures_dir: Path) -> None:
+    project_id = _create_project(client)
+    path = fixtures_dir / fx.UTF8_COMMA_CSV
+    [first] = _upload(client, project_id, path)
+
+    [again] = _upload(client, project_id, path)
+    assert again["id"] == first["id"]
+    assert again["version"] == 2
+
+    with path.open("rb") as handle:
+        response = client.post(
+            f"/projects/{project_id}/sources",
+            params={"mode": "new_source"},
+            files={"file": (path.name, handle)},
+        )
+    assert response.status_code == 201
+    assert response.json()[0]["name"] == "orders_utf8_2"
+
+    with path.open("rb") as handle:
+        response = client.post(
+            f"/sources/{first['id']}/versions", files={"file": ("autre_nom.csv", handle)}
+        )
+    assert response.status_code == 201
+    assert response.json()["version"] == 3
+
+    versions = client.get(f"/sources/{first['id']}/versions").json()
+    assert [v["version"] for v in versions] == [1, 2, 3]
+    assert versions[1]["schema_drift"]["has_drift"] is False
+    assert client.get(f"/sources/{first['id']}").json()["version"] == 3
+    assert (
+        client.get(f"/sources/{first['id']}/profile", params={"version": 1}).json()["version"] == 1
+    )
+
+    with path.open("rb") as handle:
+        response = client.post(
+            f"/projects/{project_id}/sources",
+            params={"mode": "new_version"},
+            files={"file": ("inconnu.csv", handle)},
+        )
+    assert response.status_code == 404
 
 
 def test_upload_excel_returns_one_source_per_sheet(client: TestClient, fixtures_dir: Path) -> None:

@@ -85,7 +85,10 @@ def test_fr_null_and_cardinality(fr_profile: ProfileReport) -> None:
 def test_fr_duplicates_and_keys(fr_profile: ProfileReport) -> None:
     assert fr_profile.duplicates.duplicate_rows == 2
     assert fr_profile.duplicates.duplicate_groups == 2
-    assert fr_profile.candidate_keys == []
+    # Keys are evaluated once exact duplicates are set aside.
+    simple = [k.columns for k in fr_profile.candidate_keys if k.kind == "simple"]
+    assert ["id"] in simple
+    assert ["email"] not in simple  # has nulls
 
 
 def test_fr_pii_detection(fr_profile: ProfileReport) -> None:
@@ -111,7 +114,7 @@ def test_quality_score_breakdown(fr_profile: ProfileReport) -> None:
     assert sum(c.weight for c in quality.components) == 100
     assert quality.score == pytest.approx(sum(c.points for c in quality.components), abs=0.1)
     identifiability = next(c for c in quality.components if c.name == "identifiability")
-    assert identifiability.score == 0
+    assert identifiability.score == 1
     assert any("duplicate" in issue for issue in quality.issues)
     assert any("personal data" in issue for issue in quality.issues)
 

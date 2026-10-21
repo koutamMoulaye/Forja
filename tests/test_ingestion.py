@@ -14,11 +14,12 @@ from forja_core.errors import (
     EmptyFileError,
     EncodingDetectionError,
     ProjectNotFoundError,
+    SourceNotFoundError,
     UnsupportedFormatError,
 )
 from forja_core.ingestion import IngestionService
 from forja_core.ingestion.service import row_hashes
-from forja_core.models import TECHNICAL_COLUMNS, Project, Source, SourceFormat
+from forja_core.models import TECHNICAL_COLUMNS, IngestMode, Project, Source, SourceFormat
 from forja_core.storage import Workspace
 from tests.fixtures import generate as fx
 
@@ -204,13 +205,96 @@ def test_unknown_project(ingestion: IngestionService, fixtures_dir: Path) -> Non
         ingestion.ingest_file("missing", fixtures_dir / fx.FR_CSV, fx.FR_CSV)
 
 
-def test_reingesting_a_file_creates_a_new_source(
+def _copy(fixtures_dir: Path, tmp_path: Path, name: str, target: str) -> Path:
+    path = tmp_path / target
+    shutil.copy(fixtures_dir / name, path)
+    return path
+
+
+def test_reingesting_a_file_creates_a_new_version(
+    ingestion: IngestionService,
+    catalog: Catalog,
+    project: Project,
+    fixtures_dir: Path,
+    tmp_path: Path,
+    workspace: Workspace,
+) -> None:
+    [first] = _ingest(ingestion, project, fixtures_dir, fx.UTF8_COMMA_CSV)
+    copy = _copy(fixtures_dir, tmp_path, fx.UTF8_COMMA_CSV, fx.UTF8_COMMA_CSV)
+    [second] = ingestion.ingest_file(project.id, copy, fx.UTF8_COMMA_CSV)
+
+    assert second.id == first.id
+    assert second.version == 2
+    assert second.bronze_path != first.bronze_path
+    assert second.schema_drift is not None and not second.schema_drift.has_drift
+
+    versions = catalog.list_versions(first.id)
+    assert [v.version for v in versions] == [1, 2]
+    assert [v.new_row_count for v in versions] == [3, 0]
+    batch_ids = {
+        pq.read_table(workspace.resolve(v.bronze_path)).column("_batch_id").to_pylist()[0]
+        for v in versions
+    }
+    assert batch_ids == {v.id for v in versions}
+    assert catalog.get_profile(first.id).version == 2
+    assert catalog.get_profile(first.id, version=1).version == 1
+
+
+def test_new_source_mode_forces_a_separate_source(
     ingestion: IngestionService, project: Project, fixtures_dir: Path, tmp_path: Path
 ) -> None:
-    first = _ingest(ingestion, project, fixtures_dir, fx.UTF8_COMMA_CSV)
-    copy = tmp_path / fx.UTF8_COMMA_CSV
-    shutil.copy(fixtures_dir / fx.UTF8_COMMA_CSV, copy)
-    second = ingestion.ingest_file(project.id, copy, fx.UTF8_COMMA_CSV)
-    assert first[0].name == "orders_utf8"
-    assert second[0].name == "orders_utf8_2"
-    assert first[0].bronze_path != second[0].bronze_path
+    [first] = _ingest(ingestion, project, fixtures_dir, fx.UTF8_COMMA_CSV)
+    copy = _copy(fixtures_dir, tmp_path, fx.UTF8_COMMA_CSV, fx.UTF8_COMMA_CSV)
+    [second] = ingestion.ingest_file(
+        project.id, copy, fx.UTF8_COMMA_CSV, mode=IngestMode.NEW_SOURCE
+    )
+    assert second.id != first.id
+    assert second.name == "orders_utf8_2"
+    assert second.version == 1
+
+
+def test_new_version_mode_requires_an_existing_source(
+    ingestion: IngestionService, project: Project, fixtures_dir: Path
+) -> None:
+    with pytest.raises(SourceNotFoundError):
+        ingestion.ingest_file(
+            project.id,
+            fixtures_dir / fx.UTF8_COMMA_CSV,
+            fx.UTF8_COMMA_CSV,
+            mode=IngestMode.NEW_VERSION,
+        )
+
+
+def test_version_of_explicit_target_with_another_file_name(
+    ingestion: IngestionService, project: Project, fixtures_dir: Path, tmp_path: Path
+) -> None:
+    [first] = _ingest(ingestion, project, fixtures_dir, fx.UTF8_COMMA_CSV)
+    renamed = _copy(fixtures_dir, tmp_path, fx.UTF8_COMMA_CSV, "export_janvier.csv")
+    [second] = ingestion.ingest_file(project.id, renamed, renamed.name, target_source_id=first.id)
+    assert second.id == first.id
+    assert second.version == 2
+    assert second.original_filename == "export_janvier.csv"
+
+
+def test_schema_drift_is_detected_without_blocking(
+    ingestion: IngestionService, catalog: Catalog, project: Project, tmp_path: Path
+) -> None:
+    v1 = tmp_path / "v1" / "stock.csv"
+    v2 = tmp_path / "v2" / "stock.csv"
+    v1.parent.mkdir()
+    v2.parent.mkdir()
+    v1.write_text("sku;qty;label\nA;1;x\nB;2;y\n", encoding="utf-8")
+    v2.write_text("sku;qty;price\nA;1,5;10\nC;3,5;12\n", encoding="utf-8")
+
+    [first] = ingestion.ingest_file(project.id, v1, "stock.csv")
+    [second] = ingestion.ingest_file(project.id, v2, "stock.csv")
+
+    drift = second.schema_drift
+    assert drift is not None and drift.has_drift
+    assert drift.previous_version == 1
+    assert drift.added == ["price"]
+    assert drift.removed == ["label"]
+    assert [(c.column, c.previous_type, c.new_type, c.level) for c in drift.type_changed] == [
+        ("qty", "integer", "decimal", "inferred")
+    ]
+    assert catalog.list_versions(first.id)[1].schema_drift == drift

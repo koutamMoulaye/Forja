@@ -58,10 +58,19 @@ class Profiler:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    def profile(self, *, source_id: str, source_name: str, parquet_path: Path) -> ProfileReport:
+    def profile(
+        self,
+        *,
+        source_id: str,
+        source_name: str,
+        parquet_path: Path,
+        version_id: str | None = None,
+        version: int | None = None,
+    ) -> ProfileReport:
         con = duckdb.connect()
         try:
-            return self._profile(con, source_id, source_name, parquet_path)
+            report = self._profile(con, source_id, source_name, parquet_path)
+            return report.model_copy(update={"version_id": version_id, "version": version})
         except duckdb.Error as exc:
             raise ProfilingError(f"profiling failed for '{source_name}': {exc}") from exc
         finally:
@@ -243,22 +252,29 @@ class Profiler:
         row_count: int,
         duplicates: DuplicateStats,
     ) -> list[CandidateKey]:
-        if row_count < 2 or duplicates.duplicate_rows > 0:
+        # Keys are evaluated on distinct rows: exact duplicates are removed in Silver anyway.
+        distinct_rows = row_count - duplicates.duplicate_rows
+        if distinct_rows < 2:
             return []
         eligible = [
             c for c in columns if c.null_count == 0 and c.inferred.inferred_type in _KEY_ELIGIBLE
         ]
-        keys = [CandidateKey(columns=[c.name], kind="simple") for c in eligible if c.is_unique]
+        keys = [
+            CandidateKey(columns=[c.name], kind="simple")
+            for c in eligible
+            if c.distinct_count == distinct_rows
+        ]
+        simple = {k.columns[0] for k in keys}
 
         pool = sorted(
-            (c for c in eligible if not c.is_unique and c.distinct_count > 1),
+            (c for c in eligible if c.name not in simple and c.distinct_count > 1),
             key=lambda c: c.distinct_count,
             reverse=True,
         )[: self.settings.profiling_max_key_columns]
         pairs = [
             (a, b)
             for a, b in combinations(pool, 2)
-            if a.distinct_count * b.distinct_count >= row_count
+            if a.distinct_count * b.distinct_count >= distinct_rows
         ]
         if not pairs:
             return keys
@@ -269,6 +285,6 @@ class Profiler:
         composite = [
             CandidateKey(columns=[a.name, b.name], kind="composite")
             for (a, b), distinct in zip(pairs, row, strict=True)
-            if int(distinct) == row_count
+            if int(distinct) == distinct_rows
         ]
         return keys + composite[:_MAX_COMPOSITE_KEYS]
