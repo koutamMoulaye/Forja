@@ -10,6 +10,7 @@ from forja_core.errors import (
     FileTooLargeError,
     ForbiddenError,
     ForjaError,
+    GoldProposalError,
     IngestionError,
     NotFoundError,
     PlanValidationError,
@@ -29,6 +30,7 @@ _STATUS_BY_ERROR: tuple[tuple[type[ForjaError], int], ...] = (
     (IngestionError, status.HTTP_422_UNPROCESSABLE_CONTENT),
     (PlanValidationError, status.HTTP_422_UNPROCESSABLE_CONTENT),
     (RelationValidationError, status.HTTP_422_UNPROCESSABLE_CONTENT),
+    (GoldProposalError, status.HTTP_422_UNPROCESSABLE_CONTENT),
 )
 
 

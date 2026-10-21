@@ -104,3 +104,11 @@ class RelationNotFoundError(NotFoundError):
 
 class RelationValidationError(ForjaError):
     code = "invalid_relation"
+
+
+class GoldPlanNotFoundError(NotFoundError):
+    code = "gold_plan_not_found"
+
+
+class GoldProposalError(ForjaError):
+    code = "gold_proposal_failed"

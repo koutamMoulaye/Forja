@@ -9,6 +9,7 @@ from fastapi import Depends, Request
 
 from forja_core.catalog import Catalog
 from forja_core.config import Settings
+from forja_core.gold.service import GoldPlanService
 from forja_core.ingestion import IngestionService
 from forja_core.jobs.executor import JobExecutor
 from forja_core.jobs.runner import InlineJobRunner, JobRunner, ThreadJobRunner
@@ -23,6 +24,7 @@ from forja_core.silver.dbt.runner import DbtRunner
 from forja_core.silver.service import PlanService
 from forja_core.storage import Workspace
 from forja_llm import LLMProvider, LLMSettings, get_provider
+from forja_llm.gold import LLMGoldProposer
 
 
 @dataclass
@@ -39,6 +41,7 @@ class AppState:
     executor: JobExecutor
     runner: JobRunner
     llm: LLMProvider | None
+    gold: GoldPlanService
 
     @classmethod
     def build(cls, settings: Settings) -> AppState:
@@ -67,6 +70,7 @@ class AppState:
             if settings.job_runner == "thread"
             else InlineJobRunner(executor)
         )
+        llm = get_provider(LLMSettings(), journal=catalog.add_llm_call)
         return cls(
             settings=settings,
             catalog=catalog,
@@ -79,7 +83,10 @@ class AppState:
             relations=RelationService(catalog, detector),
             executor=executor,
             runner=runner,
-            llm=get_provider(LLMSettings(), journal=catalog.add_llm_call),
+            llm=llm,
+            gold=GoldPlanService(
+                catalog, LLMGoldProposer(llm, catalog) if llm is not None else None
+            ),
         )
 
     def start(self) -> None:

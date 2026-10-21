@@ -163,6 +163,21 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         );
         """,
     ),
+    (
+        7,
+        """
+        CREATE TABLE gold_plans (
+            id VARCHAR PRIMARY KEY,
+            project_id VARCHAR NOT NULL,
+            version INTEGER NOT NULL,
+            status VARCHAR NOT NULL,
+            plan JSON NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP NOT NULL,
+            UNIQUE (project_id, version)
+        );
+        """,
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]

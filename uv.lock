@@ -546,6 +546,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyyaml" },
+    { name = "sqlglot" },
     { name = "structlog" },
 ]
 
@@ -560,6 +561,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pydantic-settings", specifier = ">=2.4" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "sqlglot", specifier = ">=25.0" },
     { name = "structlog", specifier = ">=24.1" },
 ]
 
