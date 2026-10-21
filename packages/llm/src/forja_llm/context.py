@@ -1,27 +1,29 @@
 """Privacy-safe context sent to language models.
 
-The only way to build what a provider receives is :func:`build_safe_context`.
-It copies an explicit allowlist of schema and statistical fields from profiling
-reports. No field of these models can carry a cell value: top values, string
-min/max and sample rows are never copied, numeric aggregates are dropped for
-columns flagged as personal data, and every free-text field is either an
-identifier (project, source or column name) or a value from a closed set.
+The only way to build what a provider receives is :func:`build_safe_context`. It
+copies an explicit allowlist of schema and statistical fields from profiles, Silver
+plans and relations. No field of these models can carry a cell value:
+
+- top values, minimums, maximums, means and sample rows are never copied (a maximum
+  is a row value);
+- every free-text field is an identifier (project, source, table or column name) or
+  a value from a closed set (types, date formats, statuses), checked by validators;
+- the models forbid extra fields and are immutable.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from forja_core.models import Architecture, Project, Source
-from forja_core.profiling.models import (
-    ColumnProfile,
-    InferredType,
-    PiiType,
-    ProfileReport,
-)
+from forja_core.profiling.models import ColumnProfile, InferredType, PiiType, ProfileReport
 from forja_core.profiling.types import KNOWN_FORMATS
+from forja_core.relations.models import Relation, RelationStatus
+from forja_core.silver.plan import SilverType, TransformationPlan
+from forja_core.silver.tables import SilverTable
 
 _IDENTIFIER_MAX_LENGTH = 128
 
@@ -40,15 +42,15 @@ class SafeColumn(_SafeModel):
     name: str
     physical_type: str
     inferred_type: InferredType
+    silver_type: SilverType | None = None
+    included: bool = True
+    is_primary_key: bool = False
     date_format: str | None = None
     decimal_separator: str | None = None
     null_pct: float
     distinct_count: int
     uniqueness: float
     is_unique: bool
-    numeric_min: float | None = None
-    numeric_max: float | None = None
-    numeric_mean: float | None = None
     pii_type: PiiType | None = None
     pii_confidence: float | None = None
 
@@ -71,66 +73,138 @@ class SafeColumn(_SafeModel):
 
 class SafeSource(_SafeModel):
     name: str
+    silver_table: str | None = None
+    version: int | None = None
     row_count: int
     columns: list[SafeColumn]
+    primary_key: list[str] = Field(default_factory=list)
     candidate_keys: list[list[str]] = Field(default_factory=list)
     duplicate_pct: float
     quality_score: float
 
-    _check_name = field_validator("name")(_check_identifier)
+    _check_name = field_validator("name", "silver_table")(
+        lambda v: v if v is None else _check_identifier(v)
+    )
+
+
+class SafeRelation(_SafeModel):
+    from_table: str
+    from_column: str
+    to_table: str
+    to_column: str
+    cardinality: str
+    confidence: float
+    inclusion_ratio: float
+    status: RelationStatus
+
+    _check_names = field_validator("from_table", "from_column", "to_table", "to_column")(
+        _check_identifier
+    )
+
+    @field_validator("cardinality")
+    @classmethod
+    def _known_cardinality(cls, value: str) -> str:
+        if value not in ("1-1", "N-1"):
+            raise ValueError("unknown cardinality")
+        return value
 
 
 class LLMSafeContext(_SafeModel):
     project_name: str
     architecture: Architecture
     sources: list[SafeSource]
+    relations: list[SafeRelation] = Field(default_factory=list)
 
     _check_name = field_validator("project_name")(_check_identifier)
 
 
-def _safe_column(column: ColumnProfile) -> SafeColumn:
+@dataclass(frozen=True)
+class SourceContext:
+    """What is known about a source; the plan and table exist once Silver is built."""
+
+    source: Source
+    profile: ProfileReport
+    plan: TransformationPlan | None = None
+    table: SilverTable | None = None
+
+
+def _profile_column(column: ColumnProfile, *, name: str | None = None) -> dict[str, object]:
     inferred = column.inferred
-    numeric = (
-        column.pii is None
-        and inferred.inferred_type in (InferredType.INTEGER, InferredType.DECIMAL)
-        and isinstance(column.min, int | float)
-        and isinstance(column.max, int | float)
+    return {
+        "name": name or column.name,
+        "physical_type": column.physical_type,
+        "inferred_type": inferred.inferred_type,
+        "date_format": inferred.format if inferred.format in KNOWN_FORMATS else None,
+        "decimal_separator": inferred.decimal_separator,
+        "null_pct": column.null_pct,
+        "distinct_count": column.distinct_count,
+        "uniqueness": column.uniqueness,
+        "is_unique": column.is_unique,
+        "pii_type": column.pii.pii_type if column.pii else None,
+        "pii_confidence": column.pii.confidence if column.pii else None,
+    }
+
+
+def _safe_source(item: SourceContext) -> SafeSource:
+    profile, plan = item.profile, item.plan
+    by_name = {c.name: c for c in profile.columns}
+    columns: list[SafeColumn] = []
+    primary_key: list[str] = []
+    if plan is None:
+        columns = [SafeColumn(**_profile_column(c)) for c in profile.columns]
+    else:
+        keys = {c.source_column for c in plan.key_columns()}
+        primary_key = [c.target_column for c in plan.key_columns()]
+        for column in plan.columns:
+            stats = by_name.get(column.source_column)
+            if stats is None:
+                continue
+            fields = _profile_column(stats, name=column.target_column)
+            fields.update(
+                silver_type=column.target_type,
+                included=column.included,
+                is_primary_key=column.source_column in keys,
+                pii_type=column.pii_type,
+            )
+            columns.append(SafeColumn(**fields))
+    rename = {c.source_column: c.target_column for c in plan.columns} if plan else {}
+    return SafeSource(
+        name=item.source.name,
+        silver_table=item.table.name if item.table else None,
+        version=profile.version,
+        row_count=profile.row_count,
+        columns=columns,
+        primary_key=primary_key,
+        candidate_keys=[[rename.get(c, c) for c in k.columns] for k in profile.candidate_keys],
+        duplicate_pct=profile.duplicates.duplicate_pct,
+        quality_score=profile.quality.score,
     )
-    return SafeColumn(
-        name=column.name,
-        physical_type=column.physical_type,
-        inferred_type=inferred.inferred_type,
-        date_format=inferred.format,
-        decimal_separator=inferred.decimal_separator,
-        null_pct=column.null_pct,
-        distinct_count=column.distinct_count,
-        uniqueness=column.uniqueness,
-        is_unique=column.is_unique,
-        numeric_min=float(column.min) if numeric and column.min is not None else None,
-        numeric_max=float(column.max) if numeric and column.max is not None else None,
-        numeric_mean=column.mean if numeric else None,
-        pii_type=column.pii.pii_type if column.pii else None,
-        pii_confidence=column.pii.confidence if column.pii else None,
+
+
+def _safe_relation(relation: Relation) -> SafeRelation:
+    return SafeRelation(
+        from_table=relation.from_table,
+        from_column=relation.from_column,
+        to_table=relation.to_table,
+        to_column=relation.to_column,
+        cardinality=relation.cardinality,
+        confidence=relation.confidence,
+        inclusion_ratio=relation.inclusion_ratio,
+        status=relation.status,
     )
 
 
 def build_safe_context(
-    project: Project, sources: Sequence[tuple[Source, ProfileReport]]
+    project: Project,
+    sources: Sequence[SourceContext | tuple[Source, ProfileReport]],
+    relations: Sequence[Relation] = (),
 ) -> LLMSafeContext:
+    items = [s if isinstance(s, SourceContext) else SourceContext(*s) for s in sources]
     return LLMSafeContext(
         project_name=project.name,
         architecture=project.architecture,
-        sources=[
-            SafeSource(
-                name=source.name,
-                row_count=report.row_count,
-                columns=[_safe_column(c) for c in report.columns],
-                candidate_keys=[list(k.columns) for k in report.candidate_keys],
-                duplicate_pct=report.duplicates.duplicate_pct,
-                quality_score=report.quality.score,
-            )
-            for source, report in sources
-        ],
+        sources=[_safe_source(item) for item in items],
+        relations=[_safe_relation(r) for r in relations if r.status is not RelationStatus.REJECTED],
     )
 
 

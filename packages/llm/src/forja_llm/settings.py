@@ -21,6 +21,8 @@ DEFAULT_MODELS: dict[str, str] = {
 
 
 class LLMSettings(BaseSettings):
+    """No provider by default: Forja then relies on its deterministic heuristics."""
+
     model_config = SettingsConfigDict(
         env_prefix="FORJA_LLM_",
         env_file=".env",
@@ -29,9 +31,17 @@ class LLMSettings(BaseSettings):
         populate_by_name=True,
     )
 
-    provider: ProviderName = ProviderName.OLLAMA
+    provider: ProviderName | None = None
     model: str | None = None
-    timeout_seconds: float = Field(default=60.0, gt=0)
+    timeout_seconds: float = Field(default=120.0, gt=0)
+    max_attempts: int = Field(default=3, ge=1, le=10, description="Calls per generation")
+    backoff_base_seconds: float = Field(default=1.0, ge=0)
+    backoff_max_seconds: float = Field(default=30.0, ge=0)
+    max_output_tokens: int = Field(default=16_000, gt=0)
+    effort: str = Field(default="high", description="Anthropic output effort")
+    refusal_fallback: bool = Field(
+        default=True, description="Anthropic: retry a declined request on a fallback model"
+    )
 
     anthropic_api_key: SecretStr | None = Field(
         default=None,

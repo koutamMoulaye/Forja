@@ -22,6 +22,7 @@ from forja_core.silver.dbt.project import DbtProjectGenerator
 from forja_core.silver.dbt.runner import DbtRunner
 from forja_core.silver.service import PlanService
 from forja_core.storage import Workspace
+from forja_llm import LLMProvider, LLMSettings, get_provider
 
 
 @dataclass
@@ -37,6 +38,7 @@ class AppState:
     relations: RelationService
     executor: JobExecutor
     runner: JobRunner
+    llm: LLMProvider | None
 
     @classmethod
     def build(cls, settings: Settings) -> AppState:
@@ -77,6 +79,7 @@ class AppState:
             relations=RelationService(catalog, detector),
             executor=executor,
             runner=runner,
+            llm=get_provider(LLMSettings(), journal=catalog.add_llm_call),
         )
 
     def start(self) -> None:

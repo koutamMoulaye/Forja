@@ -151,6 +151,18 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         );
         """,
     ),
+    (
+        6,
+        """
+        CREATE TABLE llm_calls (
+            id VARCHAR PRIMARY KEY,
+            project_id VARCHAR,
+            status VARCHAR NOT NULL,
+            data JSON NOT NULL,
+            created_at TIMESTAMP NOT NULL
+        );
+        """,
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
