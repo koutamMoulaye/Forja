@@ -222,9 +222,15 @@ def refresh_explanations(plan: TransformationPlan) -> TransformationPlan:
         )
     else:
         names = ", ".join(c.target_column for c in plan.key_columns())
+        quasi = (
+            " (quasi unique au profiling : les lignes sans clé ou en conflit iront en quarantaine)"
+            if plan.primary_key.quasi_unique
+            else ""
+        )
         plan_key = (
-            f"Clé primaire retenue : {names}. Une ligne plus récente de même clé remplace "
-            "l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine."
+            f"Clé primaire retenue : {names}{quasi}. Une ligne plus récente de même clé "
+            "remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises "
+            "en quarantaine."
         )
         plan.primary_key.explanation = plan_key
 

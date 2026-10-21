@@ -30,6 +30,8 @@ CORRUPTED_EXCEL = "corrompu.xlsx"
 BINARY_CSV = "binaire.csv"
 DUPLICATED_COLUMNS = "colonnes_dupliquees.csv"
 UTF8_COMMA_CSV = "orders_utf8.csv"
+CLIENTS_V1 = "clients_v1.csv"
+CLIENTS_V2 = "clients_v2.csv"
 
 PEOPLE: list[tuple[str, str]] = [
     ("Jean", "Dupont"),
@@ -156,11 +158,64 @@ FR_HEADER = [
 
 
 def write_fr_csv(path: Path) -> None:
+    _write_semicolon_csv(path, FR_HEADER, fr_csv_rows())
+
+
+# clients_v1.csv: the dirty French export plus rows breaking each validity rule.
+CLIENTS_V1_INVALID_EMAIL = 5
+CLIENTS_V1_INVALID_DATE = 8
+CLIENTS_V1_MISSING_ID = 12
+CLIENTS_V1_KEY_CONFLICT = 20
+CLIENTS_V1_ROWS = FR_ROW_COUNT + len(FR_DUPLICATED_INDEXES) + 1
+CLIENTS_V1_DISTINCT = CLIENTS_V1_ROWS - len(FR_DUPLICATED_INDEXES)
+CLIENTS_V1_REJECTED = 5  # email, date, missing id, and both rows of the conflicting key
+CLIENTS_V1_VALID = CLIENTS_V1_DISTINCT - CLIENTS_V1_REJECTED
+
+# clients_v2.csv: a delta with a new "segment" column, one update and one invalid row.
+CLIENTS_V2_NEW_IDS = (31, 32, 33, 34, 35)
+CLIENTS_V2_UPDATED_ID = 1
+CLIENTS_V2_INVALID_ID = 35
+CLIENTS_V2_ROWS = len(CLIENTS_V2_NEW_IDS) + 1
+
+
+def clients_v1_rows() -> list[list[str]]:
+    rows = fr_csv_rows()
+    rows[CLIENTS_V1_INVALID_EMAIL][3] = "camille.leroy@"
+    rows[CLIENTS_V1_INVALID_DATE][6] = "31/02/2023"
+    rows[CLIENTS_V1_MISSING_ID][0] = ""
+    conflict = list(rows[CLIENTS_V1_KEY_CONFLICT])
+    conflict[7] = "1,00"
+    rows.append(conflict)
+    return rows
+
+
+def clients_v2_rows() -> list[list[str]]:
+    base = fr_csv_rows()
+    rows: list[list[str]] = []
+    updated = list(base[CLIENTS_V2_UPDATED_ID - 1])
+    updated[7] = "99 999,99"
+    rows.append([*updated, "premium"])
+    for offset, client_id in enumerate(CLIENTS_V2_NEW_IDS):
+        row = list(base[offset + 3])
+        row[0] = str(client_id)
+        row[3] = f"nouveau{client_id}@example.fr"
+        if client_id == CLIENTS_V2_INVALID_ID:
+            row[3] = "pas-un-email"
+        rows.append([*row, "standard"])
+    return rows
+
+
+def _write_semicolon_csv(path: Path, header: list[str], rows: list[list[str]]) -> None:
     buffer = io.StringIO()
     writer = csv.writer(buffer, delimiter=";", lineterminator="\r\n")
-    writer.writerow(FR_HEADER)
-    writer.writerows(fr_csv_rows())
+    writer.writerow(header)
+    writer.writerows(rows)
     path.write_bytes(buffer.getvalue().encode("cp1252"))
+
+
+def write_clients_versions(directory: Path) -> None:
+    _write_semicolon_csv(directory / CLIENTS_V1, FR_HEADER, clients_v1_rows())
+    _write_semicolon_csv(directory / CLIENTS_V2, [*FR_HEADER, "segment"], clients_v2_rows())
 
 
 def write_excel(path: Path) -> None:
@@ -250,6 +305,7 @@ def generate_all(directory: Path = FIXTURES_DIR) -> None:
     write_json_array(directory / JSON_ARRAY)
     write_json_lines(directory / JSON_LINES)
     write_invalid_files(directory)
+    write_clients_versions(directory)
 
 
 ALL_FILES = (
@@ -265,6 +321,8 @@ ALL_FILES = (
     BINARY_CSV,
     DUPLICATED_COLUMNS,
     UTF8_COMMA_CSV,
+    CLIENTS_V1,
+    CLIENTS_V2,
 )
 
 

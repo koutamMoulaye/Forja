@@ -1,0 +1,34 @@
+id;nom;prénom;email;téléphone;code_postal;date_inscription;montant_total;iban;actif;commentaire
+1;Dupont;Jean;jean.dupont@example.fr;06 24 94 26 03;06000;17/10/2023;6 122,67;FR20 3000 6100 0012 3456 7890 010;oui;Client fidèle
+2;Martin;Marie;marie.martin@example.fr;+33 1 23 75 66 69;69002;25/01/2024;14762,52;FR88 3000 6100 0112 3456 7890 711;oui;Très satisfait
+3;Bernard;Pierre;pierre.bernard@example.fr;0622575562;01000;31/01/2022;12 634,13;FR59 3000 6100 0212 3456 7891 412;oui;à relancer
+4;Petit;Sophie;sophie.petit@example.fr;01.36.68.75.37;59000;29/07/2023;5511,41;FR30 3000 6100 0312 3456 7892 113;non;"Appel; rappel demain"
+5;Durand;Nicolas;;06 10 87 22 48;59000;08/04/2024;8 506,59;FR98 3000 6100 0412 3456 7892 814;oui;
+6;Leroy;Camille;camille.leroy@;+33 6 55 17 69 55;69002;09/08/2022;9498,49;FR69 3000 6100 0512 3456 7893 515;non;Client fidèle
+7;Moreau;Julien;julien.moreau@example.fr;0156164955;06000;17/05/2024;20 178,30;FR40 3000 6100 0612 3456 7894 216;non;Très satisfait
+8;Simon;Léa;lea.simon@example.fr;07.26.75.38.83;69002;04/07/2023;13801,24;FR11 3000 6100 0712 3456 7894 917;non;à relancer
+9;Laurent;Thomas;thomas.laurent@example.fr;01 35 80 85 37;69002;31/02/2023;1 146,09;FR79 3000 6100 0812 3456 7895 618;oui;"Appel; rappel demain"
+10;Lefèvre;Chloé;chloe.lefevre@example.fr;+33 6 48 84 09 94;01000;02/03/2024;21662,16;FR50 3000 6100 0912 3456 7896 319;non;
+11;Michel;Antoine;antoine.michel@example.fr;0170855700;33000;12/10/2022;4 066,77;FR21 3000 6100 1012 3456 7897 020;non;Client fidèle
+12;Garcia;Manon;manon.garcia@example.fr;07.99.94.93.89;69002;03/08/2022;N/A;FR89 3000 6100 1112 3456 7897 721;oui;Très satisfait
+;David;Louis;louis.david@example.fr;06 42 85 79 66;02100;01/07/2023;9 486,70;FR60 3000 6100 1212 3456 7898 422;oui;à relancer
+14;Bertrand;Emma;emma.bertrand@example.fr;+33 6 53 52 44 91;01000;03/12/2023;20545,15;FR31 3000 6100 1312 3456 7899 123;non;"Appel; rappel demain"
+15;Roux;Hugo;hugo.roux@example.fr;0645935572;01000;15/02/2023;22 828,45;FR02 3000 6100 1412 3456 7899 824;non;
+16;Vincent;Inès;ines.vincent@example.fr;07.97.97.14.88;59000;06/08/2022;22117,14;FR70 3000 6100 1512 3456 7900 525;non;Client fidèle
+17;Fournier;Arthur;arthur.fournier@example.fr;06 45 55 16 14;01000;27/05/2022;18 624,85;FR41 3000 6100 1612 3456 7901 226;non;Très satisfait
+18;Morel;Jade;;+33 7 88 46 18 03;59000;04/02/2024;9050,23;FR12 3000 6100 1712 3456 7901 927;oui;à relancer
+19;Girard;Gabriel;gabriel.girard@example.fr;0676238574;75001;06/06/2023;21 527,64;FR80 3000 6100 1812 3456 7902 628;oui;"Appel; rappel demain"
+20;André;Louise;louise.andre@example.fr;01.31.47.24.20;59000;05/10/2023;14910,43;FR51 3000 6100 1912 3456 7903 329;non;
+21;Mercier;Raphaël;raphael.mercier@example.fr;07 89 97 87 90;06000;26/01/2023;24 276,97;FR22 3000 6100 2012 3456 7904 030;oui;Client fidèle
+22;Blanc;Alice;alice.blanc@example.fr;+33 1 25 37 48 74;06000;28/11/2023;19215,08;FR90 3000 6100 2112 3456 7904 731;non;Très satisfait
+23;Guérin;Paul;paul.guerin@example.fr;0749392920;13008;25/04/2022;11 343,37;FR61 3000 6100 2212 3456 7905 432;non;à relancer
+24;Boyer;Claire;claire.boyer@example.fr;01.33.97.82.49;69002;28/05/2023;21763,03;FR32 3000 6100 2312 3456 7906 133;non;"Appel; rappel demain"
+25;Garnier;Mathieu;mathieu.garnier@example.fr;01 95 75 83 49;01000;11/05/2024;3 821,41;FR03 3000 6100 2412 3456 7906 834;oui;
+26;Chevalier;Julie;julie.chevalier@example.fr;+33 6 81 18 28 64;33000;07/07/2023;12215,40;FR71 3000 6100 2512 3456 7907 535;oui;Client fidèle
+27;François;Olivier;olivier.francois@example.fr;0651273847;75001;07/01/2023;6 022,17;FR42 3000 6100 2612 3456 7908 236;oui;Très satisfait
+28;Legrand;Isabelle;isabelle.legrand@example.fr;06.75.22.85.35;13008;29/03/2022;3210,22;FR13 3000 6100 2712 3456 7908 937;non;à relancer
+29;Gauthier;Vincent;vincent.gauthier@example.fr;07 32 16 29 65;59000;17/07/2023;24 109,09;FR81 3000 6100 2812 3456 7909 638;oui;"Appel; rappel demain"
+30;Perrin;Nathalie;nathalie.perrin@example.fr;+33 7 51 83 78 52;33000;01/01/2024;10952,78;FR52 3000 6100 2912 3456 7910 339;non;
+3;Bernard;Pierre;pierre.bernard@example.fr;0622575562;01000;31/01/2022;12 634,13;FR59 3000 6100 0212 3456 7891 412;oui;à relancer
+7;Moreau;Julien;julien.moreau@example.fr;0156164955;06000;17/05/2024;20 178,30;FR40 3000 6100 0612 3456 7894 216;non;Très satisfait
+21;Mercier;Raphaël;raphael.mercier@example.fr;07 89 97 87 90;06000;26/01/2023;1,00;FR22 3000 6100 2012 3456 7904 030;oui;Client fidèle

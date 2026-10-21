@@ -118,6 +118,9 @@ class ColumnPlan(BaseModel):
 
 class PrimaryKeyPlan(BaseModel):
     columns: list[str] = Field(description="Source column names")
+    quasi_unique: bool = Field(
+        default=False, description="Not strictly unique at profiling: some rows will be rejected"
+    )
     explanation: str = ""
 
 

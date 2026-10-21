@@ -110,6 +110,19 @@ def test_plan_key_dedup_and_rules(catalog: Catalog, fr_source: Source) -> None:
         assert all(rule.explanation for rule in column.rules)
 
 
+def test_quasi_unique_identifier_becomes_the_key(
+    ingestion: IngestionService, catalog: Catalog, project: Project, fixtures_dir: Path
+) -> None:
+    # One id is missing and another is shared by two different rows.
+    [source] = ingestion.ingest_file(project.id, fixtures_dir / fx.CLIENTS_V1, "clients.csv")
+    assert not any(k.columns == ["id"] for k in catalog.get_profile(source.id).candidate_keys)
+    plan = catalog.get_plan(source.id)
+    assert plan.primary_key is not None
+    assert plan.primary_key.columns == ["id"]
+    assert plan.primary_key.quasi_unique
+    assert "quasi unique au profiling" in plan.primary_key.explanation
+
+
 def test_plan_pii_treatment(catalog: Catalog, fr_source: Source) -> None:
     columns = {c.source_column: c for c in _plan(catalog, fr_source).columns}
     for name in ("nom", "prénom", "email", "téléphone", "iban"):

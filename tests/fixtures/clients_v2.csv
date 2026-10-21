@@ -1,0 +1,7 @@
+id;nom;prénom;email;téléphone;code_postal;date_inscription;montant_total;iban;actif;commentaire;segment
+1;Dupont;Jean;jean.dupont@example.fr;06 24 94 26 03;06000;17/10/2023;99 999,99;FR20 3000 6100 0012 3456 7890 010;oui;Client fidèle;premium
+31;Petit;Sophie;nouveau31@example.fr;01.36.68.75.37;59000;29/07/2023;5511,41;FR30 3000 6100 0312 3456 7892 113;non;"Appel; rappel demain";standard
+32;Durand;Nicolas;nouveau32@example.fr;06 10 87 22 48;59000;08/04/2024;8 506,59;FR98 3000 6100 0412 3456 7892 814;oui;;standard
+33;Leroy;Camille;nouveau33@example.fr;+33 6 55 17 69 55;69002;09/08/2022;9498,49;FR69 3000 6100 0512 3456 7893 515;non;Client fidèle;standard
+34;Moreau;Julien;nouveau34@example.fr;0156164955;06000;17/05/2024;20 178,30;FR40 3000 6100 0612 3456 7894 216;non;Très satisfait;standard
+35;Simon;Léa;pas-un-email;07.26.75.38.83;69002;04/07/2023;13801,24;FR11 3000 6100 0712 3456 7894 917;non;à relancer;standard

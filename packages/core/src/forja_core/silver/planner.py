@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from datetime import datetime
+from typing import Any
 
 from forja_core.config import Settings
 from forja_core.errors import PlanValidationError
@@ -42,6 +44,8 @@ from forja_core.utils import strip_accents, unique_name
 
 FORMAT_RULE_MIN_RATIO = 0.9
 ACCEPTED_VALUES_MAX_RATIO = 0.2
+QUASI_KEY_MIN_UNIQUENESS = 0.95
+QUASI_KEY_MAX_NULL_PCT = 5.0
 
 _FREE_TEXT_TOKENS = frozenset(
     {
@@ -242,7 +246,39 @@ def choose_primary_key(profile: ProfileReport, columns: list[ColumnPlan]) -> Pri
     for key in profile.candidate_keys:
         if key.kind == "composite" and usable(key.columns):
             return PrimaryKeyPlan(columns=list(key.columns))
-    return None
+    return _quasi_unique_key(profile, by_name, position, usable)
+
+
+def _quasi_unique_key(
+    profile: ProfileReport,
+    by_name: dict[str, ColumnPlan],
+    position: dict[str, int],
+    usable: Callable[[list[str]], bool],
+) -> PrimaryKeyPlan | None:
+    """An identifier-like column that is unique but for a few missing or conflicting values.
+
+    Real extracts often carry a handful of such defects; the rows concerned are
+    quarantined instead of preventing the source from having a key at all.
+    """
+    distinct_rows = profile.row_count - profile.duplicates.duplicate_rows
+    candidates: list[str] = []
+    for column in profile.columns:
+        plan_column = by_name.get(column.name)
+        if plan_column is None or not usable([column.name]):
+            continue
+        if plan_column.target_type not in (SilverType.BIGINT, SilverType.VARCHAR):
+            continue
+        if _key_rank(plan_column, 0)[0] > 1:
+            continue
+        non_null = distinct_rows - column.null_count
+        if non_null <= 0 or column.null_pct > QUASI_KEY_MAX_NULL_PCT:
+            continue
+        if column.distinct_count / non_null >= QUASI_KEY_MIN_UNIQUENESS:
+            candidates.append(column.name)
+    if not candidates:
+        return None
+    best = min(candidates, key=lambda name: _key_rank(by_name[name], position[name]))
+    return PrimaryKeyPlan(columns=[best], quasi_unique=True)
 
 
 def sync_key_rules(plan: TransformationPlan) -> None:
@@ -348,26 +384,36 @@ def refresh_plan(
     fresh.status = PlanStatus.APPROVED if settings.auto_approve_silver else PlanStatus.DRAFT
     fresh.created_at = previous.created_at
     fresh.deduplication.enabled = previous.deduplication.enabled
-    if previous.primary_key is not None and all(
+    # The approved key decision is kept, including "no key", unless its columns vanished.
+    if previous.primary_key is None:
+        fresh.primary_key = None
+    elif all(
         (c := fresh.column(name)) is not None and c.included
         for name in previous.primary_key.columns
     ):
-        fresh.primary_key = PrimaryKeyPlan(columns=list(previous.primary_key.columns))
+        fresh.primary_key = previous.primary_key.model_copy()
     fresh.warnings = warnings
     sync_key_rules(fresh)
     return refresh_explanations(fresh)
 
 
+_DESCRIPTIVE_FIELDS = frozenset({"stats", "description", "explanation", "inferred_type"})
+
+
+def column_signature(column: ColumnPlan, *, include_presence: bool = True) -> dict[str, Any]:
+    """Decisions taken on a column, without the descriptive fields derived from them."""
+    excluded = set(_DESCRIPTIVE_FIELDS)
+    if not include_presence:
+        excluded.add("present_in_latest")
+    data = column.model_dump(mode="json", exclude=excluded)
+    data["rules"] = [{"kind": r["kind"], "enabled": r["enabled"]} for r in data["rules"]]
+    return data
+
+
 def plan_signature(plan: TransformationPlan) -> str:
-    """Everything that changes the generated SQL; used to avoid empty plan versions."""
-    columns = [
-        c.model_dump(mode="json", exclude={"stats", "description", "explanation", "inferred_type"})
-        for c in plan.columns
-    ]
-    for column in columns:
-        column["rules"] = [{"kind": r["kind"], "enabled": r["enabled"]} for r in column["rules"]]
+    """Every decision of the plan; used to avoid creating identical plan versions."""
     payload = {
-        "columns": columns,
+        "columns": [column_signature(c) for c in plan.columns],
         "primary_key": plan.primary_key.columns if plan.primary_key else None,
         "deduplication": plan.deduplication.enabled,
     }
