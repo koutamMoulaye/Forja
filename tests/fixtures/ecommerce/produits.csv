@@ -1,0 +1,13 @@
+code_produit;libelle;categorie;prix_unitaire;actif
+PRD-001;Cafetière italienne;cuisine;24,90;oui
+PRD-002;Moulin à poivre;cuisine;18,50;oui
+PRD-003;Planche à découper;cuisine;12,90;oui
+PRD-004;Lampe de bureau;maison;39,00;oui
+PRD-005;Coussin en lin;maison;22,00;oui
+PRD-006;Bougie parfumée;maison;9,90;non
+PRD-007;Arrosoir 5 L;jardin;15,40;oui
+PRD-008;Sécateur;jardin;27,80;oui
+PRD-009;Gants de jardin;jardin;8,50;oui
+PRD-010;Théière en fonte;cuisine;45,00;oui
+PRD-011;Plaid tricoté;maison;59,90;oui
+PRD-012;Jardinière;jardin;31,20;oui

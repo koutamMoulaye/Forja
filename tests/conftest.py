@@ -13,6 +13,7 @@ from forja_core.ingestion import IngestionService
 from forja_core.models import Project, ProjectCreate
 from forja_core.silver.service import PlanService
 from forja_core.storage import Workspace
+from tests.fixtures import ecommerce
 from tests.fixtures.generate import ALL_FILES, FIXTURES_DIR, generate_all
 
 
@@ -21,6 +22,13 @@ def fixtures_dir() -> Path:
     if not all((FIXTURES_DIR / name).exists() for name in ALL_FILES):
         generate_all(FIXTURES_DIR)
     return FIXTURES_DIR
+
+
+@pytest.fixture(scope="session")
+def ecommerce_dir() -> Path:
+    if not all((ecommerce.DIRECTORY / name).exists() for name in ecommerce.FILES):
+        ecommerce.generate()
+    return ecommerce.DIRECTORY
 
 
 @pytest.fixture
