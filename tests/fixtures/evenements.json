@@ -1,0 +1,94 @@
+[
+  {
+    "event_id": 1,
+    "type": "click",
+    "occurred_at": "2024-05-01T10:15:00",
+    "user": {
+      "id": 101,
+      "email": "user1@example.com"
+    },
+    "tags": [
+      "web",
+      "fr"
+    ]
+  },
+  {
+    "event_id": 2,
+    "type": "view",
+    "occurred_at": "2024-05-02T10:15:00",
+    "user": {
+      "id": 102,
+      "email": "user2@example.com"
+    },
+    "tags": []
+  },
+  {
+    "event_id": 3,
+    "type": "click",
+    "occurred_at": "2024-05-03T10:15:00",
+    "user": {
+      "id": 100,
+      "email": "user0@example.com"
+    },
+    "tags": [
+      "web",
+      "fr"
+    ]
+  },
+  {
+    "event_id": 4,
+    "type": "view",
+    "occurred_at": "2024-05-04T10:15:00",
+    "user": {
+      "id": 101,
+      "email": "user1@example.com"
+    },
+    "tags": []
+  },
+  {
+    "event_id": 5,
+    "type": "click",
+    "occurred_at": "2024-05-05T10:15:00",
+    "user": {
+      "id": 102,
+      "email": "user2@example.com"
+    },
+    "tags": [
+      "web",
+      "fr"
+    ]
+  },
+  {
+    "event_id": 6,
+    "type": "view",
+    "occurred_at": "2024-05-06T10:15:00",
+    "user": {
+      "id": 100,
+      "email": "user0@example.com"
+    },
+    "tags": []
+  },
+  {
+    "event_id": 7,
+    "type": "click",
+    "occurred_at": "2024-05-07T10:15:00",
+    "user": {
+      "id": 101,
+      "email": "user1@example.com"
+    },
+    "tags": [
+      "web",
+      "fr"
+    ]
+  },
+  {
+    "event_id": 8,
+    "type": "view",
+    "occurred_at": "2024-05-08T10:15:00",
+    "user": {
+      "id": 102,
+      "email": "user2@example.com"
+    },
+    "tags": []
+  }
+]

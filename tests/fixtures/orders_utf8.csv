@@ -1,0 +1,4 @@
+order_id,customer,amount,ordered_on
+1,"Smith, John",1234.50,2024-01-15
+2,Zoë Kraus,99.90,2024-02-01
+3,Ana Lima,10.00,2024-02-03
