@@ -6,9 +6,9 @@ license = "Apache-2.0"
 requires-python = ">=3.12"
 dependencies = [
     "charset-normalizer>=3.3",
-    "dbt-core>=1.8",
-    "dbt-duckdb>=1.8",
-    "duckdb>=1.1",
+    "dbt-core>=1.12.6,<1.13",
+    "dbt-duckdb>=1.11.0,<1.12",
+    "duckdb>=2.0.0,<2.1",
     "openpyxl>=3.1",
     "pyarrow>=17.0",
     "pydantic>=2.7",

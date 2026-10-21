@@ -50,6 +50,9 @@ uv run forja-api
 L'API écoute sur <http://127.0.0.1:8000> ; la documentation interactive est sur
 <http://127.0.0.1:8000/docs>.
 
+Si `uv` a été installé avec `pip` et n'est pas dans le `PATH`, préfixez chaque commande
+par `python -m` : `python -m uv sync`, `python -m uv run forja-api`, etc.
+
 Avec Docker :
 
 ```bash
