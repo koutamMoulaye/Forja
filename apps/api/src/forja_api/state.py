@@ -14,6 +14,7 @@ from forja_core.jobs.executor import JobExecutor
 from forja_core.jobs.runner import InlineJobRunner, JobRunner, ThreadJobRunner
 from forja_core.locks import WarehouseLocks
 from forja_core.profiling.profiler import Profiler
+from forja_core.serving import Publisher
 from forja_core.silver.build import SilverBuilder
 from forja_core.silver.dbt.project import DbtProjectGenerator
 from forja_core.silver.dbt.runner import DbtRunner
@@ -30,6 +31,7 @@ class AppState:
     plans: PlanService
     locks: WarehouseLocks
     generator: DbtProjectGenerator
+    publisher: Publisher
     executor: JobExecutor
     runner: JobRunner
 
@@ -52,7 +54,8 @@ class AppState:
             DbtRunner(settings.dbt_executable, timeout_seconds=settings.dbt_timeout_seconds),
             locks,
         )
-        executor = JobExecutor(catalog, workspace, profiler, plans, builder)
+        publisher = Publisher(catalog, workspace, settings, generator, locks)
+        executor = JobExecutor(catalog, workspace, profiler, plans, builder, publisher)
         runner: JobRunner = (
             ThreadJobRunner(executor)
             if settings.job_runner == "thread"
@@ -66,6 +69,7 @@ class AppState:
             plans=plans,
             locks=locks,
             generator=generator,
+            publisher=publisher,
             executor=executor,
             runner=runner,
         )

@@ -400,11 +400,15 @@ def refresh_plan(
 _DESCRIPTIVE_FIELDS = frozenset({"stats", "description", "explanation", "inferred_type"})
 
 
-def column_signature(column: ColumnPlan, *, include_presence: bool = True) -> dict[str, Any]:
-    """Decisions taken on a column, without the descriptive fields derived from them."""
+def column_signature(column: ColumnPlan, *, silver_only: bool = False) -> dict[str, Any]:
+    """Decisions taken on a column, without the descriptive fields derived from them.
+
+    ``silver_only`` keeps only what changes the Silver values: the presence in the
+    latest version and the export treatment of personal data do not.
+    """
     excluded = set(_DESCRIPTIVE_FIELDS)
-    if not include_presence:
-        excluded.add("present_in_latest")
+    if silver_only:
+        excluded |= {"present_in_latest", "pii_treatment"}
     data = column.model_dump(mode="json", exclude=excluded)
     data["rules"] = [{"kind": r["kind"], "enabled": r["enabled"]} for r in data["rules"]]
     return data

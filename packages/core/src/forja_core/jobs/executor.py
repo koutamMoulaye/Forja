@@ -13,6 +13,7 @@ from forja_core.ingestion.service import IngestedVersion
 from forja_core.jobs.models import Job, JobStatus, JobType, RunMetrics, RunRequest
 from forja_core.logging import get_logger
 from forja_core.profiling.profiler import Profiler
+from forja_core.serving import Publisher
 from forja_core.silver.build import SilverBuilder, SilverBuildError
 from forja_core.silver.service import PlanService
 from forja_core.storage import Workspace
@@ -31,15 +32,18 @@ class JobExecutor:
         profiler: Profiler,
         plans: PlanService,
         builder: SilverBuilder,
+        publisher: Publisher,
     ) -> None:
         self.catalog = catalog
         self.workspace = workspace
         self.profiler = profiler
         self.plans = plans
         self.builder = builder
+        self.publisher = publisher
         self.handlers: dict[JobType, Handler] = {
             JobType.PROFILE: self._profile,
             JobType.BUILD_SILVER: self._build_silver,
+            JobType.EXPORT: self._export,
         }
 
     def register(self, job_type: JobType, handler: Handler) -> None:
@@ -153,3 +157,11 @@ class JobExecutor:
                 f"{source.rows_rejected} rejected, {source.duplicates_removed} duplicate(s) removed"
             )
         return metrics
+
+    def _export(self, job: Job, log_line: Callable[[str], None]) -> RunMetrics:
+        """Publish every built table to the serving database and write export files."""
+        serving = self.publisher.publish(job.project_id, log_line)
+        exports = self.publisher.export_all(
+            job.project_id, list(job.params.formats), job.params.csv_delimiter, log_line
+        )
+        return RunMetrics(serving_path=self.workspace.relative(serving), exports=exports)

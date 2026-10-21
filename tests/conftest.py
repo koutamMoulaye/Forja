@@ -25,7 +25,12 @@ def fixtures_dir() -> Path:
 
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
-    return Settings(data_dir=tmp_path / "data", log_format="console", log_level="WARNING")
+    return Settings(
+        data_dir=tmp_path / "data",
+        secrets_dir=tmp_path / "secrets",
+        log_format="console",
+        log_level="WARNING",
+    )
 
 
 @pytest.fixture

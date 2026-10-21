@@ -9,8 +9,15 @@ services:
         required: false
     environment:
       FORJA_DATA_DIR: /app/data
+      FORJA_SECRETS_DIR: /home/forja/.forja/secrets
       FORJA_API_HOST: 0.0.0.0
       FORJA_API_PORT: "8000"
     volumes:
       - ./data:/app/data
+      # Pseudonymization salts: outside the repository, and kept across container
+      # rebuilds so that published pseudonyms stay stable.
+      - forja-secrets:/home/forja/.forja/secrets
     restart: unless-stopped
+
+volumes:
+  forja-secrets:

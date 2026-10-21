@@ -19,12 +19,14 @@ COPY packages packages
 RUN uv sync --frozen --no-dev
 
 RUN useradd --create-home --uid 1000 forja \
-    && mkdir -p /app/data \
-    && chown -R forja:forja /app/data
+    && mkdir -p /app/data /home/forja/.forja/secrets \
+    && chown -R forja:forja /app/data /home/forja/.forja \
+    && chmod 700 /home/forja/.forja/secrets
 USER forja
 
 ENV PATH="/app/.venv/bin:$PATH" \
     FORJA_DATA_DIR=/app/data \
+    FORJA_SECRETS_DIR=/home/forja/.forja/secrets \
     FORJA_API_HOST=0.0.0.0 \
     FORJA_API_PORT=8000
 

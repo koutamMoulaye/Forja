@@ -12,7 +12,7 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 
 from forja_api.errors import register_error_handlers
-from forja_api.routes import plans, projects, runs, sources
+from forja_api.routes import plans, projects, runs, sources, tables
 from forja_api.schemas import HealthResponse
 from forja_api.state import AppState
 from forja_core import __version__
@@ -75,6 +75,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(sources.router)
     app.include_router(plans.router)
     app.include_router(runs.router)
+    app.include_router(tables.router)
     return app
 
 

@@ -57,6 +57,13 @@ class Settings(BaseSettings):
     dbt_threads: int = Field(default=1, ge=1)
     dbt_timeout_seconds: float = Field(default=1800, gt=0)
 
+    secrets_dir: Path = Field(
+        default_factory=lambda: Path.home() / ".forja" / "secrets",
+        description="Per-project pseudonymization salts; keep it outside the repository",
+    )
+    export_csv_delimiter: str = Field(default=";", min_length=1, max_length=1)
+    export_lock_timeout_seconds: float = Field(default=10, ge=0)
+
     @property
     def catalog_path(self) -> Path:
         return self.meta_db_path or self.data_dir / "forja_meta.duckdb"

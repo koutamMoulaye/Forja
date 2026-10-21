@@ -61,8 +61,8 @@ def requires_full_refresh(applied: TransformationPlan, current: TransformationPl
     after = {c.source_column: c for c in current.columns}
     for column in applied.columns:
         new = after.get(column.source_column)
-        if new is None or column_signature(new, include_presence=False) != column_signature(
-            column, include_presence=False
+        if new is None or column_signature(new, silver_only=True) != column_signature(
+            column, silver_only=True
         ):
             return True
     return False
