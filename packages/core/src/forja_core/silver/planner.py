@@ -26,6 +26,7 @@ from forja_core.profiling.types import BOOLEAN_FALSE, BOOLEAN_TRUE, ISO8601, inf
 from forja_core.silver.explain import refresh_explanations
 from forja_core.silver.plan import (
     DEFAULT_NULL_VALUES,
+    NUMERIC_TYPES,
     CastSpec,
     ColumnPlan,
     ColumnStats,
@@ -45,6 +46,17 @@ from forja_core.utils import strip_accents, unique_name
 FORMAT_RULE_MIN_RATIO = 0.9
 ACCEPTED_VALUES_MAX_RATIO = 0.2
 QUASI_KEY_MIN_UNIQUENESS = 0.95
+MONEY_MAX_DECIMALS = 2
+
+# Name tokens of monetary amounts, stored as exact decimals rather than floats.
+MONEY_TOKENS = frozenset(
+    {
+        "montant", "prix", "price", "amount", "total", "cout", "cost", "tarif", "ca",
+        "chiffre", "solde", "balance", "frais", "fee", "fees", "remise", "discount", "tva",
+        "vat", "ht", "ttc", "salaire", "salary", "revenu", "revenue", "paiement", "payment",
+        "facture", "budget", "eur", "euro", "euros", "usd", "subtotal",
+    }
+)  # fmt: skip
 QUASI_KEY_MAX_NULL_PCT = 5.0
 
 _FREE_TEXT_TOKENS = frozenset(
@@ -131,7 +143,7 @@ def _cast_spec(column: ColumnProfile, target: SilverType) -> CastSpec:
     spec = CastSpec()
     if target in (SilverType.DATE, SilverType.TIMESTAMP):
         spec.date_format = inferred.format
-    elif target is SilverType.DOUBLE:
+    elif target in NUMERIC_TYPES:
         spec.decimal_separator = inferred.decimal_separator or "."
     elif target is SilverType.BOOLEAN:
         spec.true_values, spec.false_values = _boolean_values(column)
@@ -166,6 +178,15 @@ def _accepted_values(
     return sorted(values)
 
 
+def is_money(column: ColumnProfile) -> bool:
+    """A decimal column named like an amount whose values have at most 2 decimals."""
+    inferred = column.inferred
+    if inferred.inferred_type is not InferredType.DECIMAL or inferred.max_decimals is None:
+        return False
+    _, tokens = column_tokens(column.name)
+    return bool(tokens & MONEY_TOKENS) and inferred.max_decimals <= MONEY_MAX_DECIMALS
+
+
 def _default_column(
     column: ColumnProfile, row_count: int, target_name: str, settings: Settings
 ) -> ColumnPlan:
@@ -175,6 +196,8 @@ def _default_column(
         if inferred.from_text
         else _TARGET_TYPES[inferred_from_physical(column.physical_type)]
     )
+    if target is SilverType.DOUBLE and is_money(column):
+        target = SilverType.DECIMAL
     pii = column.pii
     normalization = Normalization.NONE
     if inferred.from_text and target is SilverType.VARCHAR:
@@ -433,7 +456,7 @@ def _apply_type_change(column: ColumnPlan, target: SilverType) -> None:
     if target in (SilverType.DATE, SilverType.TIMESTAMP):
         default = "%Y-%m-%d" if target is SilverType.DATE else ISO8601
         column.cast.date_format = column.cast.date_format or default
-    if target is SilverType.DOUBLE:
+    if target in NUMERIC_TYPES:
         column.cast.decimal_separator = column.cast.decimal_separator or "."
     if target is SilverType.BOOLEAN and not column.cast.true_values:
         column.cast.true_values = sorted(BOOLEAN_TRUE)

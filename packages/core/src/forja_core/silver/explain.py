@@ -21,6 +21,7 @@ from forja_core.silver.plan import (
 _TYPE_LABELS: dict[SilverType, str] = {
     SilverType.BIGINT: "entier",
     SilverType.DOUBLE: "nombre décimal",
+    SilverType.DECIMAL: "montant décimal exact",
     SilverType.BOOLEAN: "booléen",
     SilverType.DATE: "date",
     SilverType.TIMESTAMP: "date et heure",
@@ -107,12 +108,17 @@ def cast_sentence(column: ColumnPlan) -> str:
             label = type_label(target)
             fmt = format_label(column.cast.date_format)
             return f"Conversion en {label} au format {fmt}, {_invalid_suffix(column)}."
-        case SilverType.DOUBLE:
+        case SilverType.DOUBLE | SilverType.DECIMAL:
             separator = (
                 "virgule décimale, séparateurs de milliers retirés"
                 if column.cast.decimal_separator == ","
                 else "point décimal"
             )
+            if target is SilverType.DECIMAL:
+                return (
+                    f"Montant : conversion en décimal exact DECIMAL(18,2) ({separator}), "
+                    f"{_invalid_suffix(column)}."
+                )
             return f"Conversion en nombre décimal ({separator}), {_invalid_suffix(column)}."
         case SilverType.BOOLEAN:
             trues = "/".join(column.cast.true_values) or "true"

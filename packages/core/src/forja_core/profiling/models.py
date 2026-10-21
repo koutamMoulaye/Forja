@@ -56,6 +56,9 @@ class TypeInference(BaseModel):
         default=None, description="Type matched by most, but not enough, values"
     )
     near_type_ratio: float | None = None
+    max_decimals: int | None = Field(
+        default=None, description="Most fractional digits seen in a decimal column"
+    )
 
 
 class TopValue(BaseModel):

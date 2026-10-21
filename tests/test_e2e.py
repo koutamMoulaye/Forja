@@ -7,6 +7,7 @@ v2: delta with an extra column -> drift detected -> plan refreshed -> incrementa
 from __future__ import annotations
 
 import io
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -91,7 +92,7 @@ def test_dirty_csv_to_silver_rejects_and_exports_then_incremental_v2(
     assert silver_rows == fx.CLIENTS_V1_VALID
     assert rejected_rows == fx.CLIENTS_V1_REJECTED
     assert email == "jean.dupont@example.fr"  # Silver keeps personal data in clear
-    assert isinstance(amount, float) and isinstance(active, bool)
+    assert isinstance(amount, Decimal) and isinstance(active, bool)
 
     # --- v1: exports ----------------------------------------------------------------
     [table] = client.get(f"/projects/{project_id}/tables").json()
@@ -157,6 +158,6 @@ def test_dirty_csv_to_silver_rejects_and_exports_then_incremental_v2(
             [str(fx.CLIENTS_V2_INVALID_ID)],
         ).fetchall()
     assert silver_rows == fx.CLIENTS_V1_VALID + new_clients
-    assert (segment, amount, run_id) == ("premium", 99999.99, run["id"])
+    assert (segment, amount, run_id) == ("premium", Decimal("99999.99"), run["id"])
     assert untouched_segment is None and untouched_run != run["id"]
     assert reason == "email : format d'email invalide"

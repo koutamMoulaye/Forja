@@ -74,6 +74,8 @@ def test_plan_generated_from_profile(catalog: Catalog, fr_source: Source) -> Non
     )
 
     amounts = columns["montant_total"]
+    assert amounts.target_type is SilverType.DECIMAL
+    assert amounts.explanation.startswith("Montant : conversion en décimal exact DECIMAL(18,2)")
     assert amounts.cast.decimal_separator == ","
     assert amounts.stats.invalid_count == 1
     assert "1 valeur invalide détectée" in amounts.explanation
@@ -87,6 +89,23 @@ def test_plan_generated_from_profile(catalog: Catalog, fr_source: Source) -> Non
     assert columns["email"].normalization is Normalization.LOWERCASE
     assert columns["iban"].normalization is Normalization.COMPACT_UPPERCASE
     assert columns["commentaire"].cast.null_values == []
+
+
+def test_money_needs_an_amount_name_and_two_decimals(
+    ingestion: IngestionService, catalog: Catalog, project: Project, tmp_path: Path
+) -> None:
+    path = tmp_path / "mesures.csv"
+    path.write_text(
+        "id;prix_ht;poids_kg;taux\n1;12,50;1,125;0,5\n2;7,99;2,5;0,25\n3;100;0,75;1\n",
+        encoding="utf-8",
+    )
+    [source] = ingestion.ingest_file(project.id, path, path.name)
+    types = {c.source_column: c.target_type for c in catalog.get_plan(source.id).columns}
+    assert types["prix_ht"] is SilverType.DECIMAL
+    assert types["poids_kg"] is SilverType.DOUBLE  # three decimals, not an amount
+    assert types["taux"] is SilverType.DOUBLE  # not named like an amount
+    profile = catalog.get_profile(source.id)
+    assert {c.name: c.inferred.max_decimals for c in profile.columns}["poids_kg"] == 3
 
 
 def test_plan_key_dedup_and_rules(catalog: Catalog, fr_source: Source) -> None:
@@ -177,7 +196,7 @@ def test_patch_creates_a_new_draft_version(
     assert "partiellement masquée" in columns["email"].explanation
 
     assert [p.version for p in catalog.list_plans(fr_source.id)] == [1, 2]
-    assert catalog.get_plan(fr_source.id, version=1).columns[7].target_type is SilverType.DOUBLE
+    assert catalog.get_plan(fr_source.id, version=1).columns[7].target_type is SilverType.DECIMAL
 
 
 def test_patch_type_to_date_adds_cast_rule(plan_service: PlanService, fr_source: Source) -> None:
@@ -267,7 +286,7 @@ def test_new_version_with_drift_refreshes_plan(
     assert plan.based_on_source_version == 2
     columns = {c.source_column: c for c in plan.columns}
     assert columns["label"].target_column == "lib"
-    assert columns["price"].target_type is SilverType.DOUBLE
+    assert columns["price"].target_type is SilverType.DECIMAL
     assert any("Nouvelle colonne « price »" in w for w in plan.warnings)
 
 

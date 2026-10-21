@@ -13,7 +13,7 @@ from forja_core.jobs.models import Job, JobStatus, JobType, RunMetrics, RunReque
 from forja_core.jobs.runner import InlineJobRunner, ThreadJobRunner
 from forja_core.models import Project, ProjectCreate
 from forja_core.silver.build import requires_full_refresh
-from forja_core.silver.plan import ColumnPatch, PlanPatch, PlanStatus
+from forja_core.silver.plan import ColumnPatch, PlanPatch, PlanStatus, SilverType
 from tests.fixtures import generate as fx
 
 
@@ -177,9 +177,14 @@ def test_full_refresh_only_when_existing_columns_change(
     )
     assert requires_full_refresh(applied, renamed)
     assert not requires_full_refresh(applied, applied)
+    as_float = state.plans.patch(
+        source_id,
+        PlanPatch(columns={"montant_total": ColumnPatch(target_type=SilverType.DOUBLE)}),
+    )
+    assert requires_full_refresh(renamed, as_float)  # DOUBLE <-> DECIMAL rebuilds Silver
 
     state.ingestion.ingest_file(demo.id, fixtures_dir / fx.CLIENTS_V2, "clients.csv")
     with_segment = state.catalog.get_plan(source_id)
     assert with_segment.column("segment") is not None
-    # The refreshed plan is based on the latest version, which carries the rename.
-    assert not requires_full_refresh(renamed, with_segment)
+    # The refreshed plan is based on the latest version, which carries both edits.
+    assert not requires_full_refresh(as_float, with_segment)

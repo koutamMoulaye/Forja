@@ -112,3 +112,21 @@ changement de traitement s'applique au prochain export sans reconstruire Silver.
 d'un bloc. Plus simple et plus sûr qu'une mise à jour en place pendant que des outils BI
 lisent. Sous Windows, un fichier ouvert par un autre programme ne peut pas être remplacé :
 le run échoue explicitement (`serving_in_use`).
+
+## D9 — Montants en DECIMAL(18,2)
+
+**Contexte.** En `DOUBLE`, `0,1 + 0,2` ne vaut pas exactement `0,3` : les agrégats
+financiers du Gold doivent être exacts.
+
+**Décision.** Une colonne décimale dont le nom évoque un montant (`montant`, `prix`,
+`total`, `frais`, `ht`, `ttc`, `amount`, `price`…) et dont les valeurs ont au plus deux
+décimales (mesuré au profiling, `max_decimals`) est typée `DECIMAL(18,2)` dans le plan
+Silver. Les autres décimaux restent en `DOUBLE` (poids, taux, coordonnées).
+
+**Conséquences.**
+- La règle s'applique aux plans générés à partir de cette version. Les plans déjà
+  approuvés gardent leur décision ; un passage de `DOUBLE` à `DECIMAL(18,2)` (ou
+  l'inverse), par `PATCH` ou par un nouveau plan, modifie le type d'une colonne existante
+  et **déclenche donc un full refresh** de la table Silver au build suivant.
+- Une valeur à trois décimales dans une colonne déjà typée `DECIMAL(18,2)` est arrondie
+  par DuckDB à la conversion.

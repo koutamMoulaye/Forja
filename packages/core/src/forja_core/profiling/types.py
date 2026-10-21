@@ -120,6 +120,16 @@ def _matches_number(separator: DecimalSeparator) -> Callable[[str], bool]:
     return lambda value: pattern.fullmatch(value) is not None
 
 
+def max_fraction_digits(values: ValueCounts, separator: DecimalSeparator) -> int:
+    """Most digits after the decimal separator among the values that are numbers."""
+    matches = _matches_number(separator)
+    digits = 0
+    for value, _ in values:
+        if matches(value) and separator in value:
+            digits = max(digits, len(value.rsplit(separator, 1)[1]))
+    return digits
+
+
 def parse_number(value: str, separator: DecimalSeparator) -> float | None:
     """Parse a number written with the given decimal separator (used by tests and previews)."""
     if not _matches_number(separator)(value):
@@ -185,7 +195,9 @@ def infer_text_type(values: ValueCounts, threshold: float = 0.95) -> TypeInferen
         dec_ratio = _weighted_ratio(values, _matches_number(separator), total)
         decimal = _Candidate(InferredType.DECIMAL, dec_ratio, decimal_separator=separator)
         if dec_ratio >= threshold:
-            return _result(decimal)
+            result = _result(decimal)
+            result.max_decimals = max_fraction_digits(values, separator)
+            return result
         candidates.append(decimal)
 
     date_fmt, date_ratio = _best_format(values, DATE_FORMATS, total)

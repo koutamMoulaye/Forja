@@ -129,11 +129,11 @@ def typed_expression(column: ColumnPlan) -> str:
             return _normalized(raw, column.normalization)
         case SilverType.BIGINT:
             return f"try_cast({raw} as bigint)"
-        case SilverType.DOUBLE if column.cast.decimal_separator == ",":
+        case SilverType.DOUBLE | SilverType.DECIMAL if column.cast.decimal_separator == ",":
             digits = f"regexp_replace({raw}, '{FR_THOUSANDS}', '', 'g')"
-            return f"try_cast(replace({digits}, ',', '.') as double)"
-        case SilverType.DOUBLE:
-            return f"try_cast(replace({raw}, ',', '') as double)"
+            return f"try_cast(replace({digits}, ',', '.') as {target.value})"
+        case SilverType.DOUBLE | SilverType.DECIMAL:
+            return f"try_cast(replace({raw}, ',', '') as {target.value})"
         case SilverType.BOOLEAN:
             trues = ", ".join(sql_literal(v) for v in column.cast.true_values)
             falses = ", ".join(sql_literal(v) for v in column.cast.false_values)

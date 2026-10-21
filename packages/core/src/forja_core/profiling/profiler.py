@@ -187,7 +187,19 @@ class Profiler:
             top_values=self._top_values(con, value_sql, null_cond, row_count),
         )
         self._add_statistics(con, profile, ident, null_cond)
+        if not inference.from_text and inference.inferred_type is InferredType.DECIMAL:
+            inference.max_decimals = self._native_decimals(con, ident, null_cond)
         return profile, values
+
+    @staticmethod
+    def _native_decimals(con: duckdb.DuckDBPyConnection, ident: str, null_cond: str) -> int:
+        """Fractional digits of a native floating or decimal column, on its text form."""
+        rows = con.execute(
+            f"SELECT max(length(split_part(CAST({ident} AS VARCHAR), '.', 2))) "
+            f"FROM src WHERE NOT {null_cond} AND CAST({ident} AS VARCHAR) LIKE '%.%'"
+        ).fetchall()
+        value = rows[0][0] if rows else None
+        return int(value or 0)
 
     def _top_values(
         self, con: duckdb.DuckDBPyConnection, value_sql: str, null_cond: str, row_count: int

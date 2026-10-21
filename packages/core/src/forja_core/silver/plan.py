@@ -28,10 +28,14 @@ class SilverType(StrEnum):
 
     BIGINT = "bigint"
     DOUBLE = "double"
+    DECIMAL = "decimal(18,2)"
     BOOLEAN = "boolean"
     DATE = "date"
     TIMESTAMP = "timestamp"
     VARCHAR = "varchar"
+
+
+NUMERIC_TYPES = frozenset({SilverType.DOUBLE, SilverType.DECIMAL})
 
 
 class Normalization(StrEnum):
