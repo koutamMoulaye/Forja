@@ -68,6 +68,15 @@ class Settings(BaseSettings):
     export_csv_delimiter: str = Field(default=";", min_length=1, max_length=1)
     export_lock_timeout_seconds: float = Field(default=10, ge=0)
 
+    relation_min_inclusion: float = Field(default=0.8, gt=0, le=1)
+    relation_min_confidence: float = Field(default=0.6, gt=0, le=1)
+    relation_min_distinct: int = Field(default=5, ge=1)
+    relation_sample_size: int = Field(default=10_000, gt=0)
+    auto_confirm_relations: bool = Field(
+        default=False, description="Confirm detected relations without review (local mode)"
+    )
+    relation_auto_confirm_confidence: float = Field(default=0.9, gt=0, le=1)
+
     @property
     def catalog_path(self) -> Path:
         return self.meta_db_path or self.data_dir / "forja_meta.duckdb"

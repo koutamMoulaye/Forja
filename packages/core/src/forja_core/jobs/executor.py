@@ -13,6 +13,7 @@ from forja_core.ingestion.service import IngestedVersion
 from forja_core.jobs.models import Job, JobStatus, JobType, RunMetrics, RunRequest
 from forja_core.logging import get_logger
 from forja_core.profiling.profiler import Profiler
+from forja_core.relations.detector import RelationDetector
 from forja_core.serving import Publisher
 from forja_core.silver.build import SilverBuilder, SilverBuildError
 from forja_core.silver.service import PlanService
@@ -33,6 +34,7 @@ class JobExecutor:
         plans: PlanService,
         builder: SilverBuilder,
         publisher: Publisher,
+        relations: RelationDetector,
     ) -> None:
         self.catalog = catalog
         self.workspace = workspace
@@ -40,6 +42,7 @@ class JobExecutor:
         self.plans = plans
         self.builder = builder
         self.publisher = publisher
+        self.relations = relations
         self.handlers: dict[JobType, Handler] = {
             JobType.PROFILE: self._profile,
             JobType.BUILD_SILVER: self._build_silver,
@@ -156,6 +159,8 @@ class JobExecutor:
                 f"{source.model}: {source.rows_read} read, {source.rows_valid} valid, "
                 f"{source.rows_rejected} rejected, {source.duplicates_removed} duplicate(s) removed"
             )
+        relations = self.relations.detect(job.project_id, log_line)
+        metrics.relations_detected = len(relations)
         return metrics
 
     def _export(self, job: Job, log_line: Callable[[str], None]) -> RunMetrics:

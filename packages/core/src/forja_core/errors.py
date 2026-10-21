@@ -96,3 +96,11 @@ class BuildError(ForjaError):
 
 class WarehouseBusyError(ConflictError):
     code = "warehouse_busy"
+
+
+class RelationNotFoundError(NotFoundError):
+    code = "relation_not_found"
+
+
+class RelationValidationError(ForjaError):
+    code = "invalid_relation"

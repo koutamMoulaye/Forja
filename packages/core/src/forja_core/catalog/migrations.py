@@ -132,6 +132,25 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         );
         """,
     ),
+    (
+        5,
+        """
+        CREATE TABLE relations (
+            id VARCHAR PRIMARY KEY,
+            project_id VARCHAR NOT NULL,
+            from_table VARCHAR NOT NULL,
+            from_column VARCHAR NOT NULL,
+            to_table VARCHAR NOT NULL,
+            to_column VARCHAR NOT NULL,
+            status VARCHAR NOT NULL,
+            origin VARCHAR NOT NULL,
+            data JSON NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP NOT NULL,
+            UNIQUE (project_id, from_table, from_column, to_table, to_column)
+        );
+        """,
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]

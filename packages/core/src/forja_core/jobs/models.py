@@ -101,6 +101,7 @@ class RunMetrics(BaseModel):
     profiled_sources: int = 0
     exports: list[ExportedFile] = Field(default_factory=list)
     serving_path: str | None = None
+    relations_detected: int = 0
 
     def add_source(self, source: SourceRunMetrics) -> None:
         self.sources.append(source)

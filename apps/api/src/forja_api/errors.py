@@ -13,6 +13,7 @@ from forja_core.errors import (
     IngestionError,
     NotFoundError,
     PlanValidationError,
+    RelationValidationError,
     UnsupportedFormatError,
 )
 from forja_core.logging import get_logger
@@ -27,6 +28,7 @@ _STATUS_BY_ERROR: tuple[tuple[type[ForjaError], int], ...] = (
     (UnsupportedFormatError, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE),
     (IngestionError, status.HTTP_422_UNPROCESSABLE_CONTENT),
     (PlanValidationError, status.HTTP_422_UNPROCESSABLE_CONTENT),
+    (RelationValidationError, status.HTTP_422_UNPROCESSABLE_CONTENT),
 )
 
 
