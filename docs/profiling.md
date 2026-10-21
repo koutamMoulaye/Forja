@@ -42,8 +42,11 @@ converties (une colonne `1 234,56` donne bien `1234.56`).
 - **Composites** : paires de colonnes non uniques seules, sans nul, dont la combinaison
   est unique (au plus `FORJA_PROFILING_MAX_KEY_COLUMNS` colonnes examinées, triées par
   cardinalité).
-- Types éligibles : entier, texte, date, datetime. Aucune clé n'est proposée si la table
-  contient des doublons exacts.
+- Types éligibles : entier, texte, date, datetime.
+- L'unicité est évaluée sur les lignes dédupliquées : les doublons exacts, retirés en
+  Silver, n'empêchent pas de trouver une clé.
+- Le plan Silver peut en plus retenir une clé *quasi unique* (voir
+  [decisions.md](decisions.md), D5).
 
 ## Doublons exacts
 
