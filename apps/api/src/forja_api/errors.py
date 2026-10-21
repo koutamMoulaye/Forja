@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from forja_core.errors import (
     ConflictError,
     FileTooLargeError,
+    ForbiddenError,
     ForjaError,
     IngestionError,
     NotFoundError,
@@ -21,6 +22,7 @@ log = get_logger(__name__)
 _STATUS_BY_ERROR: tuple[tuple[type[ForjaError], int], ...] = (
     (NotFoundError, status.HTTP_404_NOT_FOUND),
     (ConflictError, status.HTTP_409_CONFLICT),
+    (ForbiddenError, status.HTTP_403_FORBIDDEN),
     (FileTooLargeError, status.HTTP_413_CONTENT_TOO_LARGE),
     (UnsupportedFormatError, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE),
     (IngestionError, status.HTTP_422_UNPROCESSABLE_CONTENT),

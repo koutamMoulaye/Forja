@@ -9,6 +9,7 @@ from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
+from forja_api.schemas import TablePreview
 from forja_api.state import StateDep
 from forja_core.jobs.models import ExportFormat
 from forja_core.silver.tables import SilverTable
@@ -29,6 +30,27 @@ def list_tables(project_id: str, state: StateDep) -> list[SilverTable]:
 @router.get("/tables/{table_id}")
 def get_table(table_id: str, state: StateDep) -> SilverTable:
     return state.catalog.get_table(table_id)
+
+
+@router.get(
+    "/tables/{table_id}/preview",
+    summary="First rows of a table, personal data treated as in exports",
+)
+def preview_table(
+    table_id: str,
+    state: StateDep,
+    limit: Annotated[int, Query(ge=1, le=10_000)] = 100,
+) -> TablePreview:
+    table = state.catalog.get_table(table_id)
+    limit = min(limit, state.settings.preview_max_rows)
+    preview = state.publisher.preview(table, limit)
+    return TablePreview(
+        table_id=table.id,
+        columns=preview.columns,
+        rows=preview.rows,
+        limit=limit,
+        total_rows=preview.total_rows,
+    )
 
 
 @router.get(

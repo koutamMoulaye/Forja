@@ -130,3 +130,21 @@ Silver. Les autres décimaux restent en `DOUBLE` (poids, taux, coordonnées).
   et **déclenche donc un full refresh** de la table Silver au build suivant.
 - Une valeur à trois décimales dans une colonne déjà typée `DECIMAL(18,2)` est arrondie
   par DuckDB à la conversion.
+
+## D10 — Prévisualisation et accès aux données ; authentification à l'étape 4
+
+**Contexte.** Forja n'a pas encore d'authentification : toute personne qui atteint l'API
+voit tout ce que l'API expose. Le Bronze contient les valeurs brutes, données
+personnelles comprises.
+
+**Décision.**
+- `GET /sources/{id}/preview` (Bronze) répond `403` par défaut ; il faut
+  `FORJA_ALLOW_BRONZE_PREVIEW=true` pour l'activer (usage local, données de test).
+- `GET /tables/{id}/preview` montre une table Silver ou Gold avec exactement les
+  traitements des exports et du serving (pseudonymisation par défaut).
+
+**À venir (étape 4).** L'authentification et les rôles (qui peut voir le Bronze en clair,
+approuver un plan, lancer un build, publier) arrivent à l'étape 4. D'ici là :
+- l'API doit rester sur `127.0.0.1` (valeur par défaut de `FORJA_API_HOST`) ou derrière
+  un proxy authentifiant ;
+- `FORJA_ALLOW_BRONZE_PREVIEW` ne doit pas être activé sur une instance partagée.

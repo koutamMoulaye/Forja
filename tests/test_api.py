@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
+from forja_api.main import create_app
 from forja_core.config import Settings
 from forja_core.models import TECHNICAL_COLUMNS
 from tests.fixtures import generate as fx
@@ -78,20 +79,25 @@ def test_upload_profile_and_preview(client: TestClient, fixtures_dir: Path) -> N
     assert profile["duplicates"]["duplicate_rows"] == 2
     assert {p["pii_type"] for p in profile["pii"]} >= {"email", "phone", "iban"}
 
-    preview = client.get(f"/sources/{source['id']}/preview", params={"limit": 5}).json()
+    blocked = client.get(f"/sources/{source['id']}/preview")
+    assert blocked.status_code == 403
+    assert blocked.json()["error"]["code"] == "forbidden"
+
+
+def test_bronze_preview_when_allowed(settings: Settings, fixtures_dir: Path) -> None:
+    allowed = settings.model_copy(update={"allow_bronze_preview": True})
+    with TestClient(create_app(allowed)) as client:
+        project_id = _create_project(client)
+        [source] = _upload(client, project_id, fixtures_dir / fx.FR_CSV)
+        preview = client.get(f"/sources/{source['id']}/preview", params={"limit": 5}).json()
+        default = client.get(f"/sources/{source['id']}/preview").json()
+    assert default["limit"] == 100
+    assert len(default["rows"]) == 32
     assert preview["limit"] == 5
     assert preview["total_rows"] == 32
     assert len(preview["rows"]) == 5
     assert preview["columns"][-len(TECHNICAL_COLUMNS) :] == list(TECHNICAL_COLUMNS)
     assert preview["rows"][0]["prénom"] == "Jean"
-
-
-def test_preview_default_limit(client: TestClient, fixtures_dir: Path) -> None:
-    project_id = _create_project(client)
-    [source] = _upload(client, project_id, fixtures_dir / fx.FR_CSV)
-    preview = client.get(f"/sources/{source['id']}/preview").json()
-    assert preview["limit"] == 100
-    assert len(preview["rows"]) == 32
 
 
 def test_upload_modes_and_versions(client: TestClient, fixtures_dir: Path) -> None:
@@ -165,8 +171,6 @@ def test_upload_errors(client: TestClient, fixtures_dir: Path) -> None:
 
 
 def test_upload_size_limit(settings: Settings, tmp_path: Path) -> None:
-    from forja_api.main import create_app
-
     small = settings.model_copy(update={"max_upload_mb": 1})
     with TestClient(create_app(small)) as client:
         project_id = _create_project(client)

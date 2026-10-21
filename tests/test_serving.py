@@ -111,6 +111,18 @@ def test_treatment_override_applies_without_rebuild(built: tuple[AppState, Proje
     assert rows[1]["prenom"] == pseudonymize("Jean", state.publisher.secrets.salt(project.id))
 
 
+def test_table_preview_treats_personal_data(built: tuple[AppState, Project]) -> None:
+    state, project = built
+    [table] = state.catalog.list_tables(project.id)
+    assert len(state.publisher.preview(table, 3).rows) == 3
+    preview = state.publisher.preview(table, 100)
+    assert preview.total_rows == len(preview.rows) == fx.CLIENTS_V1_VALID
+    assert not any(c.startswith("_") for c in preview.columns)
+    first = next(r for r in preview.rows if r["id"] == 1)
+    assert first["email"] != "jean.dupont@example.fr"
+    assert first["code_postal"] is not None  # non-personal data is shown as is
+
+
 def test_export_api(built: tuple[AppState, Project]) -> None:
     from fastapi.testclient import TestClient
 
@@ -135,6 +147,9 @@ def test_export_api(built: tuple[AppState, Project]) -> None:
             assert parquet.status_code == 200
             assert parquet.content[:4] == b"PAR1"
             assert client.get("/tables/missing/export").status_code == 404
+            preview = client.get(f"/tables/{table.id}/preview", params={"limit": 2}).json()
+            assert preview["limit"] == 2 and len(preview["rows"]) == 2
+            assert "jean.dupont@example.fr" not in str(preview)
             exports = state.publisher.exports_dir(project.id)
             assert not any(p.name.startswith(".") for p in exports.iterdir())
     finally:

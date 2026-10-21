@@ -37,6 +37,10 @@ class Settings(BaseSettings):
 
     max_upload_mb: int = Field(default=200, gt=0)
     preview_max_rows: int = Field(default=1000, gt=0)
+    allow_bronze_preview: bool = Field(
+        default=False,
+        description="Bronze holds raw values, personal data included: keep it hidden by default",
+    )
     duplicate_columns: DuplicateColumnPolicy = DuplicateColumnPolicy.RENAME
 
     profiling_type_threshold: float = Field(default=0.95, gt=0.5, le=1.0)

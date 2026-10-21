@@ -11,6 +11,7 @@ import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import duckdb
 import pyarrow as pa
@@ -24,6 +25,7 @@ from forja_core.jobs.models import ExportedFile, ExportFormat
 from forja_core.locks import WarehouseLocks
 from forja_core.logging import get_logger
 from forja_core.models import Project
+from forja_core.preview import Preview, json_safe
 from forja_core.privacy import ProjectSecrets, published_columns, select_sql, treat_batch
 from forja_core.silver.dbt.project import DbtProjectGenerator
 from forja_core.silver.plan import ColumnPlan, TransformationPlan
@@ -178,6 +180,27 @@ class Publisher:
             columns = ", ".join(f"{quote_ident(c.target_column)} VARCHAR" for c in item.columns)
             con.execute(f"CREATE TABLE {name} ({columns})")
         return rows
+
+    def preview(self, table: SilverTable, limit: int) -> Preview:
+        """First rows of a table, with personal data treated as in exports."""
+        item = self._published(table)
+        salt = self.secrets.salt(table.project_id)
+        rows: list[dict[str, Any]] = []
+        with (
+            self.locks.hold(table.project_id, timeout=self.settings.export_lock_timeout_seconds),
+            duckdb.connect() as con,
+        ):
+            self._attach_warehouse(con, table.project_id)
+            relation = f"wh.main.{quote_ident(table.name)}"
+            [(total,)] = con.execute(f"SELECT count(*) FROM {relation}").fetchall()
+            limited = f"(SELECT * FROM {relation} LIMIT {int(limit)})"
+            reader = con.cursor().sql(select_sql(item.columns, limited)).to_arrow_reader(limit)
+            for batch in reader:
+                treated = treat_batch(batch, item.columns, salt)
+                rows.extend({k: json_safe(v) for k, v in r.items()} for r in treated.to_pylist())
+        return Preview(
+            columns=[c.target_column for c in item.columns], rows=rows, total_rows=int(total)
+        )
 
     def export(
         self,

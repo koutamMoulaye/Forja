@@ -34,6 +34,10 @@ class ConflictError(ForjaError):
     code = "conflict"
 
 
+class ForbiddenError(ForjaError):
+    code = "forbidden"
+
+
 class IngestionError(ForjaError):
     code = "ingestion_error"
 

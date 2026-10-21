@@ -10,7 +10,7 @@ from fastapi import APIRouter, File, Query, UploadFile, status
 
 from forja_api.schemas import PreviewResponse
 from forja_api.state import AppState, StateDep
-from forja_core.errors import FileTooLargeError
+from forja_core.errors import FileTooLargeError, ForbiddenError
 from forja_core.models import IngestMode, Source, SourceVersion
 from forja_core.preview import read_preview
 from forja_core.profiling.models import ProfileReport
@@ -114,13 +114,22 @@ def get_profile(
     return state.catalog.get_profile(source_id, version=version)
 
 
-@router.get("/sources/{source_id}/preview")
+@router.get(
+    "/sources/{source_id}/preview",
+    summary="Raw Bronze rows; disabled unless FORJA_ALLOW_BRONZE_PREVIEW=true",
+)
 def preview_source(
     source_id: str,
     state: StateDep,
     limit: Annotated[int, Query(ge=1, le=10_000)] = 100,
 ) -> PreviewResponse:
     source = state.catalog.get_source(source_id)
+    if not state.settings.allow_bronze_preview:
+        raise ForbiddenError(
+            "Bronze preview is disabled: Bronze holds raw personal data. Preview the Silver "
+            "table instead (GET /tables/{id}/preview) or set FORJA_ALLOW_BRONZE_PREVIEW=true",
+            details={"source_id": source_id},
+        )
     limit = min(limit, state.settings.preview_max_rows)
     preview = read_preview(state.workspace.resolve(source.bronze_path), limit)
     return PreviewResponse(
