@@ -25,6 +25,7 @@ class DbtResult:
     returncode: int
     tests: DbtTestSummary
     model_statuses: dict[str, str] = field(default_factory=dict)
+    snapshot_statuses: dict[str, str] = field(default_factory=dict)
 
     @property
     def succeeded(self) -> bool:
@@ -46,7 +47,7 @@ def find_dbt_executable(configured: str | None = None) -> str:
 
 
 def parse_run_results(path: Path) -> tuple[DbtTestSummary, dict[str, str]]:
-    """Test results and model statuses (by model name) of the last dbt invocation."""
+    """Test results and model or snapshot statuses (by name) of the last dbt invocation."""
     summary = DbtTestSummary()
     models: dict[str, str] = {}
     if not path.exists():
@@ -56,7 +57,7 @@ def parse_run_results(path: Path) -> tuple[DbtTestSummary, dict[str, str]]:
         unique_id = str(result.get("unique_id", ""))
         status = str(result.get("status", ""))
         parts = unique_id.split(".")
-        if parts[0] == "model":
+        if parts[0] in ("model", "snapshot"):
             models[parts[-1]] = status
             continue
         if parts[0] != "test" or status not in _TEST_STATUSES:

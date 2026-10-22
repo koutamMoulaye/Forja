@@ -106,8 +106,7 @@ def _measures(base: SilverSource, excluded: set[str]) -> list[Measure]:
         measures.append(
             Measure(name="montant", expression=f"{quantity} * {price}", aggregation=Aggregation.SUM)
         )
-    key = base.key[0] if base.key else next(iter(base.columns))
-    measures.append(Measure(name="nb_lignes", expression=key, aggregation=Aggregation.COUNT))
+    measures.append(Measure(name="nb_lignes", expression="1", aggregation=Aggregation.SUM))
     return measures
 
 

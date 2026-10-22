@@ -28,7 +28,7 @@ from forja_core.relations.models import Cardinality, Relation, RelationOrigin, R
 from forja_core.relations.naming import EXACT, SAME_ENTITY, SYNONYM, entity, name_similarity
 from forja_core.silver.dbt.project import DbtProjectGenerator
 from forja_core.silver.plan import SilverType, TransformationPlan
-from forja_core.silver.tables import SilverTable
+from forja_core.silver.tables import SilverTable, TableLayer
 from forja_core.utils import quote_ident, utcnow
 
 log = get_logger(__name__)
@@ -120,7 +120,8 @@ class RelationDetector:
         """Candidate referencing columns and candidate referenced keys."""
         columns: list[_Column] = []
         keys: list[_Column] = []
-        for table in self.catalog.list_tables(project_id):
+        for table in self.catalog.list_tables(project_id, TableLayer.SILVER):
+            assert table.source_id is not None
             plan = self.catalog.get_plan(table.source_id, version=table.plan_version)
             present = {c.name for c in table.columns}
             key_names = self._key_columns(plan)

@@ -6,9 +6,9 @@ from pathlib import Path
 import pyarrow as pa
 import pytest
 
-from forja_core.privacy import ProjectSecrets, mask, pseudonymize, treat_batch
-from forja_core.profiling.models import InferredType, PiiType
-from forja_core.silver.plan import ColumnPlan, ColumnStats, PiiTreatment, SilverType
+from forja_core.privacy import ProjectSecrets, TreatedColumn, mask, pseudonymize, treat_batch
+from forja_core.profiling.models import PiiType
+from forja_core.silver.plan import PiiTreatment
 
 
 def test_salt_is_created_once_per_project(tmp_path: Path) -> None:
@@ -54,27 +54,11 @@ def test_mask(value: str, pii_type: PiiType | None, expected: str) -> None:
     assert mask(value, pii_type) == expected
 
 
-def _column(name: str, treatment: PiiTreatment, pii: PiiType | None) -> ColumnPlan:
-    return ColumnPlan(
-        source_column=name,
-        target_column=name,
-        source_type="VARCHAR",
-        from_text=True,
-        inferred_type=InferredType.STRING,
-        target_type=SilverType.VARCHAR,
-        pii_type=pii,
-        pii_treatment=treatment,
-        stats=ColumnStats(
-            row_count=2, null_count=0, null_pct=0, distinct_count=2, invalid_count=0, match_ratio=1
-        ),
-    )
-
-
 def test_treat_batch() -> None:
     columns = [
-        _column("id", PiiTreatment.NONE, None),
-        _column("email", PiiTreatment.HASH, PiiType.EMAIL),
-        _column("tel", PiiTreatment.MASK, PiiType.PHONE),
+        TreatedColumn("id"),
+        TreatedColumn("email", PiiTreatment.HASH, PiiType.EMAIL),
+        TreatedColumn("tel", PiiTreatment.MASK, PiiType.PHONE),
     ]
     batch = pa.RecordBatch.from_arrays(
         [

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from forja_core.catalog import Catalog
 from forja_core.relations.models import Relation, RelationStatus
 from forja_core.silver.plan import PiiTreatment, TransformationPlan
-from forja_core.silver.tables import SilverTable
+from forja_core.silver.tables import SilverTable, TableLayer
 
 _NUMERIC_PREFIXES = (
     "TINYINT", "SMALLINT", "INTEGER", "BIGINT", "HUGEINT", "UTINYINT", "USMALLINT",
@@ -70,9 +70,8 @@ class GoldContext:
 
 def build_gold_context(catalog: Catalog, project_id: str) -> GoldContext:
     sources: dict[str, SilverSource] = {}
-    for table in catalog.list_tables(project_id):
-        if not table.name.startswith("stg_"):
-            continue
+    for table in catalog.list_tables(project_id, TableLayer.SILVER):
+        assert table.source_id is not None
         plan = catalog.get_plan(table.source_id, version=table.plan_version)
         sources[plan.source_name] = SilverSource(
             name=plan.source_name,

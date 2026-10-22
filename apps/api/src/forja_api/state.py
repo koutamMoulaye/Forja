@@ -9,6 +9,7 @@ from fastapi import Depends, Request
 
 from forja_core.catalog import Catalog
 from forja_core.config import Settings
+from forja_core.gold.build import GoldBuilder
 from forja_core.gold.service import GoldPlanService
 from forja_core.ingestion import IngestionService
 from forja_core.jobs.executor import JobExecutor
@@ -54,23 +55,27 @@ class AppState:
 
         locks = WarehouseLocks()
         generator = DbtProjectGenerator(workspace, threads=settings.dbt_threads)
-        builder = SilverBuilder(
-            catalog,
-            workspace,
-            plans,
-            generator,
-            DbtRunner(settings.dbt_executable, timeout_seconds=settings.dbt_timeout_seconds),
-            locks,
-        )
+        dbt = DbtRunner(settings.dbt_executable, timeout_seconds=settings.dbt_timeout_seconds)
+        builder = SilverBuilder(catalog, workspace, plans, generator, dbt, locks)
         publisher = Publisher(catalog, workspace, settings, generator, locks)
         detector = RelationDetector(catalog, settings, generator, locks)
-        executor = JobExecutor(catalog, workspace, profiler, plans, builder, publisher, detector)
+        llm = get_provider(LLMSettings(), journal=catalog.add_llm_call)
+        gold = GoldPlanService(catalog, LLMGoldProposer(llm, catalog) if llm is not None else None)
+        executor = JobExecutor(
+            catalog,
+            workspace,
+            profiler,
+            plans,
+            builder,
+            publisher,
+            detector,
+            GoldBuilder(catalog, gold, generator, dbt, locks),
+        )
         runner: JobRunner = (
             ThreadJobRunner(executor)
             if settings.job_runner == "thread"
             else InlineJobRunner(executor)
         )
-        llm = get_provider(LLMSettings(), journal=catalog.add_llm_call)
         return cls(
             settings=settings,
             catalog=catalog,
@@ -84,9 +89,7 @@ class AppState:
             executor=executor,
             runner=runner,
             llm=llm,
-            gold=GoldPlanService(
-                catalog, LLMGoldProposer(llm, catalog) if llm is not None else None
-            ),
+            gold=gold,
         )
 
     def start(self) -> None:

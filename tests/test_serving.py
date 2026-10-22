@@ -47,6 +47,9 @@ def _run(state: AppState, project: Project, request: RunRequest) -> Job:
 
 def test_export_job_publishes_serving_database(built: tuple[AppState, Project]) -> None:
     state, project = built
+    [table] = state.catalog.list_tables(project.id)
+    assert not table.publish  # Silver tables are only published on request
+    state.catalog.set_table_publication(table.id, True)
     job = _run(state, project, RunRequest(type=JobType.EXPORT))
     assert job.status is JobStatus.SUCCEEDED, state.catalog.job_logs(job.id)
     assert job.metrics is not None

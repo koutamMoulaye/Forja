@@ -1,4 +1,4 @@
-"""Silver table endpoints: registry and file exports."""
+"""Warehouse table endpoints: registry, publication, previews and file exports."""
 
 from __future__ import annotations
 
@@ -7,12 +7,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.background import BackgroundTask
 
 from forja_api.schemas import TablePreview
 from forja_api.state import StateDep
 from forja_core.jobs.models import ExportFormat
-from forja_core.silver.tables import SilverTable
+from forja_core.silver.tables import WarehouseTable
 
 router = APIRouter(tags=["tables"])
 
@@ -22,14 +23,27 @@ _MEDIA_TYPES = {
 }
 
 
-@router.get("/projects/{project_id}/tables", summary="Silver tables built in the project")
-def list_tables(project_id: str, state: StateDep) -> list[SilverTable]:
+@router.get("/projects/{project_id}/tables", summary="Silver and Gold tables built in the project")
+def list_tables(project_id: str, state: StateDep) -> list[WarehouseTable]:
     return state.catalog.list_tables(project_id)
 
 
 @router.get("/tables/{table_id}")
-def get_table(table_id: str, state: StateDep) -> SilverTable:
+def get_table(table_id: str, state: StateDep) -> WarehouseTable:
     return state.catalog.get_table(table_id)
+
+
+class TableUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    publish: bool = Field(
+        description="Publish the table to the serving database (Gold tables are by default)"
+    )
+
+
+@router.patch("/tables/{table_id}", summary="Publish or unpublish a table")
+def update_table(table_id: str, update: TableUpdate, state: StateDep) -> WarehouseTable:
+    return state.catalog.set_table_publication(table_id, update.publish)
 
 
 @router.get(
@@ -55,7 +69,7 @@ def preview_table(
 
 @router.get(
     "/tables/{table_id}/export",
-    summary="Download a Silver table, personal data treated as defined in its plan",
+    summary="Download a table, personal data treated as defined in its plan",
     response_class=FileResponse,
 )
 def export_table(
@@ -65,12 +79,11 @@ def export_table(
     delimiter: Annotated[str | None, Query(min_length=1, max_length=1)] = None,
 ) -> FileResponse:
     table = state.catalog.get_table(table_id)
-    plan = state.catalog.get_plan(table.source_id, version=table.plan_version)
     staging = state.publisher.exports_dir(table.project_id) / f".{uuid.uuid4().hex}.{format.value}"
     exported = state.publisher.export(table, format, staging, delimiter=delimiter)
     return FileResponse(
         exported.path,
         media_type=_MEDIA_TYPES[format],
-        filename=f"{plan.source_name}.{format.value}",
+        filename=f"{exported.table}.{format.value}",
         background=BackgroundTask(staging.unlink, missing_ok=True),
     )

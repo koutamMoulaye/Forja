@@ -19,13 +19,14 @@ import os
 import re
 import secrets
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import pyarrow as pa
 
 from forja_core.profiling.models import PiiType
 from forja_core.silver.dbt.sql import ident
-from forja_core.silver.plan import ColumnPlan, PiiTreatment, TransformationPlan
+from forja_core.silver.plan import PiiTreatment, TransformationPlan
 
 SALT_BYTES = 32
 _MASK = "***"
@@ -105,34 +106,43 @@ def mask(value: str | None, pii_type: str | None) -> str | None:
             return _mask_text(value)
 
 
-def published_columns(plan: TransformationPlan, available: Iterable[str]) -> list[ColumnPlan]:
-    """Plan columns present in the built table and not dropped from published data."""
+@dataclass(frozen=True)
+class TreatedColumn:
+    """A published column and the treatment applied to its values."""
+
+    name: str
+    treatment: PiiTreatment = PiiTreatment.NONE
+    pii_type: PiiType | None = None
+
+
+def published_columns(plan: TransformationPlan, available: Iterable[str]) -> list[TreatedColumn]:
+    """Silver plan columns present in the built table and not dropped from published data."""
     present = set(available)
     return [
-        c
+        TreatedColumn(c.target_column, c.pii_treatment, c.pii_type)
         for c in plan.included_columns()
         if c.target_column in present and c.pii_treatment is not PiiTreatment.DROP
     ]
 
 
-def select_sql(columns: Sequence[ColumnPlan], relation: str) -> str:
+def select_sql(columns: Sequence[TreatedColumn], relation: str) -> str:
     """Query reading the published columns; treated columns are read as text."""
     expressions = [
-        ident(c.target_column)
-        if c.pii_treatment is PiiTreatment.NONE
-        else f"cast({ident(c.target_column)} as varchar) as {ident(c.target_column)}"
+        ident(c.name)
+        if c.treatment is PiiTreatment.NONE
+        else f"cast({ident(c.name)} as varchar) as {ident(c.name)}"
         for c in columns
     ]
     return f"SELECT {', '.join(expressions)} FROM {relation}"
 
 
 def treat_batch(
-    batch: pa.RecordBatch, columns: Sequence[ColumnPlan], salt: bytes
+    batch: pa.RecordBatch, columns: Sequence[TreatedColumn], salt: bytes
 ) -> pa.RecordBatch:
     """Apply each column's treatment to a batch read with :func:`select_sql`."""
     arrays: list[pa.Array] = []
     for column, array in zip(columns, batch.columns, strict=True):
-        match column.pii_treatment:
+        match column.treatment:
             case PiiTreatment.HASH:
                 values = [pseudonymize(v, salt) for v in array.to_pylist()]
                 arrays.append(pa.array(values, type=pa.string()))
@@ -141,4 +151,4 @@ def treat_batch(
                 arrays.append(pa.array([mask(v, kind) for v in array.to_pylist()], pa.string()))
             case _:
                 arrays.append(array)
-    return pa.RecordBatch.from_arrays(arrays, names=[c.target_column for c in columns])
+    return pa.RecordBatch.from_arrays(arrays, names=[c.name for c in columns])

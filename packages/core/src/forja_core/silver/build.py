@@ -10,6 +10,8 @@ import duckdb
 
 from forja_core.catalog import Catalog
 from forja_core.errors import BuildError, ForjaError
+from forja_core.gold.build import gold_inputs
+from forja_core.jobs.errors import RunFailedError
 from forja_core.jobs.models import RunMetrics, SourceRunMetrics
 from forja_core.locks import WarehouseLocks
 from forja_core.logging import get_logger
@@ -29,12 +31,8 @@ log = get_logger(__name__)
 Logger = Callable[[str], None]
 
 
-class SilverBuildError(BuildError):
-    """dbt failed; the metrics of what could be measured are attached."""
-
-    def __init__(self, message: str, metrics: RunMetrics) -> None:
-        super().__init__(message)
-        self.metrics = metrics
+class SilverBuildError(RunFailedError):
+    pass
 
 
 @dataclass
@@ -106,7 +104,10 @@ class SilverBuilder:
         selected = self._select(project_id, all_plans, source_ids)
 
         with self.locks.hold(project_id):
-            generated = self.generator.generate(project, all_plans)
+            # The Gold models are kept in the project, so regeneration stays complete.
+            generated = self.generator.generate(
+                project, all_plans, gold=gold_inputs(self.catalog, project_id)
+            )
             log_line(
                 f"dbt project {generated.path}: {len(generated.written)} file(s) written, "
                 f"{len(generated.removed)} removed, {len(generated.unchanged)} unchanged"

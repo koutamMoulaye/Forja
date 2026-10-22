@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class JobType(StrEnum):
     PROFILE = "profile"
     BUILD_SILVER = "build_silver"
+    BUILD_GOLD = "build_gold"
     EXPORT = "export"
 
 
@@ -83,6 +84,21 @@ class SourceRunMetrics(BaseModel):
     model_status: str | None = None
 
 
+class ModelRunMetrics(BaseModel):
+    name: str
+    rows: int
+    status: str | None = None
+
+
+class UnknownMemberRows(BaseModel):
+    """Fact rows whose key matched no dimension member and took the unknown member."""
+
+    fact: str
+    key: str
+    dimension: str
+    rows: int
+
+
 class ExportedFile(BaseModel):
     table: str
     format: ExportFormat
@@ -102,6 +118,8 @@ class RunMetrics(BaseModel):
     exports: list[ExportedFile] = Field(default_factory=list)
     serving_path: str | None = None
     relations_detected: int = 0
+    models: list[ModelRunMetrics] = Field(default_factory=list)
+    unknown_member_rows: list[UnknownMemberRows] = Field(default_factory=list)
 
     def add_source(self, source: SourceRunMetrics) -> None:
         self.sources.append(source)

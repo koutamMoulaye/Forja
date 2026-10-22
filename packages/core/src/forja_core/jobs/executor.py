@@ -9,13 +9,15 @@ from datetime import datetime
 
 from forja_core.catalog import Catalog
 from forja_core.errors import ForjaError, SourceNotFoundError
+from forja_core.gold.build import GoldBuilder
 from forja_core.ingestion.service import IngestedVersion
+from forja_core.jobs.errors import RunFailedError
 from forja_core.jobs.models import Job, JobStatus, JobType, RunMetrics, RunRequest
 from forja_core.logging import get_logger
 from forja_core.profiling.profiler import Profiler
 from forja_core.relations.detector import RelationDetector
 from forja_core.serving import Publisher
-from forja_core.silver.build import SilverBuilder, SilverBuildError
+from forja_core.silver.build import SilverBuilder
 from forja_core.silver.service import PlanService
 from forja_core.storage import Workspace
 from forja_core.utils import utcnow
@@ -35,6 +37,7 @@ class JobExecutor:
         builder: SilverBuilder,
         publisher: Publisher,
         relations: RelationDetector,
+        gold_builder: GoldBuilder | None = None,
     ) -> None:
         self.catalog = catalog
         self.workspace = workspace
@@ -43,10 +46,12 @@ class JobExecutor:
         self.builder = builder
         self.publisher = publisher
         self.relations = relations
+        self.gold_builder = gold_builder
         self.handlers: dict[JobType, Handler] = {
             JobType.PROFILE: self._profile,
             JobType.BUILD_SILVER: self._build_silver,
             JobType.EXPORT: self._export,
+            JobType.BUILD_GOLD: self._build_gold,
         }
 
     def register(self, job_type: JobType, handler: Handler) -> None:
@@ -94,7 +99,7 @@ class JobExecutor:
                 raise ForjaError(f"no handler registered for '{job.type.value}' runs")
             job.metrics = handler(job, log_line)
             job.status = JobStatus.SUCCEEDED
-        except SilverBuildError as exc:
+        except RunFailedError as exc:
             job.metrics = exc.metrics
             job.status = JobStatus.FAILED
             job.error = exc.message
@@ -170,3 +175,17 @@ class JobExecutor:
             job.project_id, list(job.params.formats), job.params.csv_delimiter, log_line
         )
         return RunMetrics(serving_path=self.workspace.relative(serving), exports=exports)
+
+    def _build_gold(self, job: Job, log_line: Callable[[str], None]) -> RunMetrics:
+        if self.gold_builder is None:
+            raise ForjaError("Gold builds are not configured")
+        metrics = self.gold_builder.build(job.project_id, run_id=job.id, log_line=log_line)
+        for model in metrics.models:
+            log_line(f"{model.name}: {model.rows} row(s)")
+        for unknown in metrics.unknown_member_rows:
+            if unknown.rows:
+                log_line(
+                    f"{unknown.fact}.{unknown.key}: {unknown.rows} row(s) attached to the "
+                    f"unknown member of {unknown.dimension}"
+                )
+        return metrics

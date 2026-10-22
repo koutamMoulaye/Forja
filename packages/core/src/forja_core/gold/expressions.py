@@ -16,6 +16,7 @@ import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ParseError
 
+from forja_core.silver.dbt.sql import ident
 from forja_core.utils import quote_ident
 
 ALLOWED_FUNCTIONS: dict[type[exp.Expression], str] = {
@@ -123,15 +124,13 @@ def check_expression(
         if column.name not in tables[table]:
             raise ExpressionError(f"colonne inconnue « {table}.{column.name} »")
         columns.append((table, column.name))
-    if not columns:
-        raise ExpressionError("une mesure doit utiliser au moins une colonne")
 
     def qualify(node: exp.Expression) -> exp.Expression:
         if isinstance(node, exp.Column):
             table = node.table or default_table
             return exp.Column(
-                this=exp.Identifier(this=node.name, quoted=True),
-                table=exp.Identifier(this=table, quoted=True),
+                this=exp.Identifier(this=node.name, quoted=ident(node.name) != node.name),
+                table=exp.Identifier(this=table, quoted=ident(table) != table),
             )
         return node
 

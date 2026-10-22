@@ -14,6 +14,9 @@ from typing import Any
 
 import yaml
 
+from forja_core.gold.context import GoldContext
+from forja_core.gold.dbt import render_gold
+from forja_core.gold.plan import GoldPlan
 from forja_core.models import Project
 from forja_core.silver.dbt.sql import (
     TECHNICAL_TYPES,
@@ -30,7 +33,7 @@ from forja_core.storage import Workspace
 from forja_core.utils import slugify
 
 PROFILE_NAME = "forja"
-MANAGED_DIRS = ("models", "macros")
+MANAGED_DIRS = ("models", "macros", "snapshots")
 WAREHOUSE_FILE = "warehouse.duckdb"
 
 _TECHNICAL_DESCRIPTIONS = {
@@ -86,6 +89,7 @@ def _dbt_project_yml(project: Project) -> str:
             "profile": PROFILE_NAME,
             "model-paths": ["models"],
             "macro-paths": ["macros"],
+            "snapshot-paths": ["snapshots"],
             "target-path": "target",
             "clean-targets": ["target"],
         }
@@ -240,9 +244,17 @@ def _schema_yml(plans: Sequence[TransformationPlan]) -> str:
 
 
 def render_project(
-    project: Project, plans: Sequence[TransformationPlan], *, threads: int = 1
+    project: Project,
+    plans: Sequence[TransformationPlan],
+    *,
+    threads: int = 1,
+    gold: tuple[GoldPlan, GoldContext] | None = None,
 ) -> dict[str, str]:
-    """All files of the dbt project, keyed by path relative to the project root."""
+    """All files of the dbt project, keyed by path relative to the project root.
+
+    Silver models come from the effective transformation plans; Gold models and
+    snapshots from the effective Gold plan, when there is one.
+    """
     ordered = sorted(plans, key=lambda p: p.source_name)
     files = {
         "dbt_project.yml": _dbt_project_yml(project),
@@ -258,6 +270,12 @@ def render_project(
         files[f"{folder}/{checked_model(plan)}.sql"] = render_checked(plan)
         files[f"{folder}/{plan.model_name}.sql"] = render_silver(plan)
         files[f"{folder}/{rejects_model(plan)}.sql"] = render_rejects(plan)
+    if gold is not None:
+        gold_files, gold_yaml = render_gold(*gold)
+        files.update(gold_files)
+        files["models/gold/schema.yml"] = _yaml({"version": 2, "models": gold_yaml["models"]})
+        if gold_yaml["snapshots"]:
+            files["snapshots/snapshots.yml"] = _yaml({"snapshots": gold_yaml["snapshots"]})
     return files
 
 
@@ -272,10 +290,15 @@ class DbtProjectGenerator:
     def warehouse_path(self, project_id: str) -> Path:
         return self.workspace.project_dir(project_id) / WAREHOUSE_FILE
 
-    def generate(self, project: Project, plans: Sequence[TransformationPlan]) -> GenerationResult:
+    def generate(
+        self,
+        project: Project,
+        plans: Sequence[TransformationPlan],
+        gold: tuple[GoldPlan, GoldContext] | None = None,
+    ) -> GenerationResult:
         root = self.project_dir(project.id)
         result = GenerationResult(path=root)
-        files = render_project(project, plans, threads=self.threads)
+        files = render_project(project, plans, threads=self.threads, gold=gold)
 
         for relative, content in files.items():
             path = root / relative

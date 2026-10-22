@@ -111,6 +111,12 @@ def test_dirty_csv_to_silver_rejects_and_exports_then_incremental_v2(
     assert exported.num_rows == fx.CLIENTS_V1_VALID
     assert not any(name.startswith("_") for name in exported.column_names)
 
+    # Without a Gold model there is nothing to publish, unless a Silver table is opted in.
+    nothing = client.post(f"/projects/{project_id}/runs", json={"type": "export"})
+    assert wait_for_run(client, nothing.json()["id"])["status"] == "failed"
+    published = client.patch(f"/tables/{table['id']}", json={"publish": True})
+    assert published.json()["publish"] is True
+
     export_run = client.post(f"/projects/{project_id}/runs", json={"type": "export"})
     export = wait_for_run(client, export_run.json()["id"])
     assert export["status"] == "succeeded"

@@ -178,6 +178,15 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         );
         """,
     ),
+    (
+        8,
+        """
+        ALTER TABLE silver_tables RENAME TO warehouse_tables;
+        ALTER TABLE warehouse_tables ALTER COLUMN source_id DROP NOT NULL;
+        ALTER TABLE warehouse_tables ADD COLUMN layer VARCHAR DEFAULT 'silver';
+        ALTER TABLE warehouse_tables ADD COLUMN publish BOOLEAN DEFAULT false;
+        """,
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
