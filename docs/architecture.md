@@ -17,11 +17,11 @@
 
 | Paquet | Import | Rôle |
 |---|---|---|
-| `packages/core` | `forja_core` | Catalogue, ingestion, profiling, plans Silver, génération dbt, jobs, confidentialité, serving |
-| `packages/llm` | `forja_llm` | Interface `LLMProvider`, sélection du fournisseur, contexte sans données brutes |
+| `packages/core` | `forja_core` | Catalogue, ingestion, profiling, plans Silver, relations, plans Gold, génération dbt, jobs, confidentialité, serving |
+| `packages/llm` | `forja_llm` | Fournisseurs Anthropic / OpenAI / Ollama, contexte sans données brutes, proposeur Gold |
 | `apps/api` | `forja_api` | API HTTP FastAPI et worker de jobs |
 
-## Flux Bronze → Silver → serving
+## Flux Bronze → Silver → Gold → serving
 
 ```
  fichier CSV / Excel / Parquet / JSON
@@ -49,12 +49,35 @@
  │        └── raison ───────► stg_<source>__rejects  (incrémental,     │
  │                              valeurs brutes, quarantaine)            │
  └───────────────────────────┬────────────────────────────────────────┘
-        │ run export : traitement PII (HMAC / masque / suppression) par lots Arrow
+        │ fin de build_silver : détection des relations (inclusion, noms, types)
+        ▼
+ ┌──────────────── RELATIONS (catalogue) ──────────────────────────────┐
+ │ commandes.id_client → clients.id_client  94 %  N-1                  │
+ │ suggested ──(revue humaine)──► confirmed | rejected                  │
+ └───────────────────────────┬─────────────────────────────────────────┘
+        │ POST /projects/{id}/gold-plan/propose
+        │   LLM (contexte sûr + relations confirmées) ou heuristique
+        ▼
+ ┌──────────────── PLAN GOLD (catalogue) ──────────────────────────────┐
+ │ dimensions (clé naturelle, clé de substitution, SCD1/SCD2), faits   │
+ │ (grain, jointures N-1, FK, dates, mesures validées par sqlglot)     │
+ │ validation : grain, relations confirmées, orphelins, fan-out        │
+ │ draft ──(PATCH)──► approved ──(build_gold)──► applied                │
+ └───────────────────────────┬─────────────────────────────────────────┘
+        │ run build_gold : snapshots SCD2, dim_*, dim_date, fct_*, tests
+        ▼
+ ┌──────────────── GOLD : data/<p>/warehouse.duckdb ───────────────────┐
+ │ snap_<source> ─► dim_<source>  (MD5 de la clé, membre inconnu -1,   │
+ │                                 valid_from / valid_to / is_current) │
+ │ dim_date  (AAAAMMJJ, libellés français)                             │
+ │ fct_<processus>  (FK -1 si orpheline, version SCD2 à la date du fait)│
+ └───────────────────────────┬─────────────────────────────────────────┘
+        │ run export : tables publiées (Gold par défaut), traitement PII
         ▼
  ┌──────────────────────────── SERVING ────────────────────────────────┐
- │ data/<p>/serving/<projet>.duckdb   tables <source> + _forja_tables  │ ◄── BI en
- │ data/<p>/exports/<source>.parquet|csv                               │     lecture seule
- │ GET /tables/{id}/export?format=parquet|csv                          │
+ │ data/<p>/serving/<projet>.duckdb   dim_*, fct_* + _forja_tables     │ ◄── BI en
+ │ data/<p>/exports/<table>.parquet|csv                                │     lecture seule
+ │ GET /tables/{id}/export · GET /tables/{id}/preview (traités)        │
  └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -109,9 +132,49 @@ traitement PII d'une colonne ne reconstruit rien : il ne concerne que les sortie
 (`delete+insert`) ; deux lignes différentes d'un même lot avec la même clé partent en
 quarantaine. Sans clé, l'unicité repose sur `_row_hash`.
 
+## Relations
+
+Détectées à la fin de chaque `build_silver` et sur demande
+(`POST /projects/{id}/relations/detect`), entre une colonne d'une table et la clé
+(primaire ou candidate, une colonne) d'une autre. Confiance = 0,6 × inclusion + 0,3 ×
+similarité de noms + 0,1 × compatibilité de type ; seuils dans `FORJA_RELATION_*`. Une
+relation se confirme, se rejette ou se déclare à la main (elle est alors mesurée, et sa
+cible doit être unique). Voir [decisions.md](decisions.md), D11.
+
+## Fournisseurs LLM
+
+`forja_llm` expose `LLMProvider.generate(request, ResponseModel)` : Anthropic, OpenAI et
+Ollama, sortie structurée validée par Pydantic, retries avec backoff, comptage des tokens
+et journal `llm_calls` sans données. `LLMRequest` n'accepte qu'un `LLMSafeContext`,
+construit par `build_safe_context` à partir des profils, des plans Silver et des
+relations, sans aucune valeur de ligne. Voir D12 et D13.
+
+## Plan Gold et génération dbt
+
+Le plan Gold est versionné par projet (cycle `draft` → `approved` → `applied`), proposé
+par le LLM configuré ou par l'heuristique, puis validé (D14). À l'approbation, le
+générateur ajoute au projet dbt :
+
+```
+data/<p>/dbt/
+├── snapshots/snapshots.yml          snap_<source> (SCD2, strategy check)
+└── models/gold/
+    ├── schema.yml                   unique/not_null sur les clés, relationships
+    │                                fait → dimension et dim_date, test de grain
+    ├── dim_<source>.sql             membres + membre inconnu (-1)
+    ├── dim_date.sql                 du premier au dernier jour des faits
+    └── fct_<processus>.sql          grain, FK, clés de date, mesures
+```
+
+Le run `build_gold` régénère le projet (Silver et Gold), exécute
+`dbt build --select snap_* dim_* dim_date fct_*`, mesure les lignes par modèle et les
+lignes rattachées au membre inconnu, enregistre les tables Gold (publiées par défaut) et
+passe le plan à `applied`. Un `build_silver` régénère aussi les fichiers Gold, pour que le
+projet reste complet. Voir D15.
+
 ## Jobs
 
-Table `jobs` du catalogue : type (`profile`, `build_silver`, `export`), statut
+Table `jobs` du catalogue : type (`profile`, `build_silver`, `build_gold`, `export`), statut
 (`queued` → `running` → `succeeded` | `failed`), horodatages, logs, métriques.
 
 - `JobExecutor` exécute un job : transitions de statut, logs horodatés, métriques,
@@ -137,9 +200,10 @@ warehouse_busy`.
 ## Catalogue
 
 `forja_meta.duckdb` : `projects`, `sources`, `source_versions`, `profiles` (par
-version), `plans` (versionnés), `jobs`, `silver_tables`. Le schéma évolue par
-migrations numérotées (`catalog/migrations.py`) appliquées au démarrage ; un catalogue
-de l'étape 1 est migré sans perte.
+version), `plans` (versionnés), `jobs`, `warehouse_tables` (tables Silver et Gold, avec
+leur indicateur de publication), `relations`, `gold_plans` et `llm_calls`. Le schéma
+évolue par migrations numérotées (`catalog/migrations.py`) appliquées au démarrage ; un
+catalogue d'une étape précédente est migré sans perte.
 
 ## Confidentialité
 

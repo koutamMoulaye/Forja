@@ -1,6 +1,7 @@
 # Connexion d'un outil BI
 
-Forja publie les tables Silver d'un projet dans une base DuckDB dédiée à la lecture :
+Forja publie les tables Gold d'un projet (et les tables Silver choisies) dans une base
+DuckDB dédiée à la lecture :
 
 ```
 data/<project_id>/serving/<nom_du_projet>.duckdb
@@ -12,10 +13,29 @@ Elle est (re)construite par un run `export` (`POST /projects/{id}/runs` avec
 
 ## Ce que contient la base
 
+Par défaut, seules les **tables Gold** (modèle en étoile) sont publiées :
+
 | Table | Contenu |
 |---|---|
-| `<source>` (ex. `clients`) | Lignes valides de la table Silver `stg_<source>`, sans les colonnes techniques `_…` |
-| `_forja_tables` | Une ligne par table publiée : source, version du plan, nombre de lignes, colonnes traitées, date de publication |
+| `fct_<processus>` (ex. `fct_ventes`) | Une ligne par grain du fait (ex. ligne de commande) : clés vers les dimensions, clés de date, dimensions dégénérées (n° de commande, statut), mesures |
+| `dim_<source>` (ex. `dim_clients`) | Une ligne par membre, ou par version en SCD2 (`valid_from`, `valid_to`, `is_current`), plus le membre « Inconnu » de clé `-1` |
+| `dim_date` | Un jour par ligne (`date_key` au format AAAAMMJJ), année, trimestre, mois, semaine ISO, jour et libellés français, plus le membre `-1` |
+| `<source>` (ex. `commandes`) | Table Silver, uniquement si elle a été publiée explicitement (`PATCH /tables/{id}` avec `{"publish": true}`) |
+| `_forja_tables` | Une ligne par table publiée : couche, table d'origine, version du plan, nombre de lignes, colonnes traitées, date de publication |
+
+### Utiliser le modèle en étoile
+
+- Reliez chaque clé du fait à la clé de sa dimension (`fct_ventes.client_key` →
+  `dim_clients.client_key`, `fct_ventes.date_commande_key` → `dim_date.date_key`), en
+  relation plusieurs-à-un, filtrage de la dimension vers le fait. Dans Power BI, marquez
+  `dim_date` comme table de dates (colonne `date`).
+- Les dimensions SCD2 contiennent une ligne par version : le fait pointe déjà vers la
+  version valide à sa date, aucun filtre n'est nécessaire. Pour un état « actuel » des
+  clients, filtrez `is_current = true`.
+- Les lignes de fait dont la clé ne correspond à aucun membre pointent vers le membre
+  « Inconnu » (`-1`) : les totaux restent justes et ces lignes restent visibles.
+- L'agrégation par défaut de chaque mesure (somme, moyenne…) est indiquée dans le plan
+  Gold et dans `models/gold/schema.yml` (`meta.aggregation`).
 
 Les données personnelles détectées sont traitées selon le plan de chaque source
 (par défaut **pseudonymisation HMAC-SHA256**, sinon masquage partiel ou suppression) ;

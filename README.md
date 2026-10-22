@@ -9,9 +9,11 @@ propres, exportables et connectables à votre outil BI. À terme, un agent perme
 équipes métier de demander un data mart en langage naturel, avec un aperçu de
 vérification avant publication.
 
-> **État actuel : étape 2.** Ingestion versionnée vers Bronze, profiling, plans de
-> transformation Silver relus puis exécutés par dbt, moteur de jobs, publication pour la
-> BI et exports avec pseudonymisation. La modélisation Gold arrive à l'étape 3.
+> **État actuel : étape 3.** Ingestion versionnée vers Bronze, profiling, plans Silver
+> relus puis exécutés par dbt, détection des relations entre sources, modèle en étoile
+> Gold proposé par un LLM ou par des règles, construit par dbt (SCD2 compris), publié
+> pour la BI avec pseudonymisation. L'agent métier et l'authentification arrivent à
+> l'étape 4.
 
 ## Fonctionnalités
 
@@ -46,16 +48,25 @@ vérification avant publication.
   `stg_<source>` sur `_row_hash`, quarantaine `stg_<source>__rejects` avec
   `_reject_reason`, contrats de types, tests `unique` / `not_null` /
   `accepted_values`, descriptions issues du profil.
-- **Moteur de jobs** (`profile`, `build_silver`, `export`) exécuté en tâche de fond, avec
+- **Relations entre sources** détectées localement (inclusion des valeurs, noms
+  `client_id` / `id_client` / `customer_id`, types, cardinalité), avec score de confiance
+  et explication, à confirmer ou rejeter ; ajout manuel possible.
+- **Modèle Gold en étoile** : dimensions (clé de substitution, SCD1 ou SCD2), faits (grain
+  explicite, clés étrangères, mesures), dimension date générée. Proposé par le LLM
+  configuré ou, sans LLM, par des règles déterministes ; validé (grain, relations
+  confirmées, dimensions orphelines, fan-out), versionné et approuvé comme les plans
+  Silver. Compilé en modèles dbt `dim_*` / `fct_*` / `dim_date` et snapshots SCD2, avec
+  membre « inconnu » (-1) pour les clés orphelines.
+- **Fournisseurs LLM** Anthropic, OpenAI et Ollama : sortie structurée validée, retries,
+  journal des appels sans données. Ils ne reçoivent que schémas, statistiques et
+  relations, jamais une valeur de ligne.
+- **Moteur de jobs** (`profile`, `build_silver`, `build_gold`, `export`) exécuté en tâche de fond, avec
   logs et métriques : lignes lues, valides, rejetées, doublons retirés, durée, résultats
   des tests dbt.
 - **Publication** : base DuckDB `data/<project_id>/serving/<projet>.duckdb` pour Power BI,
-  Superset ou Metabase ([docs/bi.md](docs/bi.md)), exports Parquet / CSV. Les données
-  personnelles y sont pseudonymisées (HMAC-SHA256) par défaut ; Silver reste en clair.
-- **Abstraction LLM** (`packages/llm`) : interface de génération structurée validée par
-  Pydantic, fournisseurs Anthropic / OpenAI / Ollama sélectionnés par variable
-  d'environnement. Seuls le schéma et les statistiques de profiling peuvent être envoyés
-  à un modèle, jamais de données brutes.
+  Superset ou Metabase ([docs/bi.md](docs/bi.md)), exports Parquet / CSV. Tables Gold
+  publiées par défaut, Silver sur demande. Les données personnelles y sont
+  pseudonymisées (HMAC-SHA256) par défaut ; Silver et Gold internes restent en clair.
 
 ## Installation et lancement
 
@@ -103,17 +114,33 @@ curl -X PATCH localhost:8000/sources/<source_id>/plan -H "Content-Type: applicat
      -d '{"columns": {"commentaire": {"included": false}}}'
 curl -X POST localhost:8000/sources/<source_id>/plan/approve
 
-# 4. Construire la couche Silver puis publier pour la BI
+# 4. Construire la couche Silver (les relations sont détectées à la fin)
 curl -X POST localhost:8000/projects/<project_id>/runs -H "Content-Type: application/json" \
      -d '{"type": "build_silver"}'
 curl localhost:8000/runs/<run_id>          # statut et métriques
 curl localhost:8000/runs/<run_id>/logs     # sortie de dbt
+
+# 5. Revoir les relations, puis proposer et approuver le modèle Gold
+curl localhost:8000/projects/<project_id>/relations
+curl -X POST localhost:8000/relations/<relation_id>/confirm
+curl -X POST localhost:8000/projects/<project_id>/gold-plan/propose \
+     -H "Content-Type: application/json" -d '{}'
+curl -X POST localhost:8000/projects/<project_id>/gold-plan/approve
+
+# 6. Construire le Gold, puis publier pour la BI
+curl -X POST localhost:8000/projects/<project_id>/runs -H "Content-Type: application/json" \
+     -d '{"type": "build_gold"}'
 curl -X POST localhost:8000/projects/<project_id>/runs -H "Content-Type: application/json" \
      -d '{"type": "export"}'
 
-# 5. Télécharger une table
+# 7. Prévisualiser ou télécharger une table (données personnelles traitées)
+curl "localhost:8000/tables/<table_id>/preview?limit=20"
 curl -OJ "localhost:8000/tables/<table_id>/export?format=csv"
 ```
+
+Pour que le modèle Gold soit proposé par un LLM, définissez `FORJA_LLM_PROVIDER`
+(`anthropic`, `openai` ou `ollama`) et la clé correspondante ; sinon des règles
+déterministes le proposent.
 
 ## API
 
@@ -128,17 +155,27 @@ curl -OJ "localhost:8000/tables/<table_id>/export?format=csv"
 | `POST` | `/sources/{id}/versions` | Charger explicitement une nouvelle version |
 | `GET` | `/sources/{id}/versions` | Versions et dérive de schéma |
 | `GET` | `/sources/{id}/profile?version=` | Rapport de profiling (dernière version par défaut) |
-| `GET` | `/sources/{id}/preview?limit=100` | Aperçu des lignes Bronze |
+| `GET` | `/sources/{id}/preview?limit=100` | Aperçu des lignes Bronze (désactivé par défaut, `FORJA_ALLOW_BRONZE_PREVIEW`) |
 | `GET` | `/sources/{id}/plan?version=` | Plan de transformation Silver |
 | `GET` | `/sources/{id}/plans` | Historique des versions du plan |
 | `PATCH` | `/sources/{id}/plan` | Modifier une règle, exclure une colonne, changer un type… (nouvelle version `draft`) |
 | `POST` | `/sources/{id}/plan/approve` | Approuver la dernière version |
-| `POST` | `/projects/{id}/runs` | Lancer un run `profile`, `build_silver` ou `export` |
+| `GET` | `/projects/{id}/relations?status=` | Relations entre sources |
+| `POST` | `/projects/{id}/relations/detect` | Relancer la détection |
+| `POST` | `/projects/{id}/relations` | Déclarer une relation manuellement |
+| `POST` | `/relations/{id}/confirm` · `/relations/{id}/reject` | Revue d'une relation |
+| `POST` | `/projects/{id}/gold-plan/propose` | Proposer un modèle Gold (LLM ou règles) |
+| `GET` | `/projects/{id}/gold-plan?version=` · `/projects/{id}/gold-plans` | Plan Gold et historique |
+| `PATCH` | `/projects/{id}/gold-plan` | Modifier le plan Gold (nouvelle version `draft`) |
+| `POST` | `/projects/{id}/gold-plan/approve` | Approuver (refusé tant qu'il reste des erreurs) |
+| `POST` | `/projects/{id}/runs` | Lancer un run `profile`, `build_silver`, `build_gold` ou `export` |
 | `GET` | `/projects/{id}/runs` | Runs du projet |
 | `GET` | `/runs/{id}` | Statut et métriques d'un run |
 | `GET` | `/runs/{id}/logs` | Logs d'un run (texte) |
-| `GET` | `/projects/{id}/tables` | Tables Silver construites |
+| `GET` | `/projects/{id}/tables` | Tables Silver et Gold construites |
 | `GET` | `/tables/{id}` | Détail d'une table |
+| `PATCH` | `/tables/{id}` | Publier ou retirer une table du serving (`{"publish": true}`) |
+| `GET` | `/tables/{id}/preview?limit=100` | Aperçu traité (pseudonymisation) |
 | `GET` | `/tables/{id}/export?format=parquet\|csv&delimiter=;` | Export traité d'une table |
 
 Les erreurs ont toutes la forme `{"error": {"code", "message", "details"}}` :
@@ -159,10 +196,12 @@ forja/
 │       ├── ingestion/     Détection, lecteurs, versions, dérive de schéma
 │       ├── profiling/     Inférence de types, PII, clés, score qualité
 │       ├── silver/        Plans de transformation, génération et exécution dbt
+│       ├── relations/     Détection et revue des relations entre sources
+│       ├── gold/          Plans Gold, validation, heuristique, génération dbt Gold
 │       ├── jobs/          Modèles, exécuteur et runners de jobs
 │       ├── privacy.py     Pseudonymisation, masquage
 │       └── serving.py     Base serving et exports
-├── packages/llm/      Interface LLMProvider et contexte sans données brutes
+├── packages/llm/      Fournisseurs LLM, contexte sans données brutes, proposeur Gold
 ├── data/              Workspace local (ignoré par git)
 ├── tests/             Tests pytest et jeux de données générés (tests/fixtures)
 └── docs/              Architecture, profiling, connexion BI, décisions
@@ -176,11 +215,13 @@ profiling et [`docs/bi.md`](docs/bi.md) pour connecter un outil BI.
 ## Développement
 
 ```bash
-uv run pytest                 # tests (dont un vrai dbt build de bout en bout)
+uv run pytest                 # tests (dont de vrais dbt build de bout en bout ; les
+                              # tests LLM réels sont ignorés sans clé ni Ollama)
 uv run ruff check .           # lint
 uv run ruff format .          # formatage
 uv run mypy                   # typage strict
-uv run python -m tests.fixtures.generate   # régénérer les jeux de test
+uv run python -m tests.fixtures.generate    # régénérer les jeux de test
+uv run python -m tests.fixtures.ecommerce   # régénérer le jeu e-commerce
 ```
 
 ## Licence

@@ -148,3 +148,84 @@ approuver un plan, lancer un build, publier) arrivent à l'étape 4. D'ici là :
 - l'API doit rester sur `127.0.0.1` (valeur par défaut de `FORJA_API_HOST`) ou derrière
   un proxy authentifiant ;
 - `FORJA_ALLOW_BRONZE_PREVIEW` ne doit pas être activé sur une instance partagée.
+
+## D11 — Relations détectées localement, confirmées par une personne
+
+**Décision.** Les relations sont mesurées sur les tables Silver (valeurs nettoyées et
+typées, celles que le Gold joint) : taux d'inclusion des valeurs distinctes sur un
+échantillon déterministe (`FORJA_RELATION_SAMPLE_SIZE`), similarité de noms FR/EN,
+compatibilité de type, cardinalité. Les colonnes entières ne sont comparées que si leurs
+noms se ressemblent (une quantité serait sinon « incluse » dans n'importe quel
+identifiant). Une relation détectée est `suggested` ; seul un humain la passe à
+`confirmed` (ou `FORJA_AUTO_CONFIRM_RELATIONS=true` en local). Une nouvelle détection
+rafraîchit les statistiques sans jamais écraser une décision de revue.
+
+**Limite.** Les clés étrangères composites ne sont pas détectées (déclaration manuelle
+prévue plus tard).
+
+## D12 — Fournisseurs LLM : SDK officiels, sortie structurée, aucun SQL libre
+
+**Décision.**
+- Anthropic et OpenAI passent par leurs SDK officiels, Ollama par son API REST. La
+  sortie est contrainte par le schéma JSON du modèle Pydantic attendu
+  (`output_config.format` chez Anthropic) puis validée par Pydantic.
+- Les retries (429, 408, 409, 5xx, timeouts) sont gérés par Forja avec backoff
+  exponentiel ou `retry-after` ; les retries des SDK sont désactivés pour que le journal
+  compte les tentatives de façon homogène. Une réponse invalide est renvoyée une fois
+  avec les erreurs de validation.
+- Anthropic : `claude-opus-5-5` par défaut, effort explicite (`high`), bascule serveur en
+  cas de refus (`fallbacks: "default"`), désactivable par
+  `FORJA_LLM_REFUSAL_FALLBACK=false`.
+- Journal `llm_calls` : empreinte SHA-256 du prompt, durée, tentatives, tokens, statut.
+  Jamais le prompt ni la réponse.
+- Sans `FORJA_LLM_PROVIDER`, aucun fournisseur n'est créé : Forja fonctionne entièrement
+  avec ses règles déterministes.
+
+## D13 — Le contexte LLM ne contient aucune valeur
+
+**Décision.** En plus des top valeurs, les minimums, maximums et moyennes ont été
+retirés du contexte : un maximum est une valeur de ligne (le salaire le plus élevé). Le
+contexte ne contient que des noms, des types, des formats issus d'une liste fermée, des
+taux et des comptages. Un test sérialise le contexte du projet e-commerce et échoue si une
+seule valeur de cellule des fixtures y apparaît.
+
+## D14 — Modèle Gold : le LLM propose, des règles valident, des templates compilent
+
+**Décision.**
+- Le LLM (ou, sans LLM, une heuristique déterministe) produit un `GoldModel` JSON :
+  dimensions, faits, grain, clés, mesures. Il n'écrit jamais de SQL ; seules les
+  expressions de mesures sont libres, parsées par sqlglot avec une liste blanche de
+  nœuds, de fonctions (`coalesce`, `nullif`, `abs`, `round`, `least`, `greatest`, `case`,
+  `cast`…) et de colonnes existantes.
+- La validation bloque l'approbation : grain sans la clé primaire, clé étrangère sans
+  relation confirmée, dimension orpheline, jointure dans le sens 1-N (fan-out), mesure
+  additive lue sur une table jointe (ex. `frais_port` d'une commande sommé par ligne).
+- Heuristique : une source qui ne fait que référencer est un fait, une source
+  intermédiaire est jointe au fait (en-tête), une source seulement référencée est une
+  dimension ; SCD2 si la dimension porte des attributs qui évoluent (ville, segment,
+  catégorie, statut) ou des données personnelles.
+
+## D15 — Clés de substitution, membre inconnu et SCD2
+
+**Décision.**
+- Clé de substitution = MD5 de la clé naturelle (et du début de version en SCD2) :
+  déterministe, stable d'un build à l'autre, sans séquence à maintenir.
+- Chaque dimension a un membre « inconnu » de clé `-1` ; une clé étrangère sans
+  correspondance y est rattachée au lieu de supprimer la ligne de fait. Le nombre de
+  lignes concernées est une métrique du run `build_gold`.
+- SCD2 par snapshot dbt (`strategy: check` sur les attributs) de la table Silver. La
+  première version d'une clé est valide depuis 1900-01-01, sinon les faits antérieurs au
+  premier snapshot ne trouveraient aucune version. Un fait pointe vers la version valide
+  à sa date (première clé de date du fait), ou vers la version courante sans date.
+
+**Conséquence.** L'historique SCD2 commence au premier `build_gold` : les changements
+survenus entre deux versions Bronze traitées avant ce premier build ne sont pas
+reconstitués.
+
+## D16 — Serving : Gold par défaut, Silver sur demande
+
+**Décision.** La base serving et les exports du run `export` ne contiennent plus que les
+tables marquées `publish` : toutes les tables Gold par défaut, une table Silver
+uniquement après `PATCH /tables/{id}` avec `{"publish": true}`. La décision de
+publication est conservée d'un build à l'autre. Les colonnes Gold héritent du traitement
+PII de leur colonne Silver d'origine (surchargeable par attribut dans le plan Gold).
