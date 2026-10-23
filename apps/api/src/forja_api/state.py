@@ -14,11 +14,13 @@ from forja_core.gold.build import GoldBuilder
 from forja_core.gold.service import GoldPlanService
 from forja_core.ingestion import IngestionService
 from forja_core.jobs.executor import JobExecutor
+from forja_core.jobs.models import Job, JobType
 from forja_core.jobs.runner import InlineJobRunner, JobRunner, ThreadJobRunner
 from forja_core.locks import WarehouseLocks
 from forja_core.profiling.profiler import Profiler
 from forja_core.relations.detector import RelationDetector
 from forja_core.relations.service import RelationService
+from forja_core.semantic.service import SemanticService
 from forja_core.serving import Publisher
 from forja_core.silver.build import SilverBuilder
 from forja_core.silver.dbt.project import DbtProjectGenerator
@@ -45,6 +47,7 @@ class AppState:
     llm: LLMProvider | None
     gold: GoldPlanService
     auth: AuthService
+    semantic: SemanticService
 
     @classmethod
     def build(cls, settings: Settings) -> AppState:
@@ -78,6 +81,14 @@ class AppState:
             if settings.job_runner == "thread"
             else InlineJobRunner(executor)
         )
+        auth = AuthService(catalog, settings)
+        semantic = SemanticService(catalog, generator, locks)
+        def refresh_semantic_layer(job: Job) -> None:
+            # The semantic layer follows the applied Gold model.
+            if job.type is JobType.BUILD_GOLD:
+                semantic.regenerate(job.project_id, by=job.created_by)
+
+        executor.after_success.append(refresh_semantic_layer)
         return cls(
             settings=settings,
             catalog=catalog,
@@ -92,7 +103,8 @@ class AppState:
             runner=runner,
             llm=llm,
             gold=gold,
-            auth=AuthService(catalog, settings),
+            auth=auth,
+            semantic=semantic,
         )
 
     def start(self) -> None:

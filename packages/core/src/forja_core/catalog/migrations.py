@@ -278,6 +278,33 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         ALTER TABLE warehouse_tables ADD COLUMN owner_id VARCHAR;
         """,
     ),
+    (
+        11,
+        """
+        CREATE TABLE semantic_layers (
+            id VARCHAR PRIMARY KEY,
+            project_id VARCHAR NOT NULL,
+            version INTEGER NOT NULL,
+            data JSON NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            UNIQUE (project_id, version)
+        );
+        CREATE TABLE semantic_overrides (
+            project_id VARCHAR NOT NULL,
+            target VARCHAR NOT NULL,
+            data JSON NOT NULL,
+            updated_at TIMESTAMP,
+            PRIMARY KEY (project_id, target)
+        );
+        CREATE TABLE synonym_proposals (
+            id VARCHAR PRIMARY KEY,
+            project_id VARCHAR NOT NULL,
+            status VARCHAR NOT NULL,
+            data JSON NOT NULL,
+            created_at TIMESTAMP NOT NULL
+        );
+        """,
+    ),
 
 )
 

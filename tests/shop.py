@@ -42,3 +42,15 @@ def build_shop(settings: Settings, ecommerce_dir: Path) -> tuple[AppState, Proje
         state.ingestion.ingest_file(project.id, ecommerce_dir / name, name)
     run(state, project, RunRequest(type=JobType.BUILD_SILVER))
     return state, project
+
+
+def build_gold_shop(settings: Settings, ecommerce_dir: Path) -> tuple[AppState, Project]:
+    """The shop with confirmed relations, the heuristic star schema built, and its
+    semantic layer generated (as after a build_gold run)."""
+    state, project = build_shop(settings, ecommerce_dir)
+    for relation in state.catalog.list_relations(project.id):
+        state.relations.confirm(relation.id)
+    state.gold.propose(project.id)
+    state.gold.approve(project.id)
+    run(state, project, RunRequest(type=JobType.BUILD_GOLD))
+    return state, project
