@@ -11,15 +11,18 @@
   (`__rejects`), ou est comptée comme doublon exact dans les métriques du run.
 - **Confidentialité par construction** : la couche Silver interne est en clair, tout ce
   qui sort (base serving, exports) est traité ; aucun modèle de langage ne reçoit de
-  valeur de cellule.
+  valeur de cellule ; un analyst ne reçoit jamais de donnée personnelle en clair.
+- **Le LLM propose, Forja vérifie** : plan Gold comme demande métier, la sortie d'un
+  modèle est un document structuré validé par des règles, le SQL est toujours écrit par
+  des templates.
 
 ## Monorepo
 
 | Paquet | Import | Rôle |
 |---|---|---|
-| `packages/core` | `forja_core` | Catalogue, ingestion, profiling, plans Silver, relations, plans Gold, génération dbt, jobs, confidentialité, serving |
-| `packages/llm` | `forja_llm` | Fournisseurs Anthropic / OpenAI / Ollama, contexte sans données brutes, proposeur Gold |
-| `apps/api` | `forja_api` | API HTTP FastAPI et worker de jobs |
+| `packages/core` | `forja_core` | Catalogue, ingestion, profiling, plans Silver, relations, plans Gold, génération dbt, jobs, confidentialité, serving, authentification, couche sémantique, agent métier |
+| `packages/llm` | `forja_llm` | Fournisseurs Anthropic / OpenAI / Ollama, cache, contexte sans données brutes, proposeur Gold, interprète de l'agent |
+| `apps/api` | `forja_api` | API HTTP FastAPI, dépendances d'authentification et de permission, worker de jobs |
 
 ## Flux Bronze → Silver → Gold → serving
 
@@ -79,6 +82,22 @@
  │ data/<p>/exports/<table>.parquet|csv                                │     lecture seule
  │ GET /tables/{id}/export · GET /tables/{id}/preview (traités)        │
  └─────────────────────────────────────────────────────────────────────┘
+        │ fin de build_gold : génération de la couche sémantique
+        ▼
+ ┌──────────────── COUCHE SÉMANTIQUE (catalogue, versionnée) ──────────┐
+ │ métriques (formule, additivité, unité, synonymes), ratios additifs  │
+ │ dimensions, attributs, hiérarchies ; overrides de l'engineer        │
+ └───────────────────────────┬─────────────────────────────────────────┘
+        │ POST /projects/{id}/mart-requests   « CA par mois et par ville »
+        ▼
+ ┌──────────────── AGENT MÉTIER (run mart_request) ────────────────────┐
+ │ présélection locale → parseur | LLM → MartSpec | Clarification      │
+ │ → validation → SQL par templates → aperçu et contrôles              │
+ │ drafted → previewed → validated (→ approbation) → published         │
+ └───────────────────────────┬─────────────────────────────────────────┘
+        │ run publish_mart : models/marts/mart_<nom>.sql, dbt build
+        ▼
+   serving (mart_<nom>, pseudonymisé) + exports Parquet / CSV
 ```
 
 ## Bronze et versions
@@ -172,10 +191,51 @@ lignes rattachées au membre inconnu, enregistre les tables Gold (publiées par 
 passe le plan à `applied`. Un `build_silver` régénère aussi les fichiers Gold, pour que le
 projet reste complet. Voir D15.
 
+## Couche sémantique et agent
+
+Voir [semantic-layer.md](semantic-layer.md) et [agent.md](agent.md). La couche
+sémantique est régénérée à la fin de chaque `build_gold` réussi ; l'agent ne lit que la
+couche visible (sans éléments masqués) et les valeurs distinctes des attributs
+filtrables, dans le processus. Les data marts publiés sont des modèles dbt
+`models/marts/mart_<nom>.sql`, gardés à chaque régénération du projet dbt, enregistrés
+comme tables de couche `mart` avec leur propriétaire.
+
+## Authentification
+
+Voir [security.md](security.md). Chaque route déclare une action de la matrice des
+permissions (`forja_api.security.require`) ; le projet est déduit du chemin. Les
+services du cœur reçoivent le `Principal` quand ils en ont besoin (propriétaire d'une
+demande, accès aux données en clair) et n'importent pas FastAPI.
+
 ## Jobs
 
-Table `jobs` du catalogue : type (`profile`, `build_silver`, `build_gold`, `export`), statut
-(`queued` → `running` → `succeeded` | `failed`), horodatages, logs, métriques.
+Table `jobs` du catalogue : type (`profile`, `build_silver`, `build_gold`, `export`,
+`gold_proposal`, `mart_request`, `publish_mart`), statut (`queued` → `running` →
+`succeeded` | `failed` | `cancelled`), auteur, horodatages, logs, métriques, progression
+(`progress`), résultat (`result`, par exemple la version du plan Gold proposé) et nombre
+d'exécutions (`attempts`).
+
+- **Appels LLM** : la proposition Gold et l'agent sont des runs. `POST
+  /projects/{id}/gold-plan/propose` répond `202` avec le run ; le plan est dans
+  `result.gold_plan_version`. Le worker local a deux files : `warehouse` (builds,
+  exports, publication de marts, en série) et `llm` (propositions et agent), pour qu'un
+  modèle local qui réfléchit plusieurs minutes ne bloque pas les builds.
+- **Annulation** : `POST /runs/{id}/cancel` annule un run en file, ou un run LLM en
+  cours : l'appel au fournisseur tourne dans un fil secondaire surveillé, et la connexion
+  est fermée (Ollama arrête alors de lire ou d'écrire). Un build en cours ne s'annule pas
+  (dbt écrit l'entrepôt).
+- **Reprise** : au démarrage, un run LLM resté `running` (arrêt, plantage, veille) est
+  remis en file et repart du début, jusqu'à 3 exécutions ; les réponses déjà reçues sont
+  dans le cache. Un build resté `running` passe en `failed`.
+- **Cache** : une réponse validée est stockée sous l'empreinte SHA-256 du fournisseur,
+  du modèle, du schéma attendu et du prompt (`llm_cache`) ; `FORJA_LLM_CACHE=false` le
+  désactive.
+- **Mesures** : chaque appel est journalisé (`llm_calls` : run, objet, tokens
+  d'entrée/sortie, durée, tentatives, statut `succeeded`/`failed`/`cached`/`cancelled`)
+  et logué (`llm_call`) ; un run reporte ses appels dans `metrics.llm_calls`.
+- **Étapes de suite** : après un handler réussi, des étapes enregistrées
+  (`after_success`, ex. la couche sémantique après `build_gold`) s'exécutent avant que le
+  run soit annoncé terminé ; leur échec est écrit dans les logs du run.
 
 - `JobExecutor` exécute un job : transitions de statut, logs horodatés, métriques,
   erreurs.
@@ -200,8 +260,11 @@ warehouse_busy`.
 ## Catalogue
 
 `forja_meta.duckdb` : `projects`, `sources`, `source_versions`, `profiles` (par
-version), `plans` (versionnés), `jobs`, `warehouse_tables` (tables Silver et Gold, avec
-leur indicateur de publication), `relations`, `gold_plans` et `llm_calls`. Le schéma
+version), `plans` (versionnés), `jobs`, `warehouse_tables` (tables Silver, Gold et data
+marts, avec leur indicateur de publication et leur propriétaire), `relations`,
+`gold_plans`, `llm_calls`, `llm_cache`, `users`, `memberships`, `auth_sessions`,
+`refresh_tokens`, `api_keys`, `invitations`, `audit_log`, `semantic_layers`,
+`semantic_overrides`, `synonym_proposals` et `mart_requests`. Le schéma
 évolue par migrations numérotées (`catalog/migrations.py`) appliquées au démarrage ; un
 catalogue d'une étape précédente est migré sans perte.
 
@@ -212,8 +275,12 @@ catalogue d'une étape précédente est migré sans perte.
   aléatoire de 32 octets par projet dans `FORJA_SECRETS_DIR`, hors du dépôt), `mask`
   (masquage partiel), `drop` (colonne retirée) ou `none`. Défaut : `hash` pour toute
   donnée personnelle détectée avec une confiance moyenne ou élevée.
+- **Lecteurs sans `data.unmasked`** (analysts) : toute colonne personnelle laissée en
+  clair par le plan est pseudonymisée dans les aperçus et les exports ; les data marts
+  pseudonymisent toujours leurs colonnes personnelles.
 - **LLM** : `forja_llm.context.build_safe_context` ne copie que schéma et statistiques
-  (voir étape 1).
+  (voir étape 1) ; l'agent n'envoie que la demande et la couche sémantique présélectionnée
+  (`SemanticContext`).
 
 ## Journalisation
 

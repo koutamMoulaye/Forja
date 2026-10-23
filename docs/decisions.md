@@ -143,11 +143,9 @@ personnelles comprises.
 - `GET /tables/{id}/preview` montre une table Silver ou Gold avec exactement les
   traitements des exports et du serving (pseudonymisation par défaut).
 
-**À venir (étape 4).** L'authentification et les rôles (qui peut voir le Bronze en clair,
-approuver un plan, lancer un build, publier) arrivent à l'étape 4. D'ici là :
-- l'API doit rester sur `127.0.0.1` (valeur par défaut de `FORJA_API_HOST`) ou derrière
-  un proxy authentifiant ;
-- `FORJA_ALLOW_BRONZE_PREVIEW` ne doit pas être activé sur une instance partagée.
+**Étape 4.** L'authentification et les rôles sont en place (D20) : l'aperçu Bronze est
+réservé au rôle `admin` en plus de `FORJA_ALLOW_BRONZE_PREVIEW`, et un analyst ne reçoit
+jamais de donnée personnelle en clair.
 
 ## D11 — Relations détectées localement, confirmées par une personne
 
@@ -255,5 +253,134 @@ construit : mêmes 79 lignes de fait et 13 tests dbt verts que le plan heuristiq
 `qwen3.5:4b` est deux fois plus rapide mais propose un fait sans mesure. Un GPU réduit nettement ces temps.
 
 **Conséquence.** Sur CPU, la proposition Gold par LLM local est une opération de
-plusieurs minutes : à exécuter en tâche de fond à l'étape 4 plutôt que dans une requête
-HTTP. Si la proposition reste invalide, Forja se rabat sur l'heuristique.
+plusieurs minutes : depuis l'étape 4 c'est un run en tâche de fond (D18). Si la
+proposition reste invalide, Forja se rabat sur l'heuristique.
+
+## D18 — Appels LLM en runs annulables et repris
+
+**Contexte.** Sur CPU, `qwen3.5:9b` lit 11 à 15 tokens/s : une proposition Gold prend
+plusieurs minutes, une demande à l'agent une à deux. Une requête HTTP synchrone expire,
+bloque le worker et se perd si la machine se met en veille.
+
+**Décision.**
+- Proposition Gold (`gold_proposal`) et agent (`mart_request`) sont des runs ; `POST`
+  répond `202` avec le run, la progression (`progress`) et le résultat (`result`) sont
+  attachés au run. Le mode synchrone de `POST /gold-plan/propose` est supprimé.
+- Le worker local a deux files : entrepôt (builds, exports, publications, en série,
+  comme l'exige DuckDB) et LLM ; un modèle lent ne retarde plus un build.
+- Annulation : l'appel au fournisseur s'exécute dans un fil secondaire surveillé toutes
+  les 200 ms ; à l'annulation la connexion est fermée (Ollama arrête le calcul) et le run
+  passe `cancelled`. Les builds ne s'annulent qu'en file : dbt écrit l'entrepôt.
+- La portée du run (identifiant, annulation, progression) passe par une variable de
+  contexte (`forja_core.jobs.scope`) plutôt que par toutes les signatures.
+- Reprise : au démarrage, un run LLM resté `running` est remis en file (3 exécutions au
+  plus) ; il ne lit que le catalogue, le relancer est sans risque. Un build interrompu
+  échoue comme avant.
+
+## D19 — Cache des réponses LLM par empreinte
+
+**Décision.** Une réponse validée est stockée sous le SHA-256 de (fournisseur, modèle,
+nom du schéma, prompt système, prompt). Le prompt contient tout ce qui détermine la
+réponse : contexte, consigne, demande. La même question sur la même couche sémantique
+(ou le même plan Gold sur les mêmes tables) ne rappelle pas le modèle ; un changement
+de couche, de modèle ou de consigne change l'empreinte. Une entrée qui ne valide plus
+contre le modèle Pydantic est ignorée. Le journal `llm_calls` distingue `cached`, et
+chaque appel enregistre son run, ses tokens et sa durée.
+
+## D20 — Authentification : argon2, JWT de session, refresh rotatif
+
+**Décision.**
+- Mots de passe argon2 (argon2-cffi) ; un email inconnu coûte une vérification factice
+  pour ne pas révéler les comptes par le temps de réponse.
+- Jeton d'accès JWT HS256 de 15 min portant l'identifiant de session ; la session est
+  vérifiée à chaque requête (une requête au catalogue), ce qui rend la déconnexion et la
+  révocation immédiates sans liste noire de jetons.
+- Refresh token opaque à usage unique, stocké en SHA-256 ; un refresh déjà utilisé
+  révoque la session (détection de vol).
+- Clés API `fja_<préfixe>_<secret>` en SHA-256 (secrets longs et aléatoires : un hachage
+  lent n'apporte rien), préfixe affiché pour les reconnaître.
+- Mode `local` : un administrateur d'instance créé au premier démarrage, mot de passe
+  aléatoire journalisé une fois, changement obligatoire. Mode `multi` : invitations.
+  Pas d'OIDC à cette étape, mais l'interface `IdentityProvider` et les colonnes
+  `identity_provider` / `external_subject` sont prêtes.
+- Rôles par projet `admin`, `engineer`, `analyst` ; une route = une action de la matrice
+  ; le projet est déduit du chemin. La matrice est dans le code
+  (`ROLE_ACTIONS`), documentée dans `security.md` et vérifiée par un test qui appelle
+  chaque route avec chaque rôle et échoue si une route n'y figure pas.
+- Sans `data.unmasked`, toute colonne personnelle laissée en clair par le plan est
+  pseudonymisée (aperçus, exports, échantillons de l'agent) : « l'analyst ne voit jamais
+  de PII en clair » ne dépend pas d'un réglage de plan.
+
+**Correction associée.** Les traitements d'une table Gold publiée étaient lus dans le
+plan Gold *effectif* : un plan approuvé mais pas encore construit qui ne décrivait plus
+la table la laissait sans traitement, et l'email partait en clair. Ils sont lus dans le
+plan avec lequel la table a été construite.
+
+## D21 — Couche sémantique déterministe, ratios plutôt que moyennes
+
+**Décision.**
+- Générée par des règles depuis le plan Gold appliqué : même plan, même couche. Une
+  version n'est créée que si le contenu change.
+- Une valeur non additive est le ratio de deux métriques additives
+  (`sum(montant) / sum(quantite)`), jamais une moyenne : la moyenne des prix unitaires
+  d'un groupe pondère par le nombre de lignes, pas par les quantités, et une moyenne de
+  moyennes est fausse dès qu'on change de niveau. Le plan Gold heuristique déclare donc
+  les prix et taux avec l'agrégation `none` au lieu de `avg`.
+- Le comptage distinct d'un identifiant d'en-tête (`nb_commandes`) est non additif ; les
+  sommes de soldes (stock, encours) sont semi-additives sur le temps.
+- Les éditions d'un engineer sont des overrides stockés à part, réappliqués à chaque
+  régénération : un libellé corrigé ne revient jamais en arrière.
+
+## D22 — Agent : parseur d'abord, LLM sur la présélection, jamais de supposition
+
+**Contexte.** Chaque appel à un modèle local coûte une à deux minutes et le contexte qu'il
+lit en est la cause principale.
+
+**Décision.**
+- Une présélection locale réduit la couche sémantique aux éléments que la demande
+  mentionne (plus les éléments de base), rendue en texte compact : ~200 tokens au lieu
+  de la couche entière. Les valeurs distinctes servent à reconnaître les filtres et ne
+  sont jamais envoyées.
+- Un parseur par mots-clés traite les demandes simples sans LLM ; il n'est confiant que
+  si chaque mot significatif est expliqué. Le LLM n'est appelé qu'à défaut ; sans LLM,
+  Forja pose une question sur le mot inconnu ou refuse. Le chemin utilisé est enregistré.
+- Un terme ambigu ou inconnu donne une Clarification de 2 à 4 options (ou un refus si
+  rien n'approche), produite par le parseur, le LLM ou la validation : Forja ne devine pas.
+- Le MartSpec est validé contre la couche ; le SQL est écrit par des templates à partir
+  du MartSpec validé ; le LLM n'écrit jamais de SQL. Les valeurs de filtre sont
+  résolues localement (« Lyonn » → Lyon), un filtre sur une donnée personnelle est
+  refusé.
+- Le schéma JSON de la réponse reste dans le prompt (D17) ; la consigne est courte.
+
+## D23 — Aperçu de vérification, approbation et publication en dbt
+
+**Décision.**
+- Avant toute publication, l'utilisateur voit ce qui a été compris (résumé en français
+  généré depuis le MartSpec, pas par le LLM), un échantillon pseudonymisé selon son
+  rôle, le SQL et des contrôles : réconciliation des totaux additifs avec le fait sur le
+  même périmètre (un écart bloque la validation), membres inconnus, colonnes vides,
+  période sans données.
+- `FORJA_MART_REQUIRE_APPROVAL=true` ajoute l'approbation d'un engineer entre la
+  validation et la publication.
+- Un data mart publié est un modèle dbt (`models/marts/mart_<nom>.sql`) construit,
+  enregistré (couche `mart`, propriétaire), servi et exporté comme les tables Gold ; il
+  reste dans le projet dbt à chaque régénération. Ses colonnes personnelles sont
+  toujours pseudonymisées : un mart est partagé entre analysts.
+
+## D24 — Évaluation de l'agent : modèle simulé en CI, sous-ensemble en local
+
+**Décision.** Le jeu de 20 questions (`tests/agent_eval`) tourne dans pytest et en CI
+avec un fournisseur simulé, qui répond comme un modèle discipliné : il mesure le
+pipeline (présélection, parseur, validation, compilation, aperçu), pas le modèle.
+Un modèle réel s'évalue par une commande dédiée, hors de la suite par défaut : 5
+questions représentatives avec Ollama (une par type de chemin), le jeu complet avec un
+fournisseur cloud. Le cache est alors désactivé pour mesurer durée et tokens.
+
+**Mesures.** Simulé : 20/20, 13/20 sans LLM, contexte moyen 200 tokens. Ollama
+`qwen3.5:9b` sur CPU : 3/5, ~2 min par appel pour ~1 500 tokens de prompt. Les échecs
+(un filtre pris pour un axe, une ambiguïté tranchée) ont conduit à transmettre au modèle
+les éléments reconnus localement et à traiter « vendus » sans métrique dans le parseur ;
+ces correctifs restent à mesurer sur Ollama. Sur CPU, chaque question confiée au parseur
+économise environ deux minutes : élargir le parseur rapporte plus que raccourcir le
+prompt.
+
