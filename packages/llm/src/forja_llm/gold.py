@@ -13,7 +13,8 @@ from forja_core.errors import GoldProposalError
 from forja_core.gold.context import GoldContext
 from forja_core.gold.plan import GoldModel
 from forja_core.gold.service import GoldProposer
-from forja_llm.base import LLMError, LLMProvider, LLMRequest
+from forja_core.jobs.scope import JobCancelledError
+from forja_llm.base import LLMCancelledError, LLMError, LLMProvider, LLMRequest
 from forja_llm.context import SourceContext, build_safe_context
 
 GOLD_TASK = """\
@@ -84,5 +85,7 @@ class LLMGoldProposer(GoldProposer):
                 LLMRequest(task=task, context=context, purpose="gold_plan", project_id=project.id),
                 GoldModel,
             )
+        except LLMCancelledError as exc:
+            raise JobCancelledError("the Gold proposal was cancelled") from exc
         except LLMError as exc:
             raise GoldProposalError(f"{type(exc).__name__}: {exc}") from exc

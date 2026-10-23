@@ -210,8 +210,82 @@ def build_safe_context(
     )
 
 
-def serialize_for_llm(context: LLMSafeContext) -> str:
+_LABEL_MAX_LENGTH = 160
+
+
+def _check_label(value: str) -> str:
+    if len(value) > _LABEL_MAX_LENGTH or "\n" in value or "|" in value:
+        raise ValueError("label is too long or contains a line break or '|'")
+    return value
+
+
+class SemanticField(_SafeModel):
+    """A metric, attribute or time dimension of the semantic layer, by business name.
+
+    Labels and synonyms are written by Forja or by an engineer; no field carries a
+    value of the data (filter values are resolved locally, never sent).
+    """
+
+    ref: str = Field(description="metric name, dimension.attribute, or time dimension name")
+    label: str
+    synonyms: list[str] = Field(default_factory=list)
+    data_type: str | None = Field(default=None, description="text, number, date, boolean")
+    unit: str | None = None
+
+    _check_ref = field_validator("ref")(_check_identifier)
+
+    @field_validator("label", "unit")
+    @classmethod
+    def _labels(cls, value: str | None) -> str | None:
+        return value if value is None else _check_label(value)
+
+    @field_validator("synonyms")
+    @classmethod
+    def _synonyms(cls, values: list[str]) -> list[str]:
+        return [_check_label(v) for v in values]
+
+
+class SemanticContext(_SafeModel):
+    """The part of the semantic layer relevant to a request (pre-selected locally)."""
+
+    project_name: str
+    metrics: list[SemanticField]
+    attributes: list[SemanticField] = Field(default_factory=list)
+    time_dimensions: list[SemanticField] = Field(default_factory=list)
+    time_grains: list[str] = Field(default_factory=list)
+    today: str | None = Field(default=None, description="ISO date, to resolve relative periods")
+
+    _check_name = field_validator("project_name")(_check_identifier)
+
+    def render(self) -> str:
+        """Compact text: one line per field (JSON would cost twice the tokens)."""
+
+        def line(f: SemanticField) -> str:
+            parts = [f.ref, f.label]
+            if f.data_type:
+                parts.append(f.data_type)
+            if f.unit:
+                parts.append(f.unit)
+            if f.synonyms:
+                parts.append("syn: " + ", ".join(f.synonyms))
+            return "- " + " | ".join(parts)
+
+        lines = ["Metrics:", *(line(m) for m in self.metrics)]
+        if self.attributes:
+            lines += ["Attributes (dimension.attribute):", *(line(a) for a in self.attributes)]
+        if self.time_dimensions:
+            lines += ["Time dimensions:", *(line(t) for t in self.time_dimensions)]
+        if self.time_grains:
+            lines.append("Time grains: " + ", ".join(self.time_grains))
+        if self.today:
+            lines.append(f"Today: {self.today}")
+        return "\n".join(lines)
+
+
+def serialize_for_llm(context: LLMSafeContext | SemanticContext) -> str:
     """The single serialization path for data-derived content sent to a provider."""
+    if isinstance(context, SemanticContext):
+        return context.render()
     if not isinstance(context, LLMSafeContext):
         raise TypeError("only an LLMSafeContext can be serialized for a language model")
     return context.model_dump_json(exclude_none=True)

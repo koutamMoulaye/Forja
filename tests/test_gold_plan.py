@@ -32,6 +32,7 @@ from forja_llm import LLMProvider, LLMSettings
 from forja_llm.base import Completion, LLMRetryableError
 from forja_llm.gold import LLMGoldProposer
 from tests.shop import build_shop, shop_settings
+from tests.test_api import wait_for_run
 
 
 @pytest.fixture(scope="module")
@@ -261,10 +262,13 @@ def test_gold_api(shop: tuple[AppState, Project]) -> None:
     state.close()
     try:
         with TestClient(create_app(state.settings)) as client:
-            created = client.post(f"/projects/{project.id}/gold-plan/propose", json={})
-            assert created.status_code == 201
-            assert created.json()["origin"] == "heuristic"  # no provider configured
-            version = created.json()["version"]
+            queued = client.post(f"/projects/{project.id}/gold-plan/propose", json={})
+            assert queued.status_code == 202
+            run = wait_for_run(client, queued.json()["id"])
+            assert run["type"] == "gold_proposal" and run["status"] == "succeeded"
+            assert run["result"]["origin"] == "heuristic"  # no provider configured
+            version = run["result"]["gold_plan_version"]
+            assert client.get(f"/projects/{project.id}/gold-plan").json()["version"] == version
             patched = client.patch(
                 f"/projects/{project.id}/gold-plan",
                 json={"dimension_scd": {"dim_clients": "scd1"}},

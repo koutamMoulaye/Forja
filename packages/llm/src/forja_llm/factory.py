@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from forja_llm.base import CallJournal, LLMProvider
+from forja_llm.base import CallJournal, LLMCache, LLMProvider
 from forja_llm.providers import AnthropicProvider, OllamaProvider, OpenAIProvider
 from forja_llm.settings import LLMSettings, ProviderName
 
@@ -14,10 +14,13 @@ PROVIDERS: dict[ProviderName, type[LLMProvider]] = {
 
 
 def get_provider(
-    settings: LLMSettings | None = None, *, journal: CallJournal | None = None
+    settings: LLMSettings | None = None,
+    *,
+    journal: CallJournal | None = None,
+    cache: LLMCache | None = None,
 ) -> LLMProvider | None:
     """The configured provider, or None: Forja then uses its deterministic heuristics."""
     settings = settings or LLMSettings()
     if settings.provider is None:
         return None
-    return PROVIDERS[settings.provider](settings, journal=journal)
+    return PROVIDERS[settings.provider](settings, journal=journal, cache=cache)

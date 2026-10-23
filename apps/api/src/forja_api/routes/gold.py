@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from forja_api.state import StateDep
 from forja_core.gold.plan import GoldPlan, GoldPlanPatch
+from forja_core.jobs.models import Job, JobType, RunRequest
 
 router = APIRouter(tags=["gold"])
 
@@ -19,14 +20,18 @@ class ProposeRequest(BaseModel):
 
 @router.post(
     "/projects/{project_id}/gold-plan/propose",
-    status_code=status.HTTP_201_CREATED,
-    summary="Propose a star schema: by the configured LLM, else by deterministic rules",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Queue a star schema proposal (LLM if configured, else rules); returns the run",
 )
 def propose_gold_plan(
     project_id: str, state: StateDep, request: ProposeRequest | None = None
-) -> GoldPlan:
+) -> Job:
+    """A local model can take minutes: follow the run, then read the Gold plan it wrote
+    (``result.gold_plan_version``)."""
     use_llm = request.use_llm if request is not None else True
-    return state.gold.propose(project_id, use_llm=use_llm)
+    job = state.executor.create(project_id, RunRequest(type=JobType.GOLD_PROPOSAL, use_llm=use_llm))
+    state.runner.submit(job.id)
+    return state.catalog.get_job(job.id)
 
 
 @router.get("/projects/{project_id}/gold-plan", summary="Latest Gold plan, or a given version")

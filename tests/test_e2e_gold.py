@@ -38,6 +38,17 @@ def _run(client: TestClient, project_id: str, run_type: str) -> dict[str, Any]:
     return run
 
 
+def _propose(client: TestClient, project_id: str) -> dict[str, Any]:
+    """The proposal is a run: wait for it, then read the plan it wrote."""
+    response = client.post(f"/projects/{project_id}/gold-plan/propose", json={})
+    assert response.status_code == 202, response.text
+    run = wait_for_run(client, response.json()["id"])
+    assert run["status"] == "succeeded", client.get(f"/runs/{run['id']}/logs").text
+    plan = client.get(f"/projects/{project_id}/gold-plan").json()
+    assert plan["version"] == run["result"]["gold_plan_version"]
+    return dict(plan)
+
+
 def test_ecommerce_star_schema_with_scd2(
     client: TestClient, settings: Settings, ecommerce_dir: Path
 ) -> None:
@@ -59,13 +70,12 @@ def test_ecommerce_star_schema_with_scd2(
         ("lignes_commande", "id_commande", "commandes"),
     }
     assert all(r["status"] == "suggested" for r in relations)
-    unconfirmed = client.post(f"/projects/{project_id}/gold-plan/propose", json={})
-    assert unconfirmed.json()["facts"] == []  # nothing to model before review
+    assert _propose(client, project_id)["facts"] == []  # nothing to model before review
     for relation in relations:
         assert client.post(f"/relations/{relation['id']}/confirm").status_code == 200
 
     # --- Gold plan --------------------------------------------------------------------------
-    plan = client.post(f"/projects/{project_id}/gold-plan/propose", json={}).json()
+    plan = _propose(client, project_id)
     assert plan["origin"] == "heuristic"
     assert [i for i in plan["issues"] if i["severity"] == "error"] == []
     [fact] = plan["facts"]

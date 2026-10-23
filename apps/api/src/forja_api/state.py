@@ -59,7 +59,7 @@ class AppState:
         builder = SilverBuilder(catalog, workspace, plans, generator, dbt, locks)
         publisher = Publisher(catalog, workspace, settings, generator, locks)
         detector = RelationDetector(catalog, settings, generator, locks)
-        llm = get_provider(LLMSettings(), journal=catalog.add_llm_call)
+        llm = get_provider(LLMSettings(), journal=catalog.add_llm_call, cache=catalog)
         gold = GoldPlanService(catalog, LLMGoldProposer(llm, catalog) if llm is not None else None)
         executor = JobExecutor(
             catalog,

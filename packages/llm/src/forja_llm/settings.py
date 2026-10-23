@@ -48,6 +48,10 @@ class LLMSettings(BaseSettings):
     refusal_fallback: bool = Field(
         default=True, description="Anthropic: retry a declined request on a fallback model"
     )
+    cache: bool = Field(
+        default=True,
+        description="Reuse the validated answer of an identical prompt instead of calling again",
+    )
 
     anthropic_api_key: SecretStr | None = Field(
         default=None,

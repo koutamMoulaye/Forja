@@ -16,11 +16,14 @@ from pydantic import BaseModel, Field
 class LLMCall(BaseModel):
     id: str
     project_id: str | None = None
+    job_id: str | None = Field(default=None, description="Job that made the call")
     provider: str
     model: str
     purpose: str = Field(description="What the call was for, e.g. gold_plan")
     prompt_sha256: str
-    status: Literal["succeeded", "failed"]
+    status: Literal["succeeded", "failed", "cached", "cancelled"] = Field(
+        description="cached: answered from the LLM cache, no call made"
+    )
     attempts: int
     duration_ms: int
     input_tokens: int = 0

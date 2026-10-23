@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,6 +14,14 @@ class JobType(StrEnum):
     BUILD_SILVER = "build_silver"
     BUILD_GOLD = "build_gold"
     EXPORT = "export"
+    GOLD_PROPOSAL = "gold_proposal"
+    MART_REQUEST = "mart_request"
+    PUBLISH_MART = "publish_mart"
+
+    @property
+    def uses_llm(self) -> bool:
+        """LLM jobs only read the catalog: they can be cancelled and resumed safely."""
+        return self in (JobType.GOLD_PROPOSAL, JobType.MART_REQUEST)
 
 
 class JobStatus(StrEnum):
@@ -21,10 +29,11 @@ class JobStatus(StrEnum):
     RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
     @property
     def finished(self) -> bool:
-        return self in (JobStatus.SUCCEEDED, JobStatus.FAILED)
+        return self in (JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELLED)
 
 
 class ExportFormat(StrEnum):
@@ -47,6 +56,12 @@ class RunRequest(BaseModel):
         description="export: file formats written next to the serving database",
     )
     csv_delimiter: str | None = Field(default=None, min_length=1, max_length=1)
+    use_llm: bool = Field(
+        default=True, description="gold_proposal: ask the configured LLM, else the heuristic"
+    )
+    mart_request_id: str | None = Field(
+        default=None, description="mart_request and publish_mart: the request processed"
+    )
 
 
 class DbtTestResult(BaseModel):
@@ -106,6 +121,27 @@ class ExportedFile(BaseModel):
     rows: int
 
 
+class LLMUsage(BaseModel):
+    """One language model call made by a job (the journal holds the same, by call)."""
+
+    purpose: str
+    provider: str
+    model: str
+    status: str
+    cached: bool = False
+    attempts: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    duration_ms: int = 0
+
+
+class JobProgress(BaseModel):
+    step: str
+    message: str = ""
+    percent: int = Field(default=0, ge=0, le=100)
+    updated_at: datetime | None = None
+
+
 class RunMetrics(BaseModel):
     duration_seconds: float = 0.0
     rows_read: int = 0
@@ -120,6 +156,7 @@ class RunMetrics(BaseModel):
     relations_detected: int = 0
     models: list[ModelRunMetrics] = Field(default_factory=list)
     unknown_member_rows: list[UnknownMemberRows] = Field(default_factory=list)
+    llm_calls: list[LLMUsage] = Field(default_factory=list)
 
     def add_source(self, source: SourceRunMetrics) -> None:
         self.sources.append(source)
@@ -140,3 +177,10 @@ class Job(BaseModel):
     created_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    created_by: str | None = Field(default=None, description="User who queued the job")
+    progress: JobProgress | None = None
+    result: dict[str, Any] | None = Field(
+        default=None, description="Outcome of LLM jobs (Gold plan version, mart request...)"
+    )
+    attempts: int = Field(default=0, description="Executions started (resumed LLM jobs: > 1)")
+    cancel_requested: bool = False

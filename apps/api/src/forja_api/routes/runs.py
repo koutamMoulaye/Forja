@@ -14,7 +14,7 @@ router = APIRouter(tags=["runs"])
 @router.post(
     "/projects/{project_id}/runs",
     status_code=status.HTTP_202_ACCEPTED,
-    summary="Queue a profile, build_silver or export run",
+    summary="Queue a profile, build_silver, build_gold, export or gold_proposal run",
 )
 def create_run(project_id: str, request: RunRequest, state: StateDep) -> Job:
     job = state.executor.create(project_id, request)
@@ -30,6 +30,14 @@ def list_runs(project_id: str, state: StateDep) -> list[Job]:
 @router.get("/runs/{run_id}")
 def get_run(run_id: str, state: StateDep) -> Job:
     return state.catalog.get_job(run_id)
+
+
+@router.post(
+    "/runs/{run_id}/cancel",
+    summary="Cancel a queued run, or a running LLM run (Gold proposal, agent request)",
+)
+def cancel_run(run_id: str, state: StateDep) -> Job:
+    return state.executor.cancel(run_id)
 
 
 @router.get("/runs/{run_id}/logs", response_class=PlainTextResponse)

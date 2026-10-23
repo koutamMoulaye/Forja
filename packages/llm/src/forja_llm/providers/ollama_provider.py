@@ -40,6 +40,12 @@ class OllamaProvider(LLMProvider):
             )
         return self._client
 
+    def _abort(self) -> None:
+        """Closing the connection makes Ollama stop reading or writing for this request."""
+        client, self._client = self._client, None
+        if client is not None:
+            client.close()
+
     def _complete(
         self, *, system: str, prompt: str, response_schema: dict[str, Any], schema_name: str
     ) -> Completion:

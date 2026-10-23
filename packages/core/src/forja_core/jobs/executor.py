@@ -8,11 +8,21 @@ from collections.abc import Callable
 from datetime import datetime
 
 from forja_core.catalog import Catalog
-from forja_core.errors import ForjaError, SourceNotFoundError
+from forja_core.errors import ConflictError, ForjaError, SourceNotFoundError
 from forja_core.gold.build import GoldBuilder
+from forja_core.gold.service import GoldPlanService
 from forja_core.ingestion.service import IngestedVersion
 from forja_core.jobs.errors import RunFailedError
-from forja_core.jobs.models import Job, JobStatus, JobType, RunMetrics, RunRequest
+from forja_core.jobs.models import (
+    Job,
+    JobProgress,
+    JobStatus,
+    JobType,
+    LLMUsage,
+    RunMetrics,
+    RunRequest,
+)
+from forja_core.jobs.scope import JobCancelledError, JobScope, job_scope
 from forja_core.logging import get_logger
 from forja_core.profiling.profiler import Profiler
 from forja_core.relations.detector import RelationDetector
@@ -26,6 +36,9 @@ log = get_logger(__name__)
 
 Handler = Callable[[Job, Callable[[str], None]], RunMetrics]
 
+# Executions of an interrupted LLM job before it is given up (see recover_interrupted_jobs).
+MAX_LLM_JOB_ATTEMPTS = 3
+
 
 class JobExecutor:
     def __init__(
@@ -38,6 +51,7 @@ class JobExecutor:
         publisher: Publisher,
         relations: RelationDetector,
         gold_builder: GoldBuilder | None = None,
+        gold: GoldPlanService | None = None,
     ) -> None:
         self.catalog = catalog
         self.workspace = workspace
@@ -47,17 +61,41 @@ class JobExecutor:
         self.publisher = publisher
         self.relations = relations
         self.gold_builder = gold_builder
+        self.gold = gold or (gold_builder.gold if gold_builder else None)
         self.handlers: dict[JobType, Handler] = {
             JobType.PROFILE: self._profile,
             JobType.BUILD_SILVER: self._build_silver,
             JobType.EXPORT: self._export,
             JobType.BUILD_GOLD: self._build_gold,
+            JobType.GOLD_PROPOSAL: self._gold_proposal,
         }
+        self._scopes: dict[str, JobScope] = {}
+        self.after_success: list[Callable[[Job], None]] = []
 
     def register(self, job_type: JobType, handler: Handler) -> None:
         self.handlers[job_type] = handler
 
-    def create(self, project_id: str, request: RunRequest) -> Job:
+    def cancel(self, job_id: str) -> Job:
+        """Cancel a queued job, or a running LLM job (builds cannot stop half-way)."""
+        job = self.catalog.get_job(job_id)
+        if job.status.finished:
+            raise ConflictError(
+                f"run '{job_id}' is already {job.status.value}",
+                details={"status": job.status.value},
+            )
+        if job.status is JobStatus.RUNNING and not job.type.uses_llm:
+            raise ConflictError(
+                f"a running {job.type.value} cannot be cancelled: dbt is writing the warehouse",
+                details={"type": job.type.value},
+            )
+        job = self.catalog.request_job_cancel(job_id)
+        scope = self._scopes.get(job_id)
+        if scope is not None:
+            scope.cancelled.set()
+        log.info("job_cancel_requested", job_id=job_id, status=job.status.value)
+        return job
+
+    def create(self, project_id: str, request: RunRequest, *, created_by: str | None = None) -> Job:
         self.catalog.get_project(project_id)
         for source_id in request.source_ids or []:
             source = self.catalog.get_source(source_id)
@@ -72,6 +110,7 @@ class JobExecutor:
             status=JobStatus.QUEUED,
             params=request,
             created_at=utcnow(),
+            created_by=created_by,
         )
         self.catalog.add_job(job)
         log.info("job_queued", job_id=job.id, project_id=project_id, type=job.type.value)
@@ -87,18 +126,39 @@ class JobExecutor:
             stamp = datetime.now().astimezone().strftime("%H:%M:%S")
             self.catalog.append_job_log(job.id, f"[{stamp}] {message}\n")
 
+        def on_progress(step: str, message: str, percent: int) -> None:
+            job.progress = JobProgress(
+                step=step, message=message, percent=percent, updated_at=utcnow()
+            )
+            self.catalog.save_job_progress(job.id, job.progress)
+            if message:
+                log_line(f"[{step}] {message}")
+
         job.status = JobStatus.RUNNING
         job.started_at = utcnow()
+        job.attempts += 1
+        job.error = None
         self.catalog.save_job(job)
-        bound.info("job_started")
-        log_line(f"{job.type.value} started")
+        bound.info("job_started", attempt=job.attempts)
+        attempt = f" (attempt {job.attempts})" if job.attempts > 1 else ""
+        log_line(f"{job.type.value} started{attempt}")
         started = time.perf_counter()
+        scope = JobScope(job_id=job.id, project_id=job.project_id, on_progress=on_progress)
+        self._scopes[job.id] = scope
+        if self.catalog.job_cancel_requested(job.id):
+            scope.cancelled.set()
         try:
             handler = self.handlers.get(job.type)
             if handler is None:
                 raise ForjaError(f"no handler registered for '{job.type.value}' runs")
-            job.metrics = handler(job, log_line)
+            with job_scope(scope):
+                scope.check()
+                job.metrics = handler(job, log_line)
+                scope.check()
             job.status = JobStatus.SUCCEEDED
+        except JobCancelledError:
+            job.status = JobStatus.CANCELLED
+            job.error = "cancelled"
         except RunFailedError as exc:
             job.metrics = exc.metrics
             job.status = JobStatus.FAILED
@@ -107,13 +167,32 @@ class JobExecutor:
             job.status = JobStatus.FAILED
             job.error = exc.message
         except Exception as exc:
-            bound.exception("job_crashed")
-            job.status = JobStatus.FAILED
-            job.error = f"unexpected error: {type(exc).__name__}: {exc}"
+            if scope.cancelled.is_set():
+                job.status, job.error = JobStatus.CANCELLED, "cancelled"
+            else:
+                bound.exception("job_crashed")
+                job.status = JobStatus.FAILED
+                job.error = f"unexpected error: {type(exc).__name__}: {exc}"
+        finally:
+            self._scopes.pop(job.id, None)
 
         duration = round(time.perf_counter() - started, 3)
         job.metrics = job.metrics or RunMetrics()
         job.metrics.duration_seconds = duration
+        job.metrics.llm_calls = [
+            LLMUsage(
+                purpose=call.purpose,
+                provider=call.provider,
+                model=call.model,
+                status=call.status,
+                cached=call.status == "cached",
+                attempts=call.attempts,
+                input_tokens=call.input_tokens,
+                output_tokens=call.output_tokens,
+                duration_ms=call.duration_ms,
+            )
+            for call in self.catalog.list_llm_calls(job.project_id, job_id=job.id)
+        ]
         job.finished_at = utcnow()
         log_line(
             f"{job.type.value} {job.status.value} in {duration:.1f} s"
@@ -121,6 +200,12 @@ class JobExecutor:
         )
         self.catalog.save_job(job)
         bound.info("job_finished", status=job.status.value, duration_s=duration, error=job.error)
+        if job.status is JobStatus.SUCCEEDED:
+            for callback in self.after_success:
+                try:
+                    callback(job)
+                except Exception:
+                    bound.exception("job_callback_failed")
         return job
 
     def _source_ids(self, job: Job) -> list[str]:
@@ -175,6 +260,19 @@ class JobExecutor:
             job.project_id, list(job.params.formats), job.params.csv_delimiter, log_line
         )
         return RunMetrics(serving_path=self.workspace.relative(serving), exports=exports)
+
+    def _gold_proposal(self, job: Job, log_line: Callable[[str], None]) -> RunMetrics:
+        if self.gold is None:
+            raise ForjaError("Gold proposals are not configured")
+        plan = self.gold.propose(job.project_id, use_llm=job.params.use_llm)
+        job.result = {
+            "gold_plan_version": plan.version,
+            "origin": plan.origin,
+            "errors": len(plan.errors),
+            "warnings": plan.warnings,
+        }
+        log_line(f"Gold plan v{plan.version} proposed by {plan.origin}: {plan.summary}")
+        return RunMetrics()
 
     def _build_gold(self, job: Job, log_line: Callable[[str], None]) -> RunMetrics:
         if self.gold_builder is None:

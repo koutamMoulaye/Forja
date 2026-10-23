@@ -11,7 +11,7 @@ import queue
 import threading
 from abc import ABC, abstractmethod
 
-from forja_core.jobs.executor import JobExecutor
+from forja_core.jobs.executor import MAX_LLM_JOB_ATTEMPTS, JobExecutor
 from forja_core.logging import get_logger
 
 log = get_logger(__name__)
@@ -42,42 +42,56 @@ class InlineJobRunner(JobRunner):
 
 
 class ThreadJobRunner(JobRunner):
-    """Local worker: one background thread executing jobs one at a time, in order.
+    """Local worker: two background threads, each executing its jobs one at a time.
 
-    Serial execution matches DuckDB's single-writer model for project warehouses.
+    - the warehouse lane runs builds, exports and mart publications serially, which
+      matches DuckDB's single-writer model for project warehouses;
+    - the LLM lane runs Gold proposals and agent requests, which can take minutes on
+      a local model and only read the catalog (and the warehouse, under its lock).
     """
+
+    LANES = ("warehouse", "llm")
 
     def __init__(self, executor: JobExecutor) -> None:
         super().__init__(executor)
-        self._queue: queue.Queue[object] = queue.Queue()
-        self._thread: threading.Thread | None = None
+        self._queues: dict[str, queue.Queue[object]] = {lane: queue.Queue() for lane in self.LANES}
+        self._threads: list[threading.Thread] = []
+
+    def _lane(self, job_id: str) -> str:
+        return "llm" if self.executor.catalog.get_job(job_id).type.uses_llm else "warehouse"
 
     def submit(self, job_id: str) -> None:
-        self._queue.put(job_id)
+        self._queues[self._lane(job_id)].put(job_id)
 
     def start(self) -> None:
-        if self._thread is not None:
+        if self._threads:
             return
-        interrupted = self.executor.catalog.fail_interrupted_jobs()
-        if interrupted:
-            log.warning("interrupted_jobs_failed", count=interrupted)
+        resumed, failed = self.executor.catalog.recover_interrupted_jobs(MAX_LLM_JOB_ATTEMPTS)
+        if resumed or failed:
+            log.warning("interrupted_jobs_recovered", resumed=resumed, failed=failed)
         for job_id in self.executor.catalog.queued_job_ids():
-            self._queue.put(job_id)
-        self._thread = threading.Thread(target=self._work, name="forja-job-worker", daemon=True)
-        self._thread.start()
-        log.info("job_worker_started")
+            self.submit(job_id)
+        for lane, jobs in self._queues.items():
+            thread = threading.Thread(
+                target=self._work, args=(jobs,), name=f"forja-job-worker-{lane}", daemon=True
+            )
+            thread.start()
+            self._threads.append(thread)
+        log.info("job_worker_started", lanes=list(self.LANES))
 
     def stop(self, timeout: float | None = None) -> None:
-        if self._thread is None:
+        if not self._threads:
             return
-        self._queue.put(_STOP)
-        self._thread.join(timeout)
-        self._thread = None
+        for jobs in self._queues.values():
+            jobs.put(_STOP)
+        for thread in self._threads:
+            thread.join(timeout)
+        self._threads = []
         log.info("job_worker_stopped")
 
-    def _work(self) -> None:
+    def _work(self, jobs: queue.Queue[object]) -> None:
         while True:
-            item = self._queue.get()
+            item = jobs.get()
             try:
                 if item is _STOP:
                     return
@@ -86,8 +100,9 @@ class ThreadJobRunner(JobRunner):
             except Exception:
                 log.exception("job_worker_error", job_id=item)
             finally:
-                self._queue.task_done()
+                jobs.task_done()
 
     def join(self) -> None:
         """Block until every submitted job has been executed."""
-        self._queue.join()
+        for jobs in self._queues.values():
+            jobs.join()

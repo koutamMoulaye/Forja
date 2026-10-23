@@ -12,6 +12,7 @@ from forja_core.gold.explain import refresh_explanations
 from forja_core.gold.heuristic import propose_heuristic
 from forja_core.gold.plan import GoldModel, GoldPlan, GoldPlanPatch, ValidationIssue
 from forja_core.gold.validation import link_relations, validate_model
+from forja_core.jobs.scope import report
 from forja_core.logging import get_logger
 from forja_core.silver.plan import PlanStatus
 from forja_core.utils import utcnow
@@ -58,6 +59,11 @@ class GoldPlanService:
             return None
         feedback: list[str] = []
         for attempt in range(1, LLM_ATTEMPTS + 1):
+            report(
+                "llm",
+                f"proposition du modèle par {self.proposer.origin} (essai {attempt})",
+                20 + 30 * (attempt - 1),
+            )
             try:
                 model = self.proposer.propose(ctx, feedback)
             except GoldProposalError as exc:
@@ -78,9 +84,11 @@ class GoldPlanService:
 
     def propose(self, project_id: str, *, use_llm: bool = True) -> GoldPlan:
         """A new draft version, from the language model if configured, else heuristic."""
+        report("context", "lecture des tables Silver et des relations confirmées", 5)
         ctx = self.context(project_id)
         warnings: list[str] = []
         proposal = self._llm_proposal(ctx, warnings) if use_llm else None
+        report("validation", "validation et enregistrement du plan", 90)
         if proposal is None:
             model, heuristic_warnings = propose_heuristic(ctx)
             warnings.extend(heuristic_warnings)

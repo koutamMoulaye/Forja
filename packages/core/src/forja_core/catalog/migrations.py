@@ -187,6 +187,27 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         ALTER TABLE warehouse_tables ADD COLUMN publish BOOLEAN DEFAULT false;
         """,
     ),
+    (
+        9,
+        """
+        ALTER TABLE jobs ADD COLUMN created_by VARCHAR;
+        ALTER TABLE jobs ADD COLUMN progress JSON;
+        ALTER TABLE jobs ADD COLUMN result JSON;
+        ALTER TABLE jobs ADD COLUMN attempts INTEGER DEFAULT 0;
+        ALTER TABLE jobs ADD COLUMN cancel_requested BOOLEAN DEFAULT false;
+
+        CREATE TABLE llm_cache (
+            key VARCHAR PRIMARY KEY,
+            provider VARCHAR NOT NULL,
+            model VARCHAR NOT NULL,
+            purpose VARCHAR NOT NULL,
+            response VARCHAR NOT NULL,
+            hits INTEGER NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            last_hit_at TIMESTAMP
+        );
+        """,
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
