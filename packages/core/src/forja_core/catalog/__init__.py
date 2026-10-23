@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from forja_core.catalog.semantic import SemanticMixin
+from forja_core.catalog.marts import MartsMixin
 from forja_core.catalog.migrations import SCHEMA_VERSION
 
 
-class Catalog(SemanticMixin):
+class Catalog(MartsMixin):
     def __enter__(self) -> Catalog:
         return self
 

@@ -7,7 +7,7 @@ files are not rewritten, and files no longer produced are removed.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -43,6 +43,16 @@ _TECHNICAL_DESCRIPTIONS = {
     "_row_hash": "Empreinte SHA-256 des valeurs brutes de la ligne.",
     "_run_id": "Exécution Forja ayant traité la ligne.",
 }
+
+
+@dataclass(frozen=True)
+class MartModel:
+    """A published data mart: a dbt model compiled by the agent from a validated spec."""
+
+    name: str
+    sql: str
+    description: str
+    columns: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -249,11 +259,13 @@ def render_project(
     *,
     threads: int = 1,
     gold: tuple[GoldPlan, GoldContext] | None = None,
+    marts: Sequence[MartModel] = (),
 ) -> dict[str, str]:
     """All files of the dbt project, keyed by path relative to the project root.
 
     Silver models come from the effective transformation plans; Gold models and
-    snapshots from the effective Gold plan, when there is one.
+    snapshots from the effective Gold plan, when there is one; data marts from the
+    mart requests being or already published.
     """
     ordered = sorted(plans, key=lambda p: p.source_name)
     files = {
@@ -276,6 +288,19 @@ def render_project(
         files["models/gold/schema.yml"] = _yaml({"version": 2, "models": gold_yaml["models"]})
         if gold_yaml["snapshots"]:
             files["snapshots/snapshots.yml"] = _yaml({"snapshots": gold_yaml["snapshots"]})
+    if gold is not None and marts:
+        models = []
+        for mart in sorted(marts, key=lambda m: m.name):
+            files[f"models/marts/{mart.name}.sql"] = mart.sql
+            models.append(
+                {
+                    "name": mart.name,
+                    "description": mart.description,
+                    "config": {"materialized": "table"},
+                    "columns": mart.columns,
+                }
+            )
+        files["models/marts/schema.yml"] = _yaml({"version": 2, "models": models})
     return files
 
 
@@ -283,6 +308,8 @@ class DbtProjectGenerator:
     def __init__(self, workspace: Workspace, *, threads: int = 1) -> None:
         self.workspace = workspace
         self.threads = threads
+        # Data marts of a project (set by the mart service), kept on every regeneration.
+        self.marts: Callable[[str], list[MartModel]] | None = None
 
     def project_dir(self, project_id: str) -> Path:
         return self.workspace.project_dir(project_id) / "dbt"
@@ -295,10 +322,16 @@ class DbtProjectGenerator:
         project: Project,
         plans: Sequence[TransformationPlan],
         gold: tuple[GoldPlan, GoldContext] | None = None,
+        *,
+        extra_marts: Sequence[MartModel] = (),
     ) -> GenerationResult:
         root = self.project_dir(project.id)
         result = GenerationResult(path=root)
-        files = render_project(project, plans, threads=self.threads, gold=gold)
+        marts = {m.name: m for m in (self.marts(project.id) if self.marts else [])}
+        marts.update({m.name: m for m in extra_marts})
+        files = render_project(
+            project, plans, threads=self.threads, gold=gold, marts=list(marts.values())
+        )
 
         for relative, content in files.items():
             path = root / relative

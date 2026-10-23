@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from forja_core.agent.preselect import ContextItem, render_context
 from forja_core.models import Architecture, Project, Source
 from forja_core.profiling.models import ColumnProfile, InferredType, PiiType, ProfileReport
 from forja_core.profiling.types import KNOWN_FORMATS
@@ -258,28 +259,18 @@ class SemanticContext(_SafeModel):
     _check_name = field_validator("project_name")(_check_identifier)
 
     def render(self) -> str:
-        """Compact text: one line per field (JSON would cost twice the tokens)."""
+        """The compact text measured by the pre-selection (one line per element)."""
 
-        def line(f: SemanticField) -> str:
-            parts = [f.ref, f.label]
-            if f.data_type:
-                parts.append(f.data_type)
-            if f.unit:
-                parts.append(f.unit)
-            if f.synonyms:
-                parts.append("syn: " + ", ".join(f.synonyms))
-            return "- " + " | ".join(parts)
+        def item(f: SemanticField) -> ContextItem:
+            return ContextItem(f.ref, f.label, tuple(f.synonyms), f.data_type, f.unit)
 
-        lines = ["Metrics:", *(line(m) for m in self.metrics)]
-        if self.attributes:
-            lines += ["Attributes (dimension.attribute):", *(line(a) for a in self.attributes)]
-        if self.time_dimensions:
-            lines += ["Time dimensions:", *(line(t) for t in self.time_dimensions)]
-        if self.time_grains:
-            lines.append("Time grains: " + ", ".join(self.time_grains))
-        if self.today:
-            lines.append(f"Today: {self.today}")
-        return "\n".join(lines)
+        return render_context(
+            [item(m) for m in self.metrics],
+            [item(a) for a in self.attributes],
+            [item(t) for t in self.time_dimensions],
+            self.time_grains,
+            self.today,
+        )
 
 
 def serialize_for_llm(context: LLMSafeContext | SemanticContext) -> str:

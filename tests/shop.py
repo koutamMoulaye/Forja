@@ -50,7 +50,7 @@ def build_gold_shop(settings: Settings, ecommerce_dir: Path) -> tuple[AppState, 
     state, project = build_shop(settings, ecommerce_dir)
     for relation in state.catalog.list_relations(project.id):
         state.relations.confirm(relation.id)
-    state.gold.propose(project.id)
+    state.gold.propose(project.id, use_llm=False)  # deterministic star schema
     state.gold.approve(project.id)
     run(state, project, RunRequest(type=JobType.BUILD_GOLD))
     return state, project

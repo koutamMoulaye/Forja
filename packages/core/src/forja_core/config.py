@@ -95,6 +95,15 @@ class Settings(BaseSettings):
         description="Password of the first administrator (random and logged once when unset)",
     )
 
+    mart_require_approval: bool = Field(
+        default=False, description="An engineer approves a data mart before it is published"
+    )
+    mart_preview_rows: int = Field(default=50, gt=0, le=1000)
+    mart_max_rows: int = Field(default=1_000_000, gt=0)
+    agent_today: str | None = Field(
+        default=None, description="ISO date used as today by the agent (tests, evaluation)"
+    )
+
     @property
     def catalog_path(self) -> Path:
         return self.meta_db_path or self.data_dir / "forja_meta.duckdb"

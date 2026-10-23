@@ -7,6 +7,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
+from forja_core.agent.service import MartService
 from forja_core.auth.service import AuthService
 from forja_core.catalog import Catalog
 from forja_core.config import Settings
@@ -28,6 +29,7 @@ from forja_core.silver.dbt.runner import DbtRunner
 from forja_core.silver.service import PlanService
 from forja_core.storage import Workspace
 from forja_llm import LLMProvider, LLMSettings, get_provider
+from forja_llm.agent import LLMMartInterpreter
 from forja_llm.gold import LLMGoldProposer
 
 
@@ -48,6 +50,7 @@ class AppState:
     gold: GoldPlanService
     auth: AuthService
     semantic: SemanticService
+    marts: MartService
 
     @classmethod
     def build(cls, settings: Settings) -> AppState:
@@ -83,6 +86,24 @@ class AppState:
         )
         auth = AuthService(catalog, settings)
         semantic = SemanticService(catalog, generator, locks)
+        marts = MartService(
+            catalog,
+            semantic,
+            generator,
+            dbt,
+            locks,
+            publisher,
+            settings,
+            LLMMartInterpreter(llm) if llm is not None else None,
+        )
+        marts.create_job = lambda project_id, request, by: executor.create(
+            project_id, request, created_by=by
+        )
+        marts.start_job = runner.submit
+        marts.audit = auth.audit
+        executor.register(JobType.MART_REQUEST, marts.process)
+        executor.register(JobType.PUBLISH_MART, marts.publish)
+
         def refresh_semantic_layer(job: Job) -> None:
             # The semantic layer follows the applied Gold model.
             if job.type is JobType.BUILD_GOLD:
@@ -105,6 +126,7 @@ class AppState:
             gold=gold,
             auth=auth,
             semantic=semantic,
+            marts=marts,
         )
 
     def start(self) -> None:

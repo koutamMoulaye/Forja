@@ -305,7 +305,20 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         );
         """,
     ),
-
+    (
+        12,
+        """
+        CREATE TABLE mart_requests (
+            id VARCHAR PRIMARY KEY,
+            project_id VARCHAR NOT NULL,
+            owner_id VARCHAR NOT NULL,
+            status VARCHAR NOT NULL,
+            data JSON NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP NOT NULL
+        );
+        """,
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
