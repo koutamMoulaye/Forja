@@ -13,8 +13,14 @@ from forja_core.ingestion import IngestionService
 from forja_core.models import Project, ProjectCreate
 from forja_core.silver.service import PlanService
 from forja_core.storage import Workspace
+from forja_llm import LLMSettings
 from tests.fixtures import ecommerce
 from tests.fixtures.generate import ALL_FILES, FIXTURES_DIR, generate_all
+
+# Tests never read the developer's .env: a configured LLM provider would otherwise
+# replace the heuristics in every API test.
+Settings.model_config["env_file"] = None
+LLMSettings.model_config["env_file"] = None
 
 
 @pytest.fixture(scope="session")
