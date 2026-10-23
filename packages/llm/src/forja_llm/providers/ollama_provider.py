@@ -35,7 +35,8 @@ class OllamaProvider(LLMProvider):
     def client(self) -> httpx.Client:
         if self._client is None:
             self._client = httpx.Client(
-                base_url=self.settings.ollama_base_url, timeout=self.settings.timeout_seconds
+                base_url=self.settings.ollama_base_url,
+                timeout=self.settings.timeout_for(self.name),
             )
         return self._client
 
@@ -54,7 +55,13 @@ class OllamaProvider(LLMProvider):
                     ],
                     "format": response_schema,
                     "stream": False,
-                    "options": {"temperature": 0},
+                    "think": self.settings.ollama_think,
+                    "keep_alive": self.settings.ollama_keep_alive,
+                    "options": {
+                        "temperature": 0,
+                        "num_ctx": self.settings.ollama_num_ctx,
+                        "num_predict": self.settings.max_output_tokens,
+                    },
                 },
             )
         except (httpx.TimeoutException, httpx.TransportError) as exc:

@@ -425,8 +425,18 @@ def test_ollama_provider() -> None:
         LLMSettings(provider=ProviderName.OLLAMA), client=client, sleep=lambda _: None
     )
     assert provider.generate(_request(), _Proposal).tables == ["z"]
-    assert seen[-1]["model"] == "llama3.1" and seen[-1]["stream"] is False
+    assert seen[-1]["model"] == "qwen3.5:9b" and seen[-1]["stream"] is False
     assert seen[-1]["format"]["type"] == "object"
+    assert seen[-1]["think"] is False and seen[-1]["keep_alive"] == "30m"
+    assert seen[-1]["options"]["num_ctx"] == 16_384
+    assert seen[-1]["options"]["num_predict"] == 16_000
+
+
+def test_timeout_defaults_to_local_or_cloud() -> None:
+    settings = LLMSettings()
+    assert settings.timeout_for("ollama") == 1800
+    assert settings.timeout_for("anthropic") == settings.timeout_for("openai") == 120
+    assert LLMSettings(timeout_seconds=30).timeout_for("ollama") == 30
 
 
 def test_ollama_missing_model() -> None:

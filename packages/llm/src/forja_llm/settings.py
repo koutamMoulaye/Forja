@@ -16,8 +16,12 @@ class ProviderName(StrEnum):
 
 DEFAULT_MODELS: dict[str, str] = {
     ProviderName.ANTHROPIC: "claude-opus-5-5",
-    ProviderName.OLLAMA: "llama3.1",
+    ProviderName.OLLAMA: "qwen3.5:9b",
 }
+
+CLOUD_TIMEOUT_SECONDS = 120.0
+# A local model running on CPU can take minutes to write a Gold plan.
+LOCAL_TIMEOUT_SECONDS = 1800.0
 
 
 class LLMSettings(BaseSettings):
@@ -33,7 +37,9 @@ class LLMSettings(BaseSettings):
 
     provider: ProviderName | None = None
     model: str | None = None
-    timeout_seconds: float = Field(default=120.0, gt=0)
+    timeout_seconds: float | None = Field(
+        default=None, gt=0, description="Per call; default 120 s, 1800 s for Ollama"
+    )
     max_attempts: int = Field(default=3, ge=1, le=10, description="Calls per generation")
     backoff_base_seconds: float = Field(default=1.0, ge=0)
     backoff_max_seconds: float = Field(default=30.0, ge=0)
@@ -52,6 +58,18 @@ class LLMSettings(BaseSettings):
         validation_alias=AliasChoices("FORJA_LLM_OPENAI_API_KEY", "OPENAI_API_KEY"),
     )
     ollama_base_url: str = "http://localhost:11434"
+    ollama_num_ctx: int = Field(
+        default=16_384, ge=2_048, description="Context window; longer prompts are truncated"
+    )
+    ollama_think: bool = Field(default=False, description="Reasoning of thinking models")
+    ollama_keep_alive: str = Field(default="30m", description="How long the model stays loaded")
 
     def model_for(self, provider: str) -> str | None:
         return self.model or DEFAULT_MODELS.get(provider)
+
+    def timeout_for(self, provider: str) -> float:
+        if self.timeout_seconds is not None:
+            return self.timeout_seconds
+        if provider == ProviderName.OLLAMA:
+            return LOCAL_TIMEOUT_SECONDS
+        return CLOUD_TIMEOUT_SECONDS

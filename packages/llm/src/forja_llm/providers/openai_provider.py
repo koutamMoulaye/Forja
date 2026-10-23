@@ -32,7 +32,10 @@ class OpenAIProvider(LLMProvider):
     def client(self) -> Any:
         if self._client is None:
             key = self.settings.openai_api_key
-            options: dict[str, Any] = {"timeout": self.settings.timeout_seconds, "max_retries": 0}
+            options: dict[str, Any] = {
+                "timeout": self.settings.timeout_for(self.name),
+                "max_retries": 0,
+            }
             if key is not None:
                 options["api_key"] = key.get_secret_value()
             self._client = openai.OpenAI(**options)
