@@ -44,6 +44,8 @@ HISTORIZED_TOKENS = frozenset(
 QUANTITY_TOKENS = frozenset({"quantite", "qte", "qty", "quantity", "nombre", "nb"})
 PRICE_TOKENS = frozenset({"prix", "price", "tarif"})
 AMOUNT_TOKENS = frozenset({"montant", "amount", "total", "ca"})
+# Unit values: averaging them gives a line-weighted mean (the semantic layer computes a
+# quantity-weighted price as sum(montant) / sum(quantite) instead).
 AVERAGED_TOKENS = frozenset(
     {"prix", "price", "tarif", "taux", "rate", "pourcentage", "pct", "ratio", "unitaire", "unit"}
 )
@@ -95,7 +97,7 @@ def _measures(base: SilverSource, excluded: set[str]) -> list[Measure]:
         Measure(
             name=column,
             expression=column,
-            aggregation=Aggregation.AVG if _tokens(column) & AVERAGED_TOKENS else Aggregation.SUM,
+            aggregation=Aggregation.NONE if _tokens(column) & AVERAGED_TOKENS else Aggregation.SUM,
         )
         for column in numeric
     ]

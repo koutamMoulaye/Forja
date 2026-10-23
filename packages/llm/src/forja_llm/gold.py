@@ -34,7 +34,8 @@ Rules:
 - Measures: expression is a row-level formula over the fact's tables, using only column
   names, numbers, + - * /, coalesce, nullif, abs, round, least, greatest, case. No SQL
   statement, no aggregate function: set the aggregation field instead (sum, avg, min,
-  max, count, count_distinct). Never sum a measure read from a joined table.
+  max, count, count_distinct). Never sum a measure read from a joined table. Unit
+  prices, rates and ratios are not additive: aggregation none (never avg).
 - Every dimension must be referenced by at least one fact.
 - Names are snake_case; dimensions start with dim_, facts with fct_.
 - Explanations may be left empty: Forja writes them.

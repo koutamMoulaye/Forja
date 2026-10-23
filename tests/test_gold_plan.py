@@ -84,7 +84,7 @@ def test_heuristic_star_schema(model: GoldModel, ctx: GoldContext) -> None:
     assert {d.name for d in fact.degenerate_dimensions} == {"id_commande", "num_ligne", "statut"}
     measures = {m.name: m for m in fact.measures}
     assert measures["montant"].expression == "quantite * prix_unitaire"
-    assert measures["prix_unitaire"].aggregation is Aggregation.AVG
+    assert measures["prix_unitaire"].aggregation is Aggregation.NONE  # never averaged
     assert measures["quantite"].aggregation is Aggregation.SUM
     assert "frais_port" not in measures
     assert model.date_dimension.enabled

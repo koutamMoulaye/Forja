@@ -19,6 +19,7 @@ _AGGREGATIONS = {
     Aggregation.MAX: "maximum",
     Aggregation.COUNT: "comptage",
     Aggregation.COUNT_DISTINCT: "comptage distinct",
+    Aggregation.NONE: "aucune (valeur unitaire non additive)",
 }
 
 

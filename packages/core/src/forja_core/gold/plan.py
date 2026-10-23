@@ -32,6 +32,9 @@ class Aggregation(StrEnum):
     MAX = "max"
     COUNT = "count"
     COUNT_DISTINCT = "count_distinct"
+    NONE = "none"
+    """Non-additive row value (unit price, rate): never aggregated directly, not even
+    averaged; the semantic layer derives a ratio of additive measures instead."""
 
 
 class _Strict(BaseModel):
