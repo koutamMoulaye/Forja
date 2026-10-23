@@ -1,0 +1,169 @@
+# Sécurité : authentification, rôles et audit
+
+## Modes
+
+| `FORJA_AUTH_MODE` | Usage | Comptes |
+|---|---|---|
+| `local` (défaut) | Poste individuel | Un administrateur créé au premier démarrage. Pas d'invitation. |
+| `multi` | Instance partagée | L'administrateur crée les projets et invite des utilisateurs par email, avec un rôle par projet. |
+
+**Premier démarrage.** Quand le catalogue ne contient aucun utilisateur, Forja crée
+l'administrateur de l'instance (`FORJA_AUTH_BOOTSTRAP_EMAIL`, `admin@forja.local` par
+défaut) avec un mot de passe aléatoire écrit **une seule fois** dans les logs
+(événement `bootstrap_admin_created`). Pour un déploiement automatisé, fixez
+`FORJA_AUTH_BOOTSTRAP_PASSWORD` : il n'est alors pas journalisé. Dans les deux cas, le
+changement de mot de passe est obligatoire : tant qu'il n'est pas fait, toute route
+répond `403 password_change_required`, sauf `POST /auth/password`, `GET /auth/me` et
+`POST /auth/logout`.
+
+```bash
+curl -X POST localhost:8000/auth/login -H "Content-Type: application/json" \
+     -d '{"email": "admin@forja.local", "password": "<mot de passe des logs>"}'
+curl -X POST localhost:8000/auth/password -H "Authorization: Bearer <access_token>" \
+     -H "Content-Type: application/json" \
+     -d '{"current_password": "<mot de passe des logs>", "new_password": "<nouveau>"}'
+```
+
+Politique de mot de passe : au moins `FORJA_AUTH_PASSWORD_MIN_LENGTH` caractères (12),
+5 caractères différents, différent de l'email.
+
+## Jetons et clés
+
+- **Mots de passe** : hachés avec argon2 (argon2-cffi, paramètres par défaut, ré-hachés
+  si les paramètres évoluent). Un email inconnu coûte la même vérification qu'un
+  mauvais mot de passe.
+- **Jeton d'accès** : JWT HS256 de `FORJA_AUTH_ACCESS_TOKEN_MINUTES` (15 min), lié à une
+  session (`sid`). La clé de signature est `FORJA_AUTH_SECRET`, ou une clé aléatoire
+  générée une fois dans `FORJA_SECRETS_DIR/jwt.key`.
+- **Jeton de rafraîchissement** : opaque, à usage unique, valable
+  `FORJA_AUTH_REFRESH_TOKEN_DAYS` (14 j). `POST /auth/refresh` renvoie une nouvelle paire
+  (rotation). Présenter un jeton déjà utilisé révoque toute la session : un jeton volé
+  et rejoué ne sert qu'une fois, et coupe aussi le voleur.
+- **Révocation** : `POST /auth/logout` révoque la session ; un changement de mot de passe
+  révoque toutes les sessions de l'utilisateur. Les jetons d'accès d'une session
+  révoquée sont refusés immédiatement (la session est vérifiée à chaque requête).
+- **Clés API personnelles** : `fja_<préfixe>_<secret>`, créées par `POST /auth/api-keys`
+  (affichées une fois), envoyées en `X-API-Key` ou `Authorization: Bearer`, révocables
+  (`DELETE /auth/api-keys/{id}`). Seuls le préfixe (pour les reconnaître) et une
+  empreinte SHA-256 sont stockés. Une clé agit avec les rôles de son propriétaire.
+- Refresh tokens et jetons d'invitation sont aussi stockés en empreinte SHA-256 : le
+  catalogue ne contient aucun secret réutilisable.
+
+## Invitations (mode multi)
+
+`POST /projects/{id}/invitations` (`{"email", "role"}`) :
+
+- si l'email a déjà un compte, l'utilisateur est ajouté au projet avec ce rôle ;
+- sinon un jeton d'inscription à usage unique est renvoyé (une fois), valable
+  `FORJA_AUTH_INVITATION_DAYS` jours ; la personne crée son compte avec
+  `POST /auth/register` (`{"token", "password"}`).
+
+Les rôles se gèrent ensuite par `PUT` / `DELETE /projects/{id}/members/{user_id}`.
+
+## Rôles
+
+| Rôle | Pour qui | En bref |
+|---|---|---|
+| `admin` | Responsable du projet | Tout, y compris les membres, l'audit et l'aperçu Bronze |
+| `engineer` | Data engineer | Sources, plans Silver, relations, plan Gold, runs, publication, couche sémantique, approbations |
+| `analyst` | Équipe métier | Lecture du Gold (pseudonymisé), agent métier, ses propres data marts, propositions de synonymes |
+
+L'administrateur de l'instance (créé au premier démarrage) est `admin` de tous les
+projets et seul à pouvoir créer un projet (il en devient membre `admin`).
+
+### Matrice rôles × actions
+
+Chaque route déclare l'action qu'elle effectue ; le projet est déduit du chemin
+(projet, source, relation, table, run, demande de data mart, proposition de
+synonyme). Un utilisateur sans rôle dans le projet reçoit `403`. Ce tableau est
+vérifié par `tests/test_permissions.py` contre `forja_core.auth.models.ROLE_ACTIONS`.
+
+| Action | Description | admin | engineer | analyst |
+|---|---|:-:|:-:|:-:|
+| `project.read` | Voir le projet | ✓ | ✓ | ✓ |
+| `project.manage` | Gérer les membres et les invitations | ✓ | — | — |
+| `audit.read` | Lire le journal d'audit | ✓ | — | — |
+| `source.read` | Voir les sources, versions et profils | ✓ | ✓ | — |
+| `source.write` | Charger un fichier (nouvelle source ou version) | ✓ | ✓ | — |
+| `bronze.preview` | Aperçu Bronze en clair (si FORJA_ALLOW_BRONZE_PREVIEW) | ✓ | — | — |
+| `silver.read` | Voir les plans Silver et les tables Silver | ✓ | ✓ | — |
+| `plan.write` | Modifier et approuver un plan Silver | ✓ | ✓ | — |
+| `relation.read` | Voir les relations | ✓ | ✓ | — |
+| `relation.write` | Détecter, déclarer, confirmer, rejeter une relation | ✓ | ✓ | — |
+| `gold_plan.read` | Voir le plan Gold | ✓ | ✓ | — |
+| `gold_plan.write` | Proposer, modifier, approuver le plan Gold | ✓ | ✓ | — |
+| `run.read` | Voir tous les runs et leurs logs | ✓ | ✓ | — |
+| `run.write` | Lancer ou annuler un run (builds, exports) | ✓ | ✓ | — |
+| `gold.read` | Lire, prévisualiser, exporter les tables Gold | ✓ | ✓ | ✓ |
+| `table.publish` | Publier ou retirer une table du serving | ✓ | ✓ | — |
+| `data.unmasked` | Voir les données selon le plan (sinon pseudonymisation forcée) | ✓ | ✓ | — |
+| `semantic.read` | Lire la couche sémantique | ✓ | ✓ | ✓ |
+| `semantic.write` | Éditer et régénérer la couche sémantique | ✓ | ✓ | — |
+| `synonym.propose` | Proposer un synonyme | ✓ | ✓ | ✓ |
+| `synonym.review` | Valider ou refuser un synonyme proposé | ✓ | ✓ | — |
+| `mart.request` | Interroger l'agent, gérer ses propres data marts | ✓ | ✓ | ✓ |
+| `mart.read_all` | Voir les data marts de tous les utilisateurs | ✓ | ✓ | — |
+| `mart.approve` | Approuver ou rejeter un data mart | ✓ | ✓ | — |
+
+Règles complémentaires :
+
+- **Tables** : une table Silver demande `silver.read`, une table Gold `gold.read`, un
+  data mart appartient à son auteur (ou `mart.read_all`). `GET /projects/{id}/tables`
+  ne liste que ce que l'appelant peut lire.
+- **Runs** : sans `run.read`, un utilisateur ne voit (et n'annule) que les runs qu'il a
+  lancés, c'est-à-dire ses demandes à l'agent.
+- **Demandes de data mart** : répondre, affiner, valider ne sont permis qu'à l'auteur ;
+  rejeter, à l'auteur ou à un engineer.
+- **Bronze** : `GET /sources/{id}/preview` reste désactivé tant que
+  `FORJA_ALLOW_BRONZE_PREVIEW` n'est pas activé, même pour un admin.
+
+## Données personnelles
+
+- Sans `data.unmasked` (rôle analyst), **toute colonne détectée comme personnelle est
+  pseudonymisée** (HMAC-SHA256 du projet) dans les aperçus, les exports et les
+  échantillons de l'agent, même si le plan Silver la laisse en clair (`none`) ; les
+  traitements `mask` et `drop` du plan s'appliquent tels quels.
+- Les data marts publiés pseudonymisent toujours leurs colonnes personnelles : ils sont
+  partagés entre analysts.
+- L'agent refuse de filtrer sur la valeur d'une donnée personnelle (un filtre
+  `email = …` permettrait de tester l'existence d'une personne).
+- Aucun modèle de langage ne reçoit de valeur de données : le plan Gold reçoit schémas et
+  statistiques, l'agent reçoit la demande et les noms métier de la couche sémantique.
+  Les valeurs de filtre (« Lyon ») sont résolues localement.
+
+## Journal d'audit
+
+Table `audit_log` du catalogue : qui (`user_id`, `user_email`), quoi (`action`), quand,
+sur quel objet (`project_id`, `object_type`, `object_id`) et des détails sans donnée
+personnelle de contenu.
+
+| Domaine | Actions journalisées |
+|---|---|
+| Comptes | `user.bootstrap`, `auth.login`, `auth.login_failed`, `auth.logout`, `auth.password_changed`, `auth.refresh_reuse`, `api_key.create`, `api_key.revoke` |
+| Membres | `project.create`, `member.invite`, `member.register`, `member.role`, `member.remove` |
+| Données | `source.upload`, `source.bronze_preview`, `silver_plan.edit`, `silver_plan.approve`, `relation.declare`, `relation.confirm`, `relation.reject` |
+| Gold | `gold_plan.propose`, `gold_plan.edit`, `gold_plan.approve`, `run.<type>`, `run.cancel` |
+| Publication | `table.publish`, `table.unpublish`, `table.export` (format, lignes, pseudonymisation) |
+| Sémantique | `semantic.regenerate`, `semantic.edit`, `synonym.propose`, `synonym.accept`, `synonym.reject` |
+| Agent | `agent.request` (question), `agent.answer`, `agent.refine`, `mart.validate`, `mart.approve`, `mart.reject`, `mart.publish` |
+
+Lecture : `GET /projects/{id}/audit` (admin du projet), `GET /audit` (administrateur de
+l'instance), filtres `action` et `limit`.
+
+## Fournisseur d'identité externe (OIDC)
+
+Non implémenté, interface prête : `forja_core.auth.identity.IdentityProvider`
+(`authorization_url`, `authenticate`) et `OIDCIdentityProvider` (issuer, client,
+scopes). Un fournisseur OIDC authentifiera la personne (flux code + PKCE, validation de
+l'ID token), puis Forja retrouvera ou créera l'utilisateur par
+`identity_provider` / `external_subject` (colonnes déjà présentes dans `users`) et
+émettra ses propres jetons comme après un login par mot de passe. Les rôles restent
+gérés dans Forja.
+
+## Limites connues
+
+- Pas de limitation du nombre de tentatives de login : à placer devant Forja (proxy) sur
+  une instance exposée.
+- Pas d'envoi d'email : le jeton d'invitation est renvoyé à l'admin, qui le transmet.
+- Garder `FORJA_API_HOST=127.0.0.1` ou un proxy HTTPS : les jetons circulent en clair sur
+  HTTP.
