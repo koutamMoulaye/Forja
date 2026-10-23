@@ -70,7 +70,7 @@ class JobExecutor:
             JobType.GOLD_PROPOSAL: self._gold_proposal,
         }
         self._scopes: dict[str, JobScope] = {}
-        self.after_success: list[Callable[[Job], None]] = []
+        self.after_success: list[Callable[[Job, Callable[[str], None]], None]] = []
 
     def register(self, job_type: JobType, handler: Handler) -> None:
         self.handlers[job_type] = handler
@@ -156,6 +156,14 @@ class JobExecutor:
                 job.metrics = handler(job, log_line)
                 scope.check()
             job.status = JobStatus.SUCCEEDED
+            # Follow-up work (the semantic layer after build_gold) is done before the run is
+            # reported finished; its failure is logged, it does not fail the run.
+            for callback in self.after_success:
+                try:
+                    callback(job, log_line)
+                except Exception as exc:
+                    bound.exception("job_callback_failed")
+                    log_line(f"warning: follow-up step failed: {type(exc).__name__}: {exc}")
         except JobCancelledError:
             job.status = JobStatus.CANCELLED
             job.error = "cancelled"
@@ -200,12 +208,6 @@ class JobExecutor:
         )
         self.catalog.save_job(job)
         bound.info("job_finished", status=job.status.value, duration_s=duration, error=job.error)
-        if job.status is JobStatus.SUCCEEDED:
-            for callback in self.after_success:
-                try:
-                    callback(job)
-                except Exception:
-                    bound.exception("job_callback_failed")
         return job
 
     def _source_ids(self, job: Job) -> list[str]:

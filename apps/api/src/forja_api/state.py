@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Annotated
 
@@ -104,10 +105,11 @@ class AppState:
         executor.register(JobType.MART_REQUEST, marts.process)
         executor.register(JobType.PUBLISH_MART, marts.publish)
 
-        def refresh_semantic_layer(job: Job) -> None:
+        def refresh_semantic_layer(job: Job, log_line: Callable[[str], None]) -> None:
             # The semantic layer follows the applied Gold model.
             if job.type is JobType.BUILD_GOLD:
-                semantic.regenerate(job.project_id, by=job.created_by)
+                layer = semantic.regenerate(job.project_id, by=job.created_by)
+                log_line(f"semantic layer v{layer.version} ready")
 
         executor.after_success.append(refresh_semantic_layer)
         return cls(
