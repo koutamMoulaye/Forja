@@ -112,11 +112,13 @@ def test_context_covers_profiles_plans_and_relations(
     assert columns["prix_unitaire"].silver_type.value == "decimal(18,2)"
     clients = {c.name: c for c in sources["clients"].columns}
     assert clients["email"].pii_type is not None
-    assert {(r.from_table, r.from_column, r.to_table) for r in context.relations} == {
-        ("stg_commandes", "id_client", "stg_clients"),
-        ("stg_lignes_commande", "code_produit", "stg_produits"),
-        ("stg_lignes_commande", "id_commande", "stg_commandes"),
+    # Relations name tables by source, as the plans the model answers with.
+    assert {(r.from_source, r.from_column, r.to_source) for r in context.relations} == {
+        ("commandes", "id_client", "clients"),
+        ("lignes_commande", "code_produit", "produits"),
+        ("lignes_commande", "id_commande", "commandes"),
     }
+    assert all("stg_" not in r.model_dump_json() for r in context.relations)
     payload = serialize_for_llm(context)
     for forbidden in ("top_values", "min", "max", "mean"):
         assert f'"{forbidden}"' not in payload

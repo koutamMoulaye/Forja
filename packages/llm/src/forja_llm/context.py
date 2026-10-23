@@ -88,16 +88,18 @@ class SafeSource(_SafeModel):
 
 
 class SafeRelation(_SafeModel):
-    from_table: str
+    """Tables are named by source, as everywhere else in the context and in plans."""
+
+    from_source: str
     from_column: str
-    to_table: str
+    to_source: str
     to_column: str
     cardinality: str
     confidence: float
     inclusion_ratio: float
     status: RelationStatus
 
-    _check_names = field_validator("from_table", "from_column", "to_table", "to_column")(
+    _check_names = field_validator("from_source", "from_column", "to_source", "to_column")(
         _check_identifier
     )
 
@@ -183,9 +185,9 @@ def _safe_source(item: SourceContext) -> SafeSource:
 
 def _safe_relation(relation: Relation) -> SafeRelation:
     return SafeRelation(
-        from_table=relation.from_table,
+        from_source=relation.from_source,
         from_column=relation.from_column,
-        to_table=relation.to_table,
+        to_source=relation.to_source,
         to_column=relation.to_column,
         cardinality=relation.cardinality,
         confidence=relation.confidence,
