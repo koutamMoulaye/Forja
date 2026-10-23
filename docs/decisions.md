@@ -229,3 +229,31 @@ tables marquées `publish` : toutes les tables Gold par défaut, une table Silve
 uniquement après `PATCH /tables/{id}` avec `{"publish": true}`. La décision de
 publication est conservée d'un build à l'autre. Les colonnes Gold héritent du traitement
 PII de leur colonne Silver d'origine (surchargeable par attribut dans le plan Gold).
+
+## D17 — LLM local : Ollama et Qwen 3.5
+
+**Décision.**
+- Ollama est le fournisseur gratuit recommandé : rien ne sort du poste, aucune clé.
+  Modèle par défaut `qwen3.5:9b` (famille la plus récente de la bibliothèque Ollama,
+  sortie structurée fiable, tient dans 16 Go de RAM sans GPU).
+- Le délai par appel dépend du fournisseur : 120 s pour les API, 30 min pour Ollama
+  (`FORJA_LLM_TIMEOUT_SECONDS` pour l'imposer).
+- Forja fixe la fenêtre de contexte (`num_ctx`, 16 384 tokens) : la valeur par défaut
+  d'Ollama tronquerait le prompt du plan Gold sans erreur. Le raisonnement des modèles
+  « thinking » est coupé (`think: false`) et le modèle reste chargé 30 min.
+- Le schéma JSON reste dans le prompt même si `format` contraint déjà la sortie :
+  essayé sans, le prompt est 35 % plus court mais le 9b ne remplit plus les dimensions
+  et le plan est rejeté.
+- Les relations du contexte nomment les tables par source (`commandes`), comme le plan
+  attendu ; les noms Silver (`stg_commandes`) poussaient les modèles à les recopier.
+
+**Mesures** (Snapdragon X Plus, 32 Go, CPU seul, fixture e-commerce) : un plan Gold lit
+~3 700 tokens de prompt à 11-15 tokens/s et en écrit ~1 000 à 4,5-8 tokens/s, soit
+6 à 9 min à froid et ~3,5 min quand Ollama réutilise le prompt en cache. Le plan proposé
+(identique sur deux essais, température 0) passe la validation du premier coup et se
+construit : mêmes 79 lignes de fait et 13 tests dbt verts que le plan heuristique.
+`qwen3.5:4b` est deux fois plus rapide mais propose un fait sans mesure. Un GPU réduit nettement ces temps.
+
+**Conséquence.** Sur CPU, la proposition Gold par LLM local est une opération de
+plusieurs minutes : à exécuter en tâche de fond à l'étape 4 plutôt que dans une requête
+HTTP. Si la proposition reste invalide, Forja se rabat sur l'heuristique.

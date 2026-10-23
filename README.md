@@ -142,6 +142,49 @@ Pour que le modèle Gold soit proposé par un LLM, définissez `FORJA_LLM_PROVID
 (`anthropic`, `openai` ou `ollama`) et la clé correspondante ; sinon des règles
 déterministes le proposent.
 
+## Utiliser un LLM local gratuit (Ollama)
+
+[Ollama](https://ollama.com) fait tourner un modèle sur votre machine : aucune clé, aucun
+coût, et rien ne sort du poste (Forja n'envoie de toute façon que schémas, statistiques
+et relations, jamais de valeurs).
+
+1. **Installer Ollama** : `winget install Ollama.Ollama` sous Windows (x64 et ARM64), ou
+   l'installateur de [ollama.com/download](https://ollama.com/download) pour Windows,
+   macOS et Linux. Le serveur démarre tout seul et écoute sur `http://localhost:11434`
+   (`curl localhost:11434/api/version` pour vérifier).
+2. **Télécharger un modèle** adapté à la machine :
+
+   | Machine | Modèle conseillé | Taille |
+   |---|---|---|
+   | 8 Go de RAM, sans GPU | `qwen3.5:4b` | ~3,5 Go |
+   | 16 à 32 Go de RAM, sans GPU dédié | `qwen3.5:9b` (défaut de Forja) | ~6,6 Go |
+   | GPU de 24 Go de VRAM ou plus, ou 64 Go de mémoire unifiée | `qwen3.5:27b` | ~17 Go |
+
+   ```bash
+   ollama pull qwen3.5:9b
+   ```
+3. **Configurer Forja** dans `.env` :
+
+   ```bash
+   FORJA_LLM_PROVIDER=ollama
+   FORJA_LLM_MODEL=qwen3.5:9b
+   FORJA_LLM_OLLAMA_BASE_URL=http://localhost:11434
+   ```
+
+   Le délai par appel est de 30 min par défaut avec Ollama (`FORJA_LLM_TIMEOUT_SECONDS`).
+   `FORJA_LLM_OLLAMA_NUM_CTX` (16 384 par défaut) fixe la fenêtre de contexte : Ollama
+   tronque sans prévenir un prompt plus long. Le raisonnement des modèles « thinking »
+   est désactivé (`FORJA_LLM_OLLAMA_THINK=false`), car il multiplie le temps de réponse
+   sur CPU.
+4. **Vérifier** : `python -m uv run pytest tests/test_llm.py` exécute alors aussi le test
+   réel Ollama.
+
+Ordre de grandeur sur un portable sans GPU (Snapdragon X Plus, 32 Go, `qwen3.5:9b`) :
+~15 s pour une petite réponse JSON, 6 à 9 min pour proposer le modèle Gold du jeu
+e-commerce (3 à 4 min quand le prompt est déjà en cache) ; un GPU réduit nettement ces
+temps. Si la proposition du modèle reste invalide après correction, Forja retombe
+sur ses règles déterministes : le résultat est toujours un plan valide.
+
 ## API
 
 | Méthode | Route | Description |
