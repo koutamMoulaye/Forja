@@ -121,9 +121,9 @@ class Publisher:
         return PublishedTable(table, plan.source_name, columns, plan.version)
 
     def _published_gold(self, table: WarehouseTable) -> PublishedTable:
-        plan = self.catalog.effective_gold_plan(table.project_id) or self.catalog.get_gold_plan(
-            table.project_id, version=table.plan_version
-        )
+        # The plan the table was built with: a newer plan, approved but not built yet,
+        # may no longer describe this table, and its columns would lose their treatment.
+        plan = self.catalog.get_gold_plan(table.project_id, version=table.plan_version)
         treated = gold_treatments(plan, build_gold_context(self.catalog, table.project_id))
         by_name = treated.get(table.name, {})
         columns = [
