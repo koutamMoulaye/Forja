@@ -37,6 +37,20 @@ Rules:
 - Every dimension must be referenced by at least one fact.
 - Names are snake_case; dimensions start with dim_, facts with fct_.
 - Explanations may be left empty: Forja writes them.
+
+Procedure:
+1. The fact source is the table at the finest grain that holds the numeric measures:
+   it references other tables and no table references it (e.g. order lines).
+2. For each relation whose from_source is the fact source or an already joined table:
+   - if to_source is an entity (customers, products...), add a foreign key to its
+     dimension, with source = the relation's from_source and column = its from_column;
+   - if to_source describes the same business event (e.g. the order header of order
+     lines), add a join with source = to_source, from_source = the relation's
+     from_source, from_column and to_column = the relation's columns; then apply this
+     step to the relations of that joined table too.
+3. Add a date key for each date column of the fact source and of the joined tables.
+4. Identifiers and texts of the fact source and joined tables that are neither keys
+   nor measures (order number, status) are degenerate dimensions.
 """
 
 
