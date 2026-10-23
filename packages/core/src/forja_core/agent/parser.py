@@ -516,6 +516,18 @@ def parse(
         and token not in FILLERS
         and not token.isdigit()
     ]
+    if not metrics and "vendu" in state.words:
+        # « les plus vendus »: in value or in volume? Both metrics are called « ventes ».
+        sold = [
+            f"metric:{m.name}"
+            for m in layer.metrics
+            if not m.hidden and any(key(s) == ("vente",) for s in m.synonyms)
+        ]
+        ask = clarification(
+            layer, "vendus", sold, "Les plus vendus en chiffre d'affaires ou en quantité ?"
+        )
+        if ask is not None:
+            return ParseOutcome(AgentAnswer(kind="clarification", clarification=ask), True)
     if not metrics:
         return ParseOutcome(None, False, unknown, matched, ["aucune métrique reconnue"])
     if limit is not None and not order_by:

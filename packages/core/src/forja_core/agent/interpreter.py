@@ -20,6 +20,8 @@ class InterpretRequest:
     today: str
     base: MartSpec | None = None
     bindings: dict[str, str] = field(default_factory=dict)
+    # What the parser recognized locally (refs and periods, never a value of the data).
+    hints: list[str] = field(default_factory=list)
 
 
 class MartInterpreter(Protocol):

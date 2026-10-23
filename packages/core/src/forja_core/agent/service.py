@@ -391,6 +391,7 @@ class MartService:
                         today=today.isoformat(),
                         base=base,
                         bindings=request.bindings,
+                        hints=_hints(outcome),
                     )
                 )
             except InterpretationError as exc:
@@ -739,6 +740,24 @@ class MartService:
             if request.published_table_id == table.id:
                 return {c.name: PiiType(c.pii) for c in request.model_columns if c.pii}
         return {}
+
+
+def _hints(outcome: ParseOutcome) -> list[str]:
+    """Partial understanding of the parser, for the model: refs and periods only."""
+    spec = outcome.answer.mart if outcome.answer is not None else None
+    if spec is None:
+        return []
+    hints = [f"metric {m}" for m in spec.metrics]
+    hints += [f"axis {a}" for a in spec.axes]
+    hints += [
+        f"filter on {f.field} ({f.operator.value}), value as written in the request"
+        for f in spec.filters
+    ]
+    if spec.period is not None:
+        hints.append(f"period {spec.period.start} to {spec.period.end}")
+    if spec.time_grain is not None:
+        hints.append(f"time grain {spec.time_grain.value}")
+    return hints
 
 
 def _column_doc(column: MartColumn) -> dict[str, object]:

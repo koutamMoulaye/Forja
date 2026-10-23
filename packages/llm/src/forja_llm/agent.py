@@ -31,6 +31,9 @@ only the semantic layer below.
   and ref "metric:<name>" or "attribute:<dimension.attribute>".
 - kind "refusal" when the request is about something this layer does not hold:
   refusal_reason in French.
+A word naming a value of an attribute (« professionnels », « Lyon », « livrées ») is a
+filter on that attribute, not an axis. When the request does not say which metric (for
+instance « les plus vendus »: revenue or quantity?), ask instead of choosing.
 Never invent a ref, never guess between two meanings, never write SQL.
 """
 
@@ -70,6 +73,9 @@ class LLMMartInterpreter:
                 "This request modifies the current mart (keep what it does not change):\n"
                 f"{request.base.model_dump_json(exclude_defaults=True)}\n"
             )
+        if request.hints:
+            task += "Recognized locally, keep these unless the request says otherwise:\n"
+            task += "".join(f"- {hint}\n" for hint in request.hints)
         if request.bindings:
             answers = "; ".join(f"« {term} » = {ref}" for term, ref in request.bindings.items())
             task += f"The user already answered: {answers}\n"
