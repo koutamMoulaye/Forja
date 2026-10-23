@@ -5,6 +5,7 @@ description = "Forja core: projects, ingestion, profiling, storage and configura
 license = "Apache-2.0"
 requires-python = ">=3.12"
 dependencies = [
+    "argon2-cffi>=23.1",
     "charset-normalizer>=3.3",
     "dbt-core>=1.12.6,<1.13",
     "dbt-duckdb>=1.11.0,<1.12",
@@ -13,6 +14,7 @@ dependencies = [
     "pyarrow>=17.0",
     "pydantic>=2.7",
     "pydantic-settings>=2.4",
+    "pyjwt>=2.9",
     "pyyaml>=6.0",
     "sqlglot>=25.0",
     "structlog>=24.1",

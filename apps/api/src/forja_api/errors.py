@@ -15,6 +15,7 @@ from forja_core.errors import (
     NotFoundError,
     PlanValidationError,
     RelationValidationError,
+    UnauthorizedError,
     UnsupportedFormatError,
 )
 from forja_core.logging import get_logger
@@ -23,6 +24,7 @@ log = get_logger(__name__)
 
 _STATUS_BY_ERROR: tuple[tuple[type[ForjaError], int], ...] = (
     (NotFoundError, status.HTTP_404_NOT_FOUND),
+    (UnauthorizedError, status.HTTP_401_UNAUTHORIZED),
     (ConflictError, status.HTTP_409_CONFLICT),
     (ForbiddenError, status.HTTP_403_FORBIDDEN),
     (FileTooLargeError, status.HTTP_413_CONTENT_TOO_LARGE),
@@ -50,7 +52,12 @@ async def _handle_forja_error(_request: Request, exc: Exception) -> JSONResponse
     status_code = _status_for(exc)
     if status_code >= 500:
         log.error("request_failed", error_code=exc.code, error=exc.message)
-    return JSONResponse(status_code=status_code, content=_body(exc.code, exc.message, exc.details))
+    headers = {"WWW-Authenticate": "Bearer"} if status_code == 401 else None
+    return JSONResponse(
+        status_code=status_code,
+        content=_body(exc.code, exc.message, exc.details),
+        headers=headers,
+    )
 
 
 async def _handle_unexpected(_request: Request, exc: Exception) -> JSONResponse:

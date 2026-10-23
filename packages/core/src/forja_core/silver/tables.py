@@ -13,6 +13,7 @@ from forja_core.models import ColumnSchema
 class TableLayer(StrEnum):
     SILVER = "silver"
     GOLD = "gold"
+    MART = "mart"
 
 
 class WarehouseTable(BaseModel):
@@ -31,6 +32,7 @@ class WarehouseTable(BaseModel):
         default=False,
         description="Published to the serving database (Gold tables by default)",
     )
+    owner_id: str | None = Field(default=None, description="Data marts: the requesting user")
 
 
 # Silver tables are registry entries of the Silver layer.

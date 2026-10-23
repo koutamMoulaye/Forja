@@ -9,7 +9,9 @@ from typing import Annotated
 from fastapi import APIRouter, File, Query, UploadFile, status
 
 from forja_api.schemas import PreviewResponse
+from forja_api.security import Access, require
 from forja_api.state import AppState, StateDep
+from forja_core.auth.models import Action
 from forja_core.errors import FileTooLargeError, ForbiddenError
 from forja_core.models import IngestMode, Source, SourceVersion
 from forja_core.preview import read_preview
@@ -61,6 +63,7 @@ def upload_source(
     project_id: str,
     file: Annotated[UploadFile, File()],
     state: StateDep,
+    access: Annotated[Access, require(Action.SOURCE_WRITE)],
     mode: Annotated[
         IngestMode,
         Query(
@@ -74,7 +77,19 @@ def upload_source(
         str | None, Query(description="Source receiving the new version (implies new_version)")
     ] = None,
 ) -> list[Source]:
-    return _stage_and_ingest(state, project_id, file, mode=mode, target_source_id=source_id)
+    sources = _stage_and_ingest(state, project_id, file, mode=mode, target_source_id=source_id)
+    for source in sources:
+        _audit_upload(access, source, file)
+    return sources
+
+
+def _audit_upload(access: Access, source: Source, file: UploadFile) -> None:
+    access.audit(
+        "source.upload",
+        object_type="source",
+        object_id=source.id,
+        details={"filename": file.filename, "version": source.version, "rows": source.row_count},
+    )
 
 
 @router.post(
@@ -82,26 +97,44 @@ def upload_source(
     status_code=status.HTTP_201_CREATED,
     summary="Upload a new version of an existing source",
 )
-def upload_version(source_id: str, file: Annotated[UploadFile, File()], state: StateDep) -> Source:
+def upload_version(
+    source_id: str,
+    file: Annotated[UploadFile, File()],
+    state: StateDep,
+    access: Annotated[Access, require(Action.SOURCE_WRITE)],
+) -> Source:
     source = state.catalog.get_source(source_id)
     [updated] = _stage_and_ingest(
         state, source.project_id, file, mode=IngestMode.NEW_VERSION, target_source_id=source_id
     )
+    _audit_upload(access, updated, file)
     return updated
 
 
 @router.get("/projects/{project_id}/sources")
-def list_sources(project_id: str, state: StateDep) -> list[Source]:
+def list_sources(
+    project_id: str,
+    state: StateDep,
+    _access: Annotated[Access, require(Action.SOURCE_READ)],
+) -> list[Source]:
     return state.catalog.list_sources(project_id)
 
 
 @router.get("/sources/{source_id}")
-def get_source(source_id: str, state: StateDep) -> Source:
+def get_source(
+    source_id: str,
+    state: StateDep,
+    _access: Annotated[Access, require(Action.SOURCE_READ)],
+) -> Source:
     return state.catalog.get_source(source_id)
 
 
 @router.get("/sources/{source_id}/versions", summary="Versions with their schema drift")
-def list_versions(source_id: str, state: StateDep) -> list[SourceVersion]:
+def list_versions(
+    source_id: str,
+    state: StateDep,
+    _access: Annotated[Access, require(Action.SOURCE_READ)],
+) -> list[SourceVersion]:
     return state.catalog.list_versions(source_id)
 
 
@@ -109,6 +142,7 @@ def list_versions(source_id: str, state: StateDep) -> list[SourceVersion]:
 def get_profile(
     source_id: str,
     state: StateDep,
+    _access: Annotated[Access, require(Action.SOURCE_READ)],
     version: Annotated[int | None, Query(ge=1, description="Defaults to the latest")] = None,
 ) -> ProfileReport:
     return state.catalog.get_profile(source_id, version=version)
@@ -121,6 +155,7 @@ def get_profile(
 def preview_source(
     source_id: str,
     state: StateDep,
+    access: Annotated[Access, require(Action.BRONZE_PREVIEW)],
     limit: Annotated[int, Query(ge=1, le=10_000)] = 100,
 ) -> PreviewResponse:
     source = state.catalog.get_source(source_id)
@@ -131,6 +166,7 @@ def preview_source(
             details={"source_id": source_id},
         )
     limit = min(limit, state.settings.preview_max_rows)
+    access.audit("source.bronze_preview", object_type="source", object_id=source_id)
     preview = read_preview(state.workspace.resolve(source.bronze_path), limit)
     return PreviewResponse(
         source_id=source.id,

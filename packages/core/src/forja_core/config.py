@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -76,6 +76,24 @@ class Settings(BaseSettings):
         default=False, description="Confirm detected relations without review (local mode)"
     )
     relation_auto_confirm_confidence: float = Field(default=0.9, gt=0, le=1)
+
+    auth_mode: Literal["local", "multi"] = Field(
+        default="local",
+        description="local: a single administrator; multi: users join projects by invitation",
+    )
+    auth_secret: SecretStr | None = Field(
+        default=None,
+        description="JWT signing key; generated once in FORJA_SECRETS_DIR when unset",
+    )
+    auth_access_token_minutes: int = Field(default=15, gt=0, le=24 * 60)
+    auth_refresh_token_days: int = Field(default=14, gt=0, le=365)
+    auth_invitation_days: int = Field(default=7, gt=0, le=90)
+    auth_password_min_length: int = Field(default=12, ge=8)
+    auth_bootstrap_email: str = "admin@forja.local"
+    auth_bootstrap_password: SecretStr | None = Field(
+        default=None,
+        description="Password of the first administrator (random and logged once when unset)",
+    )
 
     @property
     def catalog_path(self) -> Path:

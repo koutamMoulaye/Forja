@@ -25,7 +25,11 @@ def _silver(ctx: GoldContext, source: str, column: str) -> tuple[PiiTreatment, P
 
 
 def gold_treatments(plan: GoldPlan, ctx: GoldContext) -> dict[str, dict[str, TreatedColumn]]:
-    """Treated columns by Gold table name and column name (untreated columns omitted)."""
+    """Treated columns by Gold table name and column name.
+
+    Columns without treatment are omitted unless they hold personal data (kept with
+    treatment ``none``, so that a strict reader can still pseudonymize them).
+    """
     result: dict[str, dict[str, TreatedColumn]] = {}
     for dim in plan.dimensions:
         columns: dict[str, TreatedColumn] = {}
@@ -38,13 +42,15 @@ def gold_treatments(plan: GoldPlan, ctx: GoldContext) -> dict[str, dict[str, Tre
                 attribute.name, attribute.pii_treatment or treatment, pii_type
             )
         result[dim.name] = {
-            k: v for k, v in columns.items() if v.treatment is not PiiTreatment.NONE
+            k: v
+            for k, v in columns.items()
+            if v.treatment is not PiiTreatment.NONE or v.pii_type is not None
         }
     for fact in plan.facts:
         columns = {}
         for degenerate in fact.degenerate_dimensions:
             treatment, pii_type = _silver(ctx, degenerate.source, degenerate.column)
-            if treatment is not PiiTreatment.NONE:
+            if treatment is not PiiTreatment.NONE or pii_type is not None:
                 columns[degenerate.name] = TreatedColumn(degenerate.name, treatment, pii_type)
         result[fact.name] = columns
     return result

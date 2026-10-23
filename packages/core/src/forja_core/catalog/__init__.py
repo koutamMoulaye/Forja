@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from forja_core.catalog.gold_plans import GoldPlansMixin
+from forja_core.catalog.auth import AuthMixin
 from forja_core.catalog.migrations import SCHEMA_VERSION
 
 
-class Catalog(GoldPlansMixin):
+class Catalog(AuthMixin):
     def __enter__(self) -> Catalog:
         return self
 

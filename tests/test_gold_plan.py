@@ -6,9 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from forja_api.main import create_app
 from forja_api.state import AppState
 from forja_core.errors import PlanStateError, PlanValidationError
 from forja_core.gold.context import GoldContext, build_gold_context
@@ -31,6 +29,7 @@ from forja_core.silver.plan import PlanStatus
 from forja_llm import LLMProvider, LLMSettings
 from forja_llm.base import Completion, LLMRetryableError
 from forja_llm.gold import LLMGoldProposer
+from tests.auth import api_client
 from tests.shop import build_shop, shop_settings
 from tests.test_api import wait_for_run
 
@@ -261,7 +260,7 @@ def test_gold_api(shop: tuple[AppState, Project]) -> None:
     state, project = shop
     state.close()
     try:
-        with TestClient(create_app(state.settings)) as client:
+        with api_client(state.settings) as client:
             queued = client.post(f"/projects/{project.id}/gold-plan/propose", json={})
             assert queued.status_code == 202
             run = wait_for_run(client, queued.json()["id"])

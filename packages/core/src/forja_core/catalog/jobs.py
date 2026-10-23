@@ -20,7 +20,7 @@ _JOB_COLUMNS = (
 _INTERRUPTED = "interrupted: the worker stopped before the run finished"
 _TABLE_COLUMNS = (
     "id, project_id, source_id, name, plan_version, row_count, rejected_count, columns, "
-    "built_at, last_run_id, layer, publish"
+    "built_at, last_run_id, layer, publish, owner_id"
 )
 
 
@@ -58,6 +58,7 @@ def _table(row: tuple[Any, ...]) -> WarehouseTable:
         last_run_id=row[9],
         layer=row[10] or TableLayer.SILVER,
         publish=bool(row[11]),
+        owner_id=row[12],
     )
 
 
@@ -213,7 +214,7 @@ class JobsMixin(PlansMixin):
         if existing is None:
             self._execute(
                 f"INSERT INTO warehouse_tables ({_TABLE_COLUMNS}) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     table.id,
                     table.project_id,
@@ -221,6 +222,7 @@ class JobsMixin(PlansMixin):
                     table.name,
                     *values[1:],
                     table.publish,
+                    table.owner_id,
                 ],
             )
             return table

@@ -4,15 +4,14 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
-from forja_api.main import create_app
 from forja_api.state import AppState
 from forja_core.config import Settings
 from forja_core.errors import RelationValidationError
 from forja_core.models import Project
 from forja_core.relations.models import Relation, RelationCreate, RelationStatus
 from forja_core.relations.naming import name_similarity
+from tests.auth import api_client
 from tests.fixtures import ecommerce as ec
 from tests.shop import build_shop
 
@@ -150,7 +149,7 @@ def test_relations_api(shop: tuple[AppState, Project]) -> None:
     state, project = shop
     state.close()
     try:
-        with TestClient(create_app(state.settings)) as client:
+        with api_client(state.settings) as client:
             listed = client.get(f"/projects/{project.id}/relations").json()
             assert len(listed) == 3
             confirmed = client.get(

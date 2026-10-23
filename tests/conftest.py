@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from forja_api.main import create_app
 from forja_core.catalog import Catalog
 from forja_core.config import Settings
 from forja_core.ingestion import IngestionService
@@ -14,6 +13,7 @@ from forja_core.models import Project, ProjectCreate
 from forja_core.silver.service import PlanService
 from forja_core.storage import Workspace
 from forja_llm import LLMSettings
+from tests.auth import api_client
 from tests.fixtures import ecommerce
 from tests.fixtures.generate import ALL_FILES, FIXTURES_DIR, generate_all
 
@@ -79,5 +79,6 @@ def project(catalog: Catalog) -> Project:
 
 @pytest.fixture
 def client(settings: Settings) -> Iterator[TestClient]:
-    with TestClient(create_app(settings)) as test_client:
+    """The API, logged in as the instance administrator."""
+    with api_client(settings) as test_client:
         yield test_client

@@ -33,10 +33,12 @@ from forja_core.preview import Preview, json_safe
 from forja_core.privacy import (
     ProjectSecrets,
     TreatedColumn,
+    pseudonymize_personal,
     published_columns,
     select_sql,
     treat_batch,
 )
+from forja_core.profiling.models import PiiType
 from forja_core.silver.dbt.project import DbtProjectGenerator
 from forja_core.silver.plan import PiiTreatment
 from forja_core.silver.tables import TableLayer, WarehouseTable
@@ -76,6 +78,8 @@ class Publisher:
         self.generator = generator
         self.locks = locks
         self.secrets = ProjectSecrets(settings.secrets_dir)
+        # Personal columns of a data mart (name -> type), set by the mart service.
+        self.mart_columns: Callable[[WarehouseTable], dict[str, PiiType]] | None = None
 
     def published_tables(self, project_id: str) -> list[WarehouseTable]:
         return [t for t in self.catalog.list_tables(project_id) if t.publish]
@@ -87,12 +91,23 @@ class Publisher:
     def exports_dir(self, project_id: str) -> Path:
         return self.workspace.project_dir(project_id) / "exports"
 
-    def _published(self, table: WarehouseTable) -> PublishedTable:
+    def _published(self, table: WarehouseTable, *, strict: bool = False) -> PublishedTable:
         """Columns of the built table, with the treatments of the current effective plans.
 
         Treatments only concern published data, so a change approved since the last
-        build applies immediately, without rebuilding the table.
+        build applies immediately, without rebuilding the table. ``strict``
+        pseudonymizes every personal column the plan leaves in clear.
         """
+        item = self._published_plain(table)
+        if strict:
+            return PublishedTable(
+                item.table, item.name, pseudonymize_personal(item.columns), item.plan_version
+            )
+        return item
+
+    def _published_plain(self, table: WarehouseTable) -> PublishedTable:
+        if table.layer is TableLayer.MART:
+            return self._published_mart(table)
         if table.layer is TableLayer.GOLD:
             return self._published_gold(table)
         assert table.source_id is not None
@@ -117,6 +132,18 @@ class Publisher:
             if not c.name.startswith("_")
         ]
         columns = [c for c in columns if c.treatment is not PiiTreatment.DROP]
+        return PublishedTable(table, table.name, columns, table.plan_version)
+
+    def _published_mart(self, table: WarehouseTable) -> PublishedTable:
+        """Data marts are shared by analysts: personal columns are always pseudonymized."""
+        personal = self.mart_columns(table) if self.mart_columns else {}
+        columns = [
+            TreatedColumn(c.name, PiiTreatment.HASH, personal[c.name])
+            if c.name in personal
+            else TreatedColumn(c.name)
+            for c in table.columns
+            if not c.name.startswith("_")
+        ]
         return PublishedTable(table, table.name, columns, table.plan_version)
 
     def _batches(
@@ -210,9 +237,9 @@ class Publisher:
             con.execute(f"CREATE TABLE {name} ({columns})")
         return rows
 
-    def preview(self, table: WarehouseTable, limit: int) -> Preview:
+    def preview(self, table: WarehouseTable, limit: int, *, strict: bool = False) -> Preview:
         """First rows of a table, with personal data treated as in exports."""
-        item = self._published(table)
+        item = self._published(table, strict=strict)
         salt = self.secrets.salt(table.project_id)
         rows: list[dict[str, Any]] = []
         with (
@@ -239,9 +266,10 @@ class Publisher:
         target: Path,
         *,
         delimiter: str | None = None,
+        strict: bool = False,
     ) -> ExportedFile:
         """Write one treated table to ``target`` as Parquet or CSV (UTF-8)."""
-        item = self._published(table)
+        item = self._published(table, strict=strict)
         salt = self.secrets.salt(table.project_id)
         target.parent.mkdir(parents=True, exist_ok=True)
         separator = delimiter or self.settings.export_csv_delimiter

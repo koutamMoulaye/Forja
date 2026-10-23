@@ -7,6 +7,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
+from forja_core.auth.service import AuthService
 from forja_core.catalog import Catalog
 from forja_core.config import Settings
 from forja_core.gold.build import GoldBuilder
@@ -43,6 +44,7 @@ class AppState:
     runner: JobRunner
     llm: LLMProvider | None
     gold: GoldPlanService
+    auth: AuthService
 
     @classmethod
     def build(cls, settings: Settings) -> AppState:
@@ -90,9 +92,11 @@ class AppState:
             runner=runner,
             llm=llm,
             gold=gold,
+            auth=AuthService(catalog, settings),
         )
 
     def start(self) -> None:
+        self.auth.bootstrap()
         self.runner.start()
 
     def close(self) -> None:

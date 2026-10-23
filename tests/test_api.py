@@ -6,9 +6,9 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from forja_api.main import create_app
 from forja_core.config import Settings
 from forja_core.models import TECHNICAL_COLUMNS
+from tests.auth import api_client
 from tests.fixtures import generate as fx
 
 
@@ -86,7 +86,7 @@ def test_upload_profile_and_preview(client: TestClient, fixtures_dir: Path) -> N
 
 def test_bronze_preview_when_allowed(settings: Settings, fixtures_dir: Path) -> None:
     allowed = settings.model_copy(update={"allow_bronze_preview": True})
-    with TestClient(create_app(allowed)) as client:
+    with api_client(allowed) as client:
         project_id = _create_project(client)
         [source] = _upload(client, project_id, fixtures_dir / fx.FR_CSV)
         preview = client.get(f"/sources/{source['id']}/preview", params={"limit": 5}).json()
@@ -172,7 +172,7 @@ def test_upload_errors(client: TestClient, fixtures_dir: Path) -> None:
 
 def test_upload_size_limit(settings: Settings, tmp_path: Path) -> None:
     small = settings.model_copy(update={"max_upload_mb": 1})
-    with TestClient(create_app(small)) as client:
+    with api_client(small) as client:
         project_id = _create_project(client)
         payload = b"a,b\n" + b"1,2\n" * 300_000
         response = client.post(

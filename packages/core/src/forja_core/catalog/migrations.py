@@ -208,6 +208,77 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         );
         """,
     ),
+    (
+        10,
+        """
+        CREATE TABLE users (
+            id VARCHAR PRIMARY KEY,
+            email VARCHAR NOT NULL UNIQUE,
+            password_hash VARCHAR,
+            is_admin BOOLEAN NOT NULL,
+            must_change_password BOOLEAN NOT NULL,
+            disabled BOOLEAN NOT NULL,
+            identity_provider VARCHAR NOT NULL,
+            external_subject VARCHAR,
+            created_at TIMESTAMP NOT NULL
+        );
+        CREATE TABLE memberships (
+            project_id VARCHAR NOT NULL,
+            user_id VARCHAR NOT NULL,
+            role VARCHAR NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            PRIMARY KEY (project_id, user_id)
+        );
+        CREATE TABLE auth_sessions (
+            id VARCHAR PRIMARY KEY,
+            user_id VARCHAR NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            revoked_at TIMESTAMP,
+            revoked_reason VARCHAR
+        );
+        CREATE TABLE refresh_tokens (
+            token_hash VARCHAR PRIMARY KEY,
+            session_id VARCHAR NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            used_at TIMESTAMP
+        );
+        CREATE TABLE api_keys (
+            id VARCHAR PRIMARY KEY,
+            user_id VARCHAR NOT NULL,
+            name VARCHAR NOT NULL,
+            prefix VARCHAR NOT NULL UNIQUE,
+            key_hash VARCHAR NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            last_used_at TIMESTAMP,
+            revoked_at TIMESTAMP
+        );
+        CREATE TABLE invitations (
+            id VARCHAR PRIMARY KEY,
+            project_id VARCHAR NOT NULL,
+            email VARCHAR NOT NULL,
+            role VARCHAR NOT NULL,
+            token_hash VARCHAR NOT NULL UNIQUE,
+            invited_by VARCHAR NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            accepted_at TIMESTAMP
+        );
+        CREATE TABLE audit_log (
+            id VARCHAR PRIMARY KEY,
+            occurred_at TIMESTAMP NOT NULL,
+            user_id VARCHAR,
+            user_email VARCHAR,
+            action VARCHAR NOT NULL,
+            project_id VARCHAR,
+            object_type VARCHAR,
+            object_id VARCHAR,
+            details JSON NOT NULL
+        );
+        ALTER TABLE warehouse_tables ADD COLUMN owner_id VARCHAR;
+        """,
+    ),
+
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]

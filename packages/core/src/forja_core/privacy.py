@@ -19,7 +19,7 @@ import os
 import re
 import secrets
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pyarrow as pa
@@ -122,6 +122,20 @@ def published_columns(plan: TransformationPlan, available: Iterable[str]) -> lis
         TreatedColumn(c.target_column, c.pii_treatment, c.pii_type)
         for c in plan.included_columns()
         if c.target_column in present and c.pii_treatment is not PiiTreatment.DROP
+    ]
+
+
+def pseudonymize_personal(columns: Sequence[TreatedColumn]) -> list[TreatedColumn]:
+    """Strict treatment for callers without access to clear data (analysts).
+
+    A personal column left in clear by its plan (treatment ``none``) is pseudonymized;
+    masked and dropped columns keep their treatment.
+    """
+    return [
+        replace(c, treatment=PiiTreatment.HASH)
+        if c.pii_type is not None and c.treatment is PiiTreatment.NONE
+        else c
+        for c in columns
     ]
 
 

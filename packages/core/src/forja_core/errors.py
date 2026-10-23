@@ -38,6 +38,16 @@ class ForbiddenError(ForjaError):
     code = "forbidden"
 
 
+class UnauthorizedError(ForjaError):
+    """Missing, invalid, expired or revoked credentials."""
+
+    code = "unauthorized"
+
+
+class PasswordChangeRequiredError(ForbiddenError):
+    code = "password_change_required"
+
+
 class IngestionError(ForjaError):
     code = "ingestion_error"
 

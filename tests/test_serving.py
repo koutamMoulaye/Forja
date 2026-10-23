@@ -14,6 +14,7 @@ from forja_core.jobs.models import ExportFormat, Job, JobStatus, JobType, RunReq
 from forja_core.models import Project, ProjectCreate
 from forja_core.privacy import pseudonymize
 from forja_core.silver.plan import ColumnPatch, PiiTreatment, PlanPatch
+from tests.auth import api_client
 from tests.fixtures import generate as fx
 
 
@@ -127,15 +128,12 @@ def test_table_preview_treats_personal_data(built: tuple[AppState, Project]) -> 
 
 
 def test_export_api(built: tuple[AppState, Project]) -> None:
-    from fastapi.testclient import TestClient
-
-    from forja_api.main import create_app
 
     state, project = built
     [table] = state.catalog.list_tables(project.id)
     state.close()  # the API process opens the same catalog
     try:
-        with TestClient(create_app(state.settings)) as client:
+        with api_client(state.settings) as client:
             listed = client.get(f"/projects/{project.id}/tables").json()
             assert [t["id"] for t in listed] == [table.id]
             assert client.get(f"/tables/{table.id}").json()["name"] == "stg_clients"
