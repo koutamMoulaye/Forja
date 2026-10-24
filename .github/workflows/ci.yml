@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
-      # Mocked LLM only: no real provider is ever called, no secret is needed.
-      FORJA_LLM_PROVIDER: ""
+      # Mocked LLM only: no provider is configured, no secret is needed, and the tests
+      # against real providers are skipped.
       FORJA_SKIP_REAL_LLM_TESTS: "1"
       PYTHONIOENCODING: utf-8
     steps:
