@@ -384,3 +384,21 @@ ces correctifs restent à mesurer sur Ollama. Sur CPU, chaque question confiée 
 économise environ deux minutes : élargir le parseur rapporte plus que raccourcir le
 prompt.
 
+
+## D25 — Préparation du front : limitation des tentatives, CORS, démo, OpenAPI
+
+**Décision.**
+- Limitation des tentatives dans le catalogue (`auth_throttle`) : fenêtre glissante par
+  compte et par IP, verrouillage progressif (60 s, puis ×2 jusqu'à 1 h), refus avant
+  toute vérification avec une réponse identique que le compte existe ou non ; même
+  limitation par IP pour le refresh et les invitations. Choisi plutôt qu'un proxy pour
+  que l'instance locale soit protégée telle quelle.
+- CORS limité à `FORJA_CORS_ORIGINS` (front local par défaut), sans cookie.
+- `forja demo` construit un projet complet et deux comptes ; idempotente, elle affiche
+  les mots de passe une seule fois dans le terminal et ne les écrit nulle part.
+- `docs/openapi.json` est généré (`forja openapi`) et vérifié en CI. Résumés et
+  descriptions en français sont écrits à un seul endroit (`forja_api.openapi`) ; les
+  exemples de réponse sont enregistrés depuis un vrai projet de démo, raccourcis et sans
+  secret ni donnée personnelle.
+- La couche sémantique est générée depuis le dernier plan Gold **appliqué** : un plan
+  approuvé mais pas encore construit ne décrit pas l'entrepôt.

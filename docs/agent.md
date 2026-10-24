@@ -216,20 +216,41 @@ chaque question.
 | Fournisseur | Score | Sans LLM | Contexte moyen |
 |---|---|---|---|
 | simulé (20 questions) | 20/20 | 65 % (13/20) | 200 tokens |
-| Ollama `qwen3.5:9b`, CPU (5 questions) | 3/5 | 1/5 | 200 tokens |
+| Ollama `qwen3.5:9b`, CPU (5 questions) | 5/5 | 2/5 | 193 tokens |
 
-Mesures Ollama (Snapdragon X Plus, 32 Go, CPU seul, cache désactivé) : contexte
-présélectionné ~200 tokens, prompt complet lu par le modèle 1 506 à 1 531 tokens
-(consigne et schéma JSON compris), 49 à 137 tokens écrits, **118 à 125 s par appel**. La
-question simple (s02) passe par le parseur en 0,6 s. Réussites : top 1 des catégories
-(c03), refus de la météo (r01). Échecs : « clientèle professionnelle » traitée comme un
-axe au lieu d'un filtre (c01), et « les 5 produits les plus vendus » deviné en chiffre
-d'affaires au lieu de demander (a04).
+Passages Ollama successifs (Snapdragon X Plus, 32 Go, CPU seul, cache de Forja désactivé,
+une question à la fois, aucun autre calcul en parallèle) :
 
-Correctifs apportés ensuite, validés par le jeu simulé mais **pas encore mesurés sur
-Ollama** (le second passage a été interrompu, faute de mémoire sur la machine) : le
-parseur transmet au modèle ce qu'il a reconnu localement (« filtre sur client.segment,
-valeur telle qu'écrite », période, granularité, sans valeur de données), la consigne
-précise qu'un mot désignant une valeur est un filtre, et « vendus » sans métrique
-devient une question déterministe (chiffre d'affaires ou quantité ?) posée par le
-parseur. À relancer : `uv run python -m tests.agent_eval --provider ollama --subset`.
+| Passage | s02 | c01 | c03 | a04 | r01 | Score |
+|---|---|---|---|---|---|---|
+| 1 (étape 4) | ✓ parseur 0,6 s | ✗ 118 s | ✓ 122 s | ✗ 125 s | ✓ 118 s | 3/5 |
+| 2 : indices du parseur, « vendus » | ✓ 0,6 s | ✓ 131 s | ✗ 136 s | ✓ parseur 0,1 s | ✓ 121 s | 4/5 |
+| 3 : consigne resserrée, « argent » | ✓ 0,6 s | ✗ 127 s | ✓ 125 s | ✓ 0,1 s | ✓ 120 s | 4/5 |
+| 4 : filtres locaux conservés | ✓ 0,6 s | ✓ 12 s* | ✓ 10 s* | ✓ 0,1 s | ✓ 5 s* | **5/5** |
+
+Tokens par appel LLM : 1 566 à 1 671 lus (consigne, présélection et schéma JSON), 49 à
+166 écrits. \* Au passage 4 les prompts étaient identiques au passage 3 et le modèle
+était resté chargé : Ollama a réutilisé son propre cache de prompt. Les durées
+représentatives à froid sont celles des passages 1 à 3 : **~2 min par appel** sur ce
+CPU ; la réponse du modèle à c01 est identique à celle du passage 3.
+
+Ce que chaque échec a appris :
+
+- **c01** (« clientèle professionnelle ») : le modèle en faisait un axe, puis l'oubliait.
+  Le parseur lui transmet ce qu'il a reconnu localement (« filtre sur client.segment,
+  valeur telle qu'écrite », période, granularité ; jamais de valeur de données) et, si le
+  modèle omet un filtre trouvé sur une valeur réelle des données ou la période, Forja le
+  réintègre (sauf si le champ est utilisé comme axe) : la donnée est une preuve plus
+  sûre que la lecture du modèle.
+- **a04** (« les plus vendus ») : le modèle tranchait au lieu de demander. « vendus » sans
+  métrique est désormais une question déterministe du parseur (chiffre d'affaires ou
+  quantité ?), sans appel au modèle.
+- **c03** (« rapporte le plus d'argent ») : une consigne trop prudente faisait demander
+  « CA ou nombre de commandes ? ». La consigne ne demande plus qu'en cas de deux
+  métriques également plausibles, et « argent » est un synonyme du chiffre d'affaires.
+
+Limite : avec un modèle 9b sur CPU, le résultat d'une question peut changer quand la
+consigne change, même à température 0. Les garde-fous déterministes (questions du
+parseur, filtres conservés, validation stricte) rendent le résultat moins dépendant du
+modèle ; le jeu complet de 20 questions reste à passer sur un modèle cloud
+(`--provider anthropic`).

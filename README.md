@@ -1,5 +1,7 @@
 # Forja
 
+[![CI](https://github.com/koutamMoulaye/Forja/actions/workflows/ci.yml/badge.svg)](https://github.com/koutamMoulaye/Forja/actions/workflows/ci.yml)
+
 **Forja** est une plateforme open source de data engineering automatisée, *local-first*
 et déployable en SaaS.
 
@@ -86,6 +88,21 @@ aperçu de vérification avant publication.
   Superset ou Metabase ([docs/bi.md](docs/bi.md)), exports Parquet / CSV. Tables Gold
   publiées par défaut, Silver sur demande. Les données personnelles y sont
   pseudonymisées (HMAC-SHA256) par défaut ; Silver et Gold internes restent en clair.
+
+## Démo en une commande
+
+```bash
+uv sync
+uv run forja demo        # API arrêtée : un seul processus sur le catalogue DuckDB
+uv run forja-api
+```
+
+`forja demo` crée (ou complète) le projet « Démo e-commerce » : fixture e-commerce
+chargée, Silver construit, relations confirmées, modèle Gold heuristique approuvé et
+construit, couche sémantique, deux data marts publiés par l'analyst, et deux comptes :
+`ingenieur@demo.forja.local` (engineer) et `analyste@demo.forja.local` (analyst). Leurs
+mots de passe ne sont affichés qu'une fois, dans le terminal ; `--reset-passwords` en
+génère de nouveaux. La commande est idempotente : relancée, elle ne refait rien.
 
 ## Installation et lancement
 
@@ -336,6 +353,8 @@ uv run ruff format .          # formatage
 uv run mypy                   # typage strict
 uv run python -m tests.fixtures.generate    # régénérer les jeux de test
 uv run python -m tests.fixtures.ecommerce   # régénérer le jeu e-commerce
+uv run forja openapi                        # régénérer docs/openapi.json (front)
+uv run forja openapi --record-examples      # réenregistrer les exemples de réponse
 uv run python -m tests.agent_eval           # évaluer l'agent (modèle simulé)
 uv run python -m tests.agent_eval --provider ollama --subset   # 5 questions, Ollama
 ```
