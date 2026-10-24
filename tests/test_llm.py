@@ -460,6 +460,8 @@ def _ollama_available(url: str) -> bool:
 
 
 _OLLAMA_URL = os.environ.get("FORJA_LLM_OLLAMA_BASE_URL", "http://localhost:11434")
+# CI runs with the mocked model only: no real provider is called, even if reachable.
+_NO_REAL = os.environ.get("FORJA_SKIP_REAL_LLM_TESTS") == "1"
 
 
 @pytest.mark.parametrize(
@@ -468,20 +470,23 @@ _OLLAMA_URL = os.environ.get("FORJA_LLM_OLLAMA_BASE_URL", "http://localhost:1143
         pytest.param(
             "anthropic",
             marks=pytest.mark.skipif(
-                not os.environ.get("ANTHROPIC_API_KEY"), reason="ANTHROPIC_API_KEY not set"
+                _NO_REAL or not os.environ.get("ANTHROPIC_API_KEY"),
+                reason="ANTHROPIC_API_KEY not set (or real LLM tests disabled)",
             ),
         ),
         pytest.param(
             "openai",
             marks=pytest.mark.skipif(
-                not (os.environ.get("OPENAI_API_KEY") and os.environ.get("FORJA_LLM_MODEL")),
-                reason="OPENAI_API_KEY and FORJA_LLM_MODEL not set",
+                _NO_REAL
+                or not (os.environ.get("OPENAI_API_KEY") and os.environ.get("FORJA_LLM_MODEL")),
+                reason="OPENAI_API_KEY and FORJA_LLM_MODEL not set (or real LLM tests disabled)",
             ),
         ),
         pytest.param(
             "ollama",
             marks=pytest.mark.skipif(
-                not _ollama_available(_OLLAMA_URL), reason="Ollama not reachable"
+                _NO_REAL or not _ollama_available(_OLLAMA_URL),
+                reason="Ollama not reachable (or real LLM tests disabled)",
             ),
         ),
     ],
