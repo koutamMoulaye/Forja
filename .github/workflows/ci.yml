@@ -24,7 +24,7 @@ jobs:
       FORJA_SKIP_REAL_LLM_TESTS: "1"
       PYTHONIOENCODING: utf-8
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -49,4 +49,21 @@ jobs:
         run: uv run forja openapi --check
 
       - name: Tests
-        run: uv run pytest -q
+        run: uv run pytest -q -rf --junitxml=pytest-report.xml
+
+      - name: Report failed tests as annotations
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          report = Path("pytest-report.xml")
+          if report.exists():
+              for case in ET.parse(report).iter("testcase"):
+                  for problem in [*case.iter("failure"), *case.iter("error")]:
+                      text = (problem.get("message") or problem.text or "")[:900]
+                      text = text.replace("%", "%25").replace("", "").replace("
+", "%0A")
+                      name = f"{case.get('classname')}.{case.get('name')}"
+                      print(f"::error title={name}::{text}")
+          PY
