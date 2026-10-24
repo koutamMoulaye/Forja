@@ -16,7 +16,6 @@ from typing import Any
 
 import pyarrow.parquet as pq
 import pytest
-from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from forja_api.state import AppState
@@ -221,13 +220,10 @@ def test_matrix(world: World, method: str, template: str, body: Any, allowed: se
 
 
 def test_every_route_is_in_the_matrix(world: World) -> None:
-    app = world.clients["admin"].app
-    routes = {
-        (method, route.path)
-        for route in app.routes  # type: ignore[attr-defined]
-        if isinstance(route, APIRoute)
-        for method in route.methods
-    }
+    # From the OpenAPI document: included routers are not flattened in app.routes.
+    paths = world.clients["admin"].app.openapi()["paths"]  # type: ignore[attr-defined]
+    routes = {(method.upper(), path) for path, ops in paths.items() for method in ops}
+    assert len(routes) > 60
     covered = {
         (m, re.sub(r"\{(silver|gold|fact)_table\}", "{table_id}", p)) for m, p, _, _ in MATRIX
     }
