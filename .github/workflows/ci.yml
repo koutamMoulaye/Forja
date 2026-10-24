@@ -51,19 +51,7 @@ jobs:
       - name: Tests
         run: uv run pytest -q -rf --junitxml=pytest-report.xml
 
+      # Run logs need authentication; annotations are shown on the run page.
       - name: Report failed tests as annotations
         if: failure()
-        run: |
-          python3 - <<'PY'
-          import xml.etree.ElementTree as ET
-          from pathlib import Path
-          report = Path("pytest-report.xml")
-          if report.exists():
-              for case in ET.parse(report).iter("testcase"):
-                  for problem in [*case.iter("failure"), *case.iter("error")]:
-                      text = (problem.get("message") or problem.text or "")[:900]
-                      text = text.replace("%", "%25").replace("", "").replace("
-", "%0A")
-                      name = f"{case.get('classname')}.{case.get('name')}"
-                      print(f"::error title={name}::{text}")
-          PY
+        run: uv run python .github/report_failures.py pytest-report.xml
