@@ -314,6 +314,37 @@ class AuthMixin(GoldPlansMixin):
         )
         return [_invitation(row) for row in rows]
 
+    # --- Throttling of authentication attempts ------------------------------------
+
+    def get_throttle(self, key: str) -> tuple[list[datetime], datetime | None, int] | None:
+        """Recent failures, end of the current lock and number of locks of a key."""
+        row = self._fetchone(
+            "SELECT failures, locked_until, lockouts FROM auth_throttle WHERE key = ?", [key]
+        )
+        if row is None:
+            return None
+        failures = [datetime.fromisoformat(v) for v in json.loads(row[0])]
+        return failures, from_db_timestamp(row[1]), int(row[2])
+
+    def save_throttle(
+        self, key: str, failures: list[datetime], locked_until: datetime | None, lockouts: int
+    ) -> None:
+        self._execute(
+            "INSERT INTO auth_throttle VALUES (?, ?, ?, ?, ?) ON CONFLICT (key) DO UPDATE SET "
+            "failures = excluded.failures, locked_until = excluded.locked_until, "
+            "lockouts = excluded.lockouts, updated_at = excluded.updated_at",
+            [
+                key,
+                json.dumps([f.isoformat() for f in failures]),
+                to_db_timestamp(locked_until),
+                lockouts,
+                to_db_timestamp(utcnow()),
+            ],
+        )
+
+    def clear_throttle(self, key: str) -> None:
+        self._execute("DELETE FROM auth_throttle WHERE key = ?", [key])
+
     # --- Audit -----------------------------------------------------------------------
 
     def add_audit(self, entry: AuditEntry) -> AuditEntry:

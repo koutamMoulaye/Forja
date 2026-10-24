@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
+from forja_core.auth.throttle import TooManyAttemptsError
 from forja_core.errors import (
     ConflictError,
     FileTooLargeError,
@@ -23,6 +24,7 @@ from forja_core.logging import get_logger
 log = get_logger(__name__)
 
 _STATUS_BY_ERROR: tuple[tuple[type[ForjaError], int], ...] = (
+    (TooManyAttemptsError, status.HTTP_429_TOO_MANY_REQUESTS),
     (NotFoundError, status.HTTP_404_NOT_FOUND),
     (UnauthorizedError, status.HTTP_401_UNAUTHORIZED),
     (ConflictError, status.HTTP_409_CONFLICT),
@@ -53,6 +55,8 @@ async def _handle_forja_error(_request: Request, exc: Exception) -> JSONResponse
     if status_code >= 500:
         log.error("request_failed", error_code=exc.code, error=exc.message)
     headers = {"WWW-Authenticate": "Bearer"} if status_code == 401 else None
+    if isinstance(exc, TooManyAttemptsError):
+        headers = {"Retry-After": str(exc.retry_after)}
     return JSONResponse(
         status_code=status_code,
         content=_body(exc.code, exc.message, exc.details),

@@ -34,6 +34,7 @@ from forja_core.auth.models import (
     TokenPair,
     User,
 )
+from forja_core.auth.throttle import Limit, Throttle, TooManyAttemptsError
 from forja_core.catalog import Catalog
 from forja_core.catalog.auth import new_id
 from forja_core.config import Settings
@@ -74,6 +75,7 @@ class AuthService:
         self.catalog = catalog
         self.settings = settings
         self._key = _signing_key(settings)
+        self.throttle = Throttle(catalog, settings)
 
     # --- Bootstrap -------------------------------------------------------------------
 
@@ -126,12 +128,34 @@ class AuthService:
                 details={"requirements": problems},
             )
 
-    def login(self, email: str, password: str) -> TokenPair:
+    def _guard(self, limits: list[Limit], action: str, details: dict[str, Any]) -> None:
+        """Refuse while a key is locked, before any credential is checked."""
+        try:
+            self.throttle.check(limits)
+        except TooManyAttemptsError as exc:
+            self.audit(
+                None, f"{action}_blocked", details={**details, "retry_after": exc.retry_after}
+            )
+            raise
+
+    def _failed(self, limits: list[Limit], action: str, details: dict[str, Any]) -> None:
+        self.audit(None, f"{action}_failed", details=details)
+        for key in self.throttle.failure(limits):
+            kind = key.split(":")[1]
+            log.warning("auth_throttled", action=action, kind=kind)
+            self.audit(None, "auth.throttled", details={**details, "action": action, "on": kind})
+
+    def login(self, email: str, password: str, *, ip: str | None = None) -> TokenPair:
+        limits = self.throttle.login_limits(email, ip)
+        details = {"email": email, "ip": ip}
+        self._guard(limits, "auth.login", details)
         user = self.catalog.find_user_by_email(email)
         stored = self.catalog.password_hash(user.id) if user else None
         if user is None or user.disabled or not verify_password(stored, password):
-            self.audit(None, "auth.login_failed", details={"email": email})
+            # The same answer, and the same counting, whether the account exists or not.
+            self._failed(limits, "auth.login", details)
             raise UnauthorizedError("invalid email or password")
+        self.throttle.success([limits[0].key])
         if stored and needs_rehash(stored):
             self.catalog.set_password(
                 user.id, hash_password(password), must_change=user.must_change_password
@@ -169,9 +193,12 @@ class AuthService:
             must_change_password=user.must_change_password,
         )
 
-    def refresh(self, refresh_token: str) -> TokenPair:
+    def refresh(self, refresh_token: str, *, ip: str | None = None) -> TokenPair:
+        limits = self.throttle.ip_limits("refresh", ip)
+        self._guard(limits, "auth.refresh", {"ip": ip})
         used = self.catalog.use_refresh_token(_digest(refresh_token))
         if used is None:
+            self._failed(limits, "auth.refresh", {"ip": ip})
             raise UnauthorizedError("invalid refresh token")
         session_id, already_used = used
         if already_used:
@@ -180,6 +207,7 @@ class AuthService:
             user_id = self.catalog.session_user(session_id)
             log.warning("refresh_token_reuse", session_id=session_id, user_id=user_id)
             self.audit(None, "auth.refresh_reuse", object_type="session", object_id=session_id)
+            self.throttle.failure(limits)
             raise UnauthorizedError("refresh token already used: the session is revoked")
         if not self.catalog.session_active(session_id):
             raise UnauthorizedError("session expired or revoked")
@@ -316,11 +344,15 @@ class AuthService:
         )
         return invitation.model_copy(update={"token": token})
 
-    def register(self, token: str, password: str) -> TokenPair:
+    def register(self, token: str, password: str, *, ip: str | None = None) -> TokenPair:
+        limits = self.throttle.ip_limits("register", ip)
+        self._guard(limits, "auth.register", {"ip": ip})
         invitation = self.catalog.find_invitation(_digest(token))
         if invitation is None or invitation.accepted_at is not None:
+            self._failed(limits, "auth.register", {"ip": ip})
             raise UnauthorizedError("invalid or already used invitation")
         if invitation.expires_at < utcnow():
+            self._failed(limits, "auth.register", {"ip": ip})
             raise UnauthorizedError("invitation expired")
         if self.catalog.find_user_by_email(invitation.email) is not None:
             raise ConflictError("this email already has an account: log in instead")

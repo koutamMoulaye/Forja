@@ -49,6 +49,38 @@ Politique de mot de passe : au moins `FORJA_AUTH_PASSWORD_MIN_LENGTH` caractère
 - Refresh tokens et jetons d'invitation sont aussi stockés en empreinte SHA-256 : le
   catalogue ne contient aucun secret réutilisable.
 
+## Limitation des tentatives
+
+Chaque échec de connexion est compté sous deux clés : le compte (l'email saisi, qu'il
+existe ou non) et l'adresse IP ; chaque refresh token ou jeton d'invitation invalide,
+sous l'IP. Fenêtre glissante de `FORJA_AUTH_THROTTLE_WINDOW_SECONDS` (900 s) :
+
+| Clé | Échecs avant verrouillage |
+|---|---|
+| `login:account:<email>` | `FORJA_AUTH_THROTTLE_ACCOUNT_MAX` (5) |
+| `login:ip:<ip>`, `refresh:ip:<ip>`, `register:ip:<ip>` | `FORJA_AUTH_THROTTLE_IP_MAX` (20) |
+
+- Le premier verrouillage dure `FORJA_AUTH_THROTTLE_LOCKOUT_SECONDS` (60 s), chaque
+  suivant deux fois plus, jusqu'à `FORJA_AUTH_THROTTLE_MAX_LOCKOUT_SECONDS` (3 600 s).
+  Une connexion réussie remet le compteur du compte à zéro.
+- Pendant un verrouillage, la tentative est refusée **avant** toute vérification :
+  `429 too_many_attempts`, en-tête `Retry-After`. La réponse est identique pour un compte
+  existant ou non, comme le `401` des échecs ordinaires.
+- Audit : `auth.login_failed`, `auth.refresh_failed`, `auth.register_failed` à chaque
+  échec ; `auth.throttled` au verrouillage (clé compte ou IP) ;
+  `auth.login_blocked`, `auth.refresh_blocked`, `auth.register_blocked` pour chaque
+  tentative refusée.
+- Derrière un proxy de confiance, `FORJA_AUTH_TRUST_FORWARDED_FOR=true` prend l'IP dans
+  `X-Forwarded-For` ; sinon l'en-tête est ignoré (un client pourrait le falsifier).
+- `FORJA_AUTH_THROTTLE_ENABLED=false` désactive la limitation (déconseillé).
+
+## Navigateur (CORS)
+
+Le front appelle l'API depuis une autre origine : `FORJA_CORS_ORIGINS` (JSON, par défaut
+`["http://localhost:3000"]`) liste les origines autorisées. Les jetons voyagent dans
+l'en-tête `Authorization` : aucun cookie, donc pas de `credentials`. En-têtes exposés :
+`X-Request-ID`, `Retry-After`, `Content-Disposition`.
+
 ## Invitations (mode multi)
 
 `POST /projects/{id}/invitations` (`{"email", "role"}`) :
@@ -162,8 +194,8 @@ gérés dans Forja.
 
 ## Limites connues
 
-- Pas de limitation du nombre de tentatives de login : à placer devant Forja (proxy) sur
-  une instance exposée.
+- La limitation des tentatives est stockée dans le catalogue de l'instance : plusieurs
+  instances derrière un répartiteur ne partagent pas leurs compteurs.
 - Pas d'envoi d'email : le jeton d'invitation est renvoyé à l'admin, qui le transmet.
 - Garder `FORJA_API_HOST=127.0.0.1` ou un proxy HTTPS : les jetons circulent en clair sur
   HTTP.

@@ -17,6 +17,7 @@ from fastapi import Depends, Request
 from forja_api.state import AppState, StateDep
 from forja_core.auth.models import ROLE_ACTIONS, Action, Principal, Role
 from forja_core.catalog import Catalog
+from forja_core.config import Settings
 from forja_core.errors import ForbiddenError, PasswordChangeRequiredError, UnauthorizedError
 
 
@@ -29,6 +30,16 @@ def _credential(request: Request) -> str | None:
     if scheme.lower() == "bearer" and value.strip():
         return value.strip()
     return None
+
+
+def client_ip(request: Request, settings: Settings) -> str | None:
+    """The caller's IP; X-Forwarded-For only when a trusted proxy sets it."""
+    if settings.auth_trust_forwarded_for:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        first = forwarded.split(",")[0].strip()
+        if first:
+            return first
+    return request.client.host if request.client else None
 
 
 def get_principal(request: Request, state: StateDep) -> Principal:

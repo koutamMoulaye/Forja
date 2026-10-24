@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Request, status
 from pydantic import BaseModel
 
-from forja_api.security import AdminDep, AnyPrincipalDep, PrincipalDep
+from forja_api.security import AdminDep, AnyPrincipalDep, PrincipalDep, client_ip
 from forja_api.state import StateDep
 from forja_core.auth.models import (
     ApiKey,
@@ -31,13 +31,13 @@ class Me(BaseModel):
 
 
 @router.post("/login", summary="Email and password: an access token and a refresh token")
-def login(payload: LoginRequest, state: StateDep) -> TokenPair:
-    return state.auth.login(payload.email, payload.password)
+def login(payload: LoginRequest, request: Request, state: StateDep) -> TokenPair:
+    return state.auth.login(payload.email, payload.password, ip=client_ip(request, state.settings))
 
 
 @router.post("/refresh", summary="Exchange a refresh token (single use) for a new pair")
-def refresh(payload: RefreshRequest, state: StateDep) -> TokenPair:
-    return state.auth.refresh(payload.refresh_token)
+def refresh(payload: RefreshRequest, request: Request, state: StateDep) -> TokenPair:
+    return state.auth.refresh(payload.refresh_token, ip=client_ip(request, state.settings))
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, summary="Revoke the session")
@@ -70,8 +70,10 @@ def me(principal: AnyPrincipalDep, state: StateDep) -> Me:
     status_code=status.HTTP_201_CREATED,
     summary="Create an account from an invitation token (FORJA_AUTH_MODE=multi)",
 )
-def register(payload: Registration, state: StateDep) -> TokenPair:
-    return state.auth.register(payload.token, payload.password)
+def register(payload: Registration, request: Request, state: StateDep) -> TokenPair:
+    return state.auth.register(
+        payload.token, payload.password, ip=client_ip(request, state.settings)
+    )
 
 
 @router.get("/api-keys", summary="Personal API keys (prefixes only)")

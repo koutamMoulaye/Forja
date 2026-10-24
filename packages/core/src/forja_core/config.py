@@ -95,6 +95,25 @@ class Settings(BaseSettings):
         description="Password of the first administrator (random and logged once when unset)",
     )
 
+    auth_throttle_enabled: bool = Field(
+        default=True, description="Limit failed logins, refreshes and registrations"
+    )
+    auth_throttle_window_seconds: int = Field(default=900, gt=0)
+    auth_throttle_account_max: int = Field(
+        default=5, ge=1, description="Failed logins of one account within the window"
+    )
+    auth_throttle_ip_max: int = Field(
+        default=20, ge=1, description="Failed attempts from one IP within the window"
+    )
+    auth_throttle_lockout_seconds: int = Field(
+        default=60, gt=0, description="First lock; each new lock lasts twice as long"
+    )
+    auth_throttle_max_lockout_seconds: int = Field(default=3600, gt=0)
+    auth_trust_forwarded_for: bool = Field(
+        default=False,
+        description="Take the client IP from X-Forwarded-For (only behind a trusted proxy)",
+    )
+
     mart_require_approval: bool = Field(
         default=False, description="An engineer approves a data mart before it is published"
     )

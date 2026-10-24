@@ -319,6 +319,18 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         );
         """,
     ),
+    (
+        13,
+        """
+        CREATE TABLE auth_throttle (
+            key VARCHAR PRIMARY KEY,
+            failures JSON NOT NULL,
+            locked_until TIMESTAMP,
+            lockouts INTEGER NOT NULL,
+            updated_at TIMESTAMP NOT NULL
+        );
+        """,
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
