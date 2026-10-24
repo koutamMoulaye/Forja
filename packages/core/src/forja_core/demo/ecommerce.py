@@ -9,7 +9,8 @@ Built to exercise relations and star modeling:
 - shipping costs at order level (frais_port), a trap for measures at line grain;
 - clients_v2.csv: one client moved and changed segment, one new client.
 
-Run ``uv run python -m tests.fixtures.ecommerce`` to rebuild the files.
+It is the test fixture (``tests/fixtures/ecommerce``, rebuilt with
+``uv run python -m tests.fixtures.ecommerce``) and the data of ``forja demo``.
 """
 
 from __future__ import annotations
@@ -19,8 +20,6 @@ import io
 import random
 from datetime import date, timedelta
 from pathlib import Path
-
-DIRECTORY = Path(__file__).parent / "ecommerce"
 
 CLIENTS = "clients.csv"
 CLIENTS_V2 = "clients_v2.csv"
@@ -169,7 +168,7 @@ def _write(path: Path, header: list[str], rows: list[list[str]], encoding: str) 
     path.write_bytes(buffer.getvalue().encode(encoding))
 
 
-def generate(directory: Path = DIRECTORY) -> None:
+def generate(directory: Path) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     _write(directory / CLIENTS, CLIENT_HEADER, clients_rows(1), "cp1252")
     _write(directory / CLIENTS_V2, CLIENT_HEADER, clients_rows(2), "cp1252")
@@ -182,7 +181,3 @@ def all_values() -> set[str]:
     """Every cell of every file, for leak tests."""
     tables = (clients_rows(1), clients_rows(2), produits_rows(), commandes_rows(), lignes_rows())
     return {cell for rows in tables for row in rows for cell in row}
-
-
-if __name__ == "__main__":
-    generate()

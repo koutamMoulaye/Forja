@@ -10,7 +10,9 @@ from contextlib import asynccontextmanager
 import structlog
 import uvicorn
 from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 
+from forja_api import openapi
 from forja_api.errors import register_error_handlers
 from forja_api.routes import (
     auth,
@@ -52,10 +54,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="Forja API",
         version=__version__,
-        description="Ingestion, profiling and modeling of datasets, local-first.",
+        description="Ingestion, profilage et modélisation de données, local-first.",
         lifespan=lifespan,
     )
     register_error_handlers(app)
+    # A browser front on another origin (http://localhost:3000 by default) calls the API
+    # with a bearer token: no cookie, so credentials stay off.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Request-ID"],
+        expose_headers=["X-Request-ID", "Retry-After", "Content-Disposition"],
+        max_age=600,
+    )
 
     @app.middleware("http")
     async def request_context(
@@ -92,6 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(gold.router)
     app.include_router(semantic.router)
     app.include_router(marts.router)
+    openapi.install(app)
     return app
 
 

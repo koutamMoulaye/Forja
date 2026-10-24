@@ -14,6 +14,7 @@ dependencies = [
 
 [project.scripts]
 forja-api = "forja_api.main:run"
+forja = "forja_api.cli:main"
 
 [tool.uv.sources]
 forja-core = { workspace = true }

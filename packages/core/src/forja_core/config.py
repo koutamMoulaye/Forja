@@ -113,6 +113,10 @@ class Settings(BaseSettings):
         default=False,
         description="Take the client IP from X-Forwarded-For (only behind a trusted proxy)",
     )
+    cors_origins: list[str] = Field(
+        default_factory=lambda: ["http://localhost:3000"],
+        description="Origins allowed to call the API from a browser (the front)",
+    )
 
     mart_require_approval: bool = Field(
         default=False, description="An engineer approves a data mart before it is published"
