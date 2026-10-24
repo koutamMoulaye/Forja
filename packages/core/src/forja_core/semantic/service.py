@@ -12,7 +12,7 @@ import duckdb
 
 from forja_core.catalog import Catalog
 from forja_core.errors import ForjaError, PlanStateError, PlanValidationError
-from forja_core.gold.build import gold_inputs
+from forja_core.gold.context import build_gold_context
 from forja_core.locks import WarehouseLocks
 from forja_core.logging import get_logger
 from forja_core.semantic.generate import generate_layer
@@ -93,12 +93,16 @@ class SemanticService:
 
     def regenerate(self, project_id: str, *, by: str | None = None) -> SemanticLayer:
         """A new version when the applied Gold plan or the overrides changed."""
-        inputs = gold_inputs(self.catalog, project_id)
-        if inputs is None or inputs[0].status is not PlanStatus.APPLIED:
+        # The plan the Gold tables were built with: a newer plan, approved but not built
+        # yet, does not describe the warehouse.
+        applied = [
+            p for p in self.catalog.list_gold_plans(project_id) if p.status is PlanStatus.APPLIED
+        ]
+        if not applied:
             raise PlanStateError(
                 "the semantic layer is generated from the applied Gold plan: run build_gold"
             )
-        plan, ctx = inputs
+        plan, ctx = applied[-1], build_gold_context(self.catalog, project_id)
         metrics, dimensions, default_time = generate_layer(plan, ctx)
         overrides = self.catalog.list_semantic_overrides(project_id)
         orphans = _apply(metrics, dimensions, overrides)
