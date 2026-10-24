@@ -194,6 +194,11 @@ def test_provider_selected_from_environment(
     assert provider.name == name
 
 
+def test_empty_provider_means_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FORJA_LLM_PROVIDER", "")
+    assert get_provider(LLMSettings(_env_file=None)) is None  # type: ignore[call-arg]
+
+
 def test_unknown_provider_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FORJA_LLM_PROVIDER", "unknown")
     with pytest.raises(ValidationError):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -67,6 +67,12 @@ class LLMSettings(BaseSettings):
     )
     ollama_think: bool = Field(default=False, description="Reasoning of thinking models")
     ollama_keep_alive: str = Field(default="30m", description="How long the model stays loaded")
+
+    @field_validator("provider", mode="before")
+    @classmethod
+    def _empty_is_none(cls, value: object) -> object:
+        """``FORJA_LLM_PROVIDER=`` (empty) means no provider, as when it is unset."""
+        return None if isinstance(value, str) and not value.strip() else value
 
     def model_for(self, provider: str) -> str | None:
         return self.model or DEFAULT_MODELS.get(provider)
