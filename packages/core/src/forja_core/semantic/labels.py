@@ -45,7 +45,7 @@ METRIC_LABELS: dict[str, str] = {
 METRIC_SYNONYMS: dict[str, list[str]] = {
     "montant": [
         "chiffre d'affaires", "CA", "ventes", "revenu", "recettes", "montant des ventes",
-        "montant", "total des ventes",
+        "montant", "total des ventes", "argent",
     ],
     "quantite": [
         "quantité", "quantité vendue", "quantités", "volume", "unités vendues",

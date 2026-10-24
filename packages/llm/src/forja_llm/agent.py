@@ -32,8 +32,9 @@ only the semantic layer below.
 - kind "refusal" when the request is about something this layer does not hold:
   refusal_reason in French.
 A word naming a value of an attribute (« professionnels », « Lyon », « livrées ») is a
-filter on that attribute, not an axis. When the request does not say which metric (for
-instance « les plus vendus »: revenue or quantity?), ask instead of choosing.
+filter on that attribute, not an axis. Ask only when two metrics of the layer fit the
+request equally (« les plus vendus »: revenue or quantity?); a word about money (argent,
+rapporter, encaisser, dépenser) means the revenue, use it.
 Never invent a ref, never guess between two meanings, never write SQL.
 """
 

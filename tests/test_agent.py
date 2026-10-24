@@ -364,3 +364,19 @@ def test_filters_on_totals(shop: tuple[AppState, Project], layer: SemanticLayer)
     assert validated.spec is not None and validated.fact is not None
     compiled = compile_spec(validated.spec, layer, validated.fact)
     assert "having sum(_m_montant) > 100" in compiled.sql
+
+
+def test_filters_found_locally_survive_the_model(shop: tuple[AppState, Project]) -> None:
+    state, project = shop
+    # The model forgets the city; the parser matched « Lyon » in the data.
+    provider = _Recording('{"kind": "mart", "mart": {"metrics": ["montant"], "name": "ca"}}')
+    state.marts.interpreter = LLMMartInterpreter(provider)
+    try:
+        request = _ask(state, project, "Chiffre d'affaires des clients de Lyon chez nous")
+    finally:
+        state.marts.interpreter = None
+    iteration = request.latest
+    assert iteration is not None and iteration.path is not None
+    assert iteration.path.value == "llm" and iteration.spec is not None
+    assert [(f.field, f.value) for f in iteration.spec.filters] == [("client.ville", "Lyon")]
+    assert "filter on client.ville" in provider.prompts[0]

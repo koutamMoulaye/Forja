@@ -408,6 +408,8 @@ class MartService:
                     duration_ms=sum(c.duration_ms for c in calls),
                     cached=cached,
                 )
+        if answer is not None and iteration.path is not AgentPath.PARSER:
+            answer = _keep_local_findings(answer, outcome)
         if answer is None:
             answer = self._fallback(layer, outcome)
         report("validation", "validation et compilation", 70)
@@ -740,6 +742,26 @@ class MartService:
             if request.published_table_id == table.id:
                 return {c.name: PiiType(c.pii) for c in request.model_columns if c.pii}
         return {}
+
+
+def _keep_local_findings(answer: AgentAnswer, outcome: ParseOutcome) -> AgentAnswer:
+    """Filters the parser matched on real values (and its period) are kept when the model
+    leaves them out: a value found in the data is stronger evidence than the model's
+    reading. A field the model uses as an axis is left alone."""
+    spec = answer.mart
+    local = outcome.answer.mart if outcome.answer is not None else None
+    if answer.kind != "mart" or spec is None or local is None:
+        return answer
+    taken = {f.field for f in spec.filters} | set(spec.axes)
+    missing = [f for f in local.filters if f.field not in taken]
+    update: dict[str, object] = {}
+    if missing:
+        update["filters"] = [*spec.filters, *missing]
+    if spec.period is None and local.period is not None:
+        update["period"] = local.period
+    if not update:
+        return answer
+    return answer.model_copy(update={"mart": spec.model_copy(update=update)})
 
 
 def _hints(outcome: ParseOutcome) -> list[str]:
