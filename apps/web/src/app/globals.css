@@ -3,11 +3,13 @@
 /*
  * Forja design tokens, direction "Recuit" (planche v2, récapitulatif v3).
  * Light: cool neutral. Dark: warm, unchanged from v1. Values are the mockups' own.
+ * Any element can set data-theme: /design-system shows both themes side by side.
  */
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-:root {
+:root,
+[data-theme="light"] {
   color-scheme: light;
 
   /* Surfaces */
@@ -85,7 +87,7 @@
   --mono: var(--font-commit), "Commit Mono", ui-monospace, monospace;
 }
 
-:root[data-theme="dark"] {
+[data-theme="dark"] {
   color-scheme: dark;
 
   --bg: #1a1917;
