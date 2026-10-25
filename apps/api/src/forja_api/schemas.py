@@ -30,3 +30,4 @@ class HealthResponse(BaseModel):
         description="local (single administrator) or multi (invitations); "
         "lets the sign-in screen adapt before anyone is authenticated"
     )
+    max_upload_mb: int = Field(description="Largest file accepted by an upload, in MB")

@@ -93,7 +93,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/health", tags=["system"])
     def health() -> HealthResponse:
-        return HealthResponse(status="ok", version=__version__, auth_mode=settings.auth_mode)
+        return HealthResponse(
+            status="ok",
+            version=__version__,
+            auth_mode=settings.auth_mode,
+            max_upload_mb=settings.max_upload_mb,
+        )
 
     app.include_router(auth.router)
     app.include_router(projects.router)
