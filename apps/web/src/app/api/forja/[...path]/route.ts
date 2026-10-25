@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { csrfRejection } from "@/lib/auth/guard";
+import { csrfRejection, withApiErrors } from "@/lib/auth/guard";
 import { relay } from "@/lib/auth/relay";
 import { callAsUser, readSession } from "@/lib/auth/session";
 import { errorResponse, forwardedHeaders } from "@/lib/auth/upstream";
@@ -47,8 +47,10 @@ async function forward(request: NextRequest, context: Context): Promise<Response
   return relay(call, readSession(request).remember);
 }
 
-export const GET = forward;
-export const POST = forward;
-export const PUT = forward;
-export const PATCH = forward;
-export const DELETE = forward;
+const handler = withApiErrors(forward);
+
+export const GET = handler;
+export const POST = handler;
+export const PUT = handler;
+export const PATCH = handler;
+export const DELETE = handler;

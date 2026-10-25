@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { csrfRejection, readJsonBody } from "@/lib/auth/guard";
+import { csrfRejection, readJsonBody, withApiErrors } from "@/lib/auth/guard";
 import { landingWithToken } from "@/lib/auth/landing-server";
 import { relay } from "@/lib/auth/relay";
 import { callAsUser, readSession, writeTokens, type TokenPair } from "@/lib/auth/session";
@@ -11,7 +11,7 @@ type PasswordBody = { current_password?: unknown; new_password?: unknown };
  * Replaces the password. The API revokes every session and returns a new pair, stored
  * here; a 401 means the current password is wrong, not that the session ended.
  */
-export async function POST(request: NextRequest) {
+export const POST = withApiErrors(async (request: NextRequest) => {
   const rejected = csrfRejection(request);
   if (rejected) return rejected;
   const body = await readJsonBody<PasswordBody>(request);
@@ -38,4 +38,4 @@ export async function POST(request: NextRequest) {
   const response = NextResponse.json({ redirect }, { headers: { "cache-control": "no-store" } });
   writeTokens(response, pair, session.remember);
   return response;
-}
+});

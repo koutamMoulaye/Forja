@@ -1,6 +1,6 @@
 import "server-only";
 
-import { WEB_ERROR_CODES } from "@/lib/api/errors";
+import { ApiError, WEB_ERROR_CODES } from "@/lib/api/errors";
 import { checkCsrf } from "./csrf";
 import { errorResponse } from "./upstream";
 
@@ -23,4 +23,18 @@ export async function readJsonBody<T>(request: Request): Promise<T | null> {
   } catch {
     return null;
   }
+}
+
+/** Route handler wrapper: an unreachable API becomes a JSON 502, not a crash. */
+export function withApiErrors<A extends unknown[]>(
+  handler: (...args: A) => Promise<Response>,
+): (...args: A) => Promise<Response> {
+  return async (...args: A) => {
+    try {
+      return await handler(...args);
+    } catch (error) {
+      if (error instanceof ApiError) return errorResponse(error.status, error.code, error.message);
+      throw error;
+    }
+  };
 }

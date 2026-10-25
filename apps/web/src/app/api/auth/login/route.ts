@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { COOKIES, secureCookies } from "@/lib/auth/cookies";
 import { newCsrfToken } from "@/lib/auth/csrf";
-import { csrfRejection, readJsonBody } from "@/lib/auth/guard";
+import { csrfRejection, readJsonBody, withApiErrors } from "@/lib/auth/guard";
 import { landingWithToken } from "@/lib/auth/landing-server";
 import { writeTokens, type TokenPair } from "@/lib/auth/session";
 import { errorResponse, forwardedHeaders, readJson, upstream } from "@/lib/auth/upstream";
@@ -11,7 +11,7 @@ import { safeNextPath } from "@/lib/session/views";
 type LoginBody = { email?: unknown; password?: unknown; remember?: unknown; next?: unknown };
 
 /** Signs in: the token pair goes into httpOnly cookies, the browser gets a destination. */
-export async function POST(request: NextRequest) {
+export const POST = withApiErrors(async (request: NextRequest) => {
   const rejected = csrfRejection(request);
   if (rejected) return rejected;
   const body = await readJsonBody<LoginBody>(request);
@@ -53,4 +53,4 @@ export async function POST(request: NextRequest) {
     path: "/",
   });
   return result;
-}
+});
