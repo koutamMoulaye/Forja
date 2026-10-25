@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { THEME_STORAGE_KEY, resolveTheme, themeInitScript } from "./theme";
 
 function runInitScript() {
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval
   new Function(themeInitScript)();
 }
 
