@@ -312,10 +312,11 @@ sur ses règles déterministes : le résultat est toujours un plan valide.
 | `GET` | `/projects/{id}/gold-plan?version=` · `/projects/{id}/gold-plans` | Plan Gold et historique |
 | `PATCH` | `/projects/{id}/gold-plan` | Modifier le plan Gold (nouvelle version `draft`) |
 | `POST` | `/projects/{id}/gold-plan/approve` | Approuver (refusé tant qu'il reste des erreurs) |
-| `POST` | `/projects/{id}/runs` | Lancer un run `profile`, `build_silver`, `build_gold` ou `export` |
+| `POST` | `/projects/{id}/runs` | Lancer un run `profile`, `build_silver`, `build_gold`, `build_all` ou `export` |
 | `GET` | `/projects/{id}/runs` | Runs du projet |
 | `GET` | `/runs/{id}` | Statut et métriques d'un run |
 | `GET` | `/runs/{id}/logs` | Logs d'un run (texte) |
+| `GET` | `/projects/{id}/graph` | Graphe du pipeline pour le canvas : nœuds, états, liens, compteurs (ETag) |
 | `POST` | `/runs/{id}/cancel` | Annuler un run en file, ou un run LLM en cours |
 | `GET` | `/projects/{id}/tables` | Tables Silver et Gold construites |
 | `GET` | `/tables/{id}` | Détail d'une table |

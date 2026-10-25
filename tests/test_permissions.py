@@ -148,6 +148,7 @@ MATRIX: list[tuple[str, str, Any, set[str]]] = [
     ("POST", "/projects/{project_id}/gold-plan/approve", None, {"engineer", "admin"}),
     ("POST", "/projects/{project_id}/runs", {"type": "profile"}, {"engineer", "admin"}),
     ("GET", "/projects/{project_id}/runs", None, set(ROLES)),
+    ("GET", "/projects/{project_id}/graph", None, set(ROLES)),
     ("GET", "/runs/{run_id}", None, {"engineer", "admin"}),
     ("GET", "/runs/{run_id}/logs", None, {"engineer", "admin"}),
     ("POST", "/runs/{run_id}/cancel", None, {"engineer", "admin"}),
@@ -295,6 +296,25 @@ def test_analyst_sees_neither_bronze_nor_silver(world: World) -> None:
     assert analyst.get(f"/tables/{world.ids['silver_table']}/preview").status_code == 403
     runs = analyst.get(f"/projects/{project}/runs").json()
     assert runs and all(r["type"] == "mart_request" for r in runs)  # only their own
+
+
+def test_graph_follows_the_role(world: World) -> None:
+    analyst, engineer = world.clients["analyst"], world.clients["engineer"]
+    project = world.ids["project_id"]
+    full = engineer.get(f"/projects/{project}/graph").json()
+    seen = analyst.get(f"/projects/{project}/graph").json()
+    full_types = {n["type"] for n in full["nodes"]}
+    assert {"source", "silver", "dimension", "fact", "mart"} <= full_types
+    assert {n["type"] for n in seen["nodes"]} <= {"dimension", "date_dimension", "fact",
+                                                 "mart", "destination"}  # fmt: skip
+    assert "fct_ventes" in {n["id"] for n in seen["nodes"]}
+    # The analyst's data marts are not published yet: only engineers see them, to review.
+    assert not [n for n in seen["nodes"] if n["type"] == "mart"]
+    assert all(n["run"] is None for n in seen["nodes"])  # builds are not their runs
+    nodes = {n["id"] for n in seen["nodes"]}
+    assert all(e["source"] in nodes and e["target"] in nodes for e in seen["edges"])
+    lanes = {lane["lane"]: lane["total"] for lane in seen["lanes"]}
+    assert lanes["sources"] == lanes["cleaning"] == 0
 
 
 def test_documented_matrix_matches_the_code() -> None:

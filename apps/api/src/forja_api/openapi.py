@@ -150,6 +150,16 @@ ROUTE_DOCS: dict[tuple[str, str], tuple[str, str]] = {
         "profile, build_silver, build_gold, export ou gold_proposal ; exécuté en tâche de fond "
         f"(202). {ENG}",
     ),
+    ("get", "/projects/{project_id}/graph"): (
+        "Graphe du pipeline",
+        "Tout ce que dessine le canvas en un appel : nœuds (sources, tables nettoyées, "
+        "dimensions, faits, data marts, destinations) avec leur état normalisé, compteurs, "
+        "score qualité, données personnelles et run en cours ; liens de lignée, de relation "
+        "(avec la confiance) et de publication ; compteurs par compartiment. Réponse avec "
+        "ETag : renvoyer If-None-Match pour recevoir 304 si rien n'a changé. Un analyst ne "
+        "voit que le modèle en étoile, les data marts publiés qu'il peut lire et les "
+        "destinations. " + ALL,
+    ),
     ("get", "/projects/{project_id}/runs"): (
         "Lister les runs",
         "Les plus récents d'abord ; un analyst ne voit que les siens (demandes à l'agent). " + ALL,

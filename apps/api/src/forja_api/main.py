@@ -17,6 +17,7 @@ from forja_api.errors import register_error_handlers
 from forja_api.routes import (
     auth,
     gold,
+    graph,
     marts,
     plans,
     projects,
@@ -99,6 +100,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(sources.router)
     app.include_router(plans.router)
     app.include_router(runs.router)
+    app.include_router(graph.router)
     app.include_router(tables.router)
     app.include_router(relations.router)
     app.include_router(gold.router)

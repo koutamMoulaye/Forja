@@ -272,6 +272,7 @@ def record(root: Path) -> dict[str, Any]:
         run = post(engineer, "/projects/{project_id}/runs", {"type": "profile"})
         run_ids = {"run_id": run["id"]}
         get(engineer, "/projects/{project_id}/runs")
+        get(engineer, "/projects/{project_id}/graph")
         get(engineer, "/runs/{run_id}", **run_ids)
         get(engineer, "/runs/{run_id}/logs", **run_ids)
         queued = state.executor.create(project, RunRequest(type=JobType.EXPORT))
