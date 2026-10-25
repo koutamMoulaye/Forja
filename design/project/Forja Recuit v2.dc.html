@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&family=Hanken+Grotesk:wght@400..700&family=Schibsted+Grotesk:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/duotone/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<style>@font-face{font-family:'Commit Mono';src:url(https://cdn.jsdelivr.net/fontsource/fonts/commit-mono@latest/latin-400-normal.woff2) format('woff2');font-weight:400;font-display:swap}@font-face{font-family:'Commit Mono';src:url(https://cdn.jsdelivr.net/fontsource/fonts/commit-mono@latest/latin-500-normal.woff2) format('woff2');font-weight:500;font-display:swap}body{margin:0;background:#e9eaed;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#15171b}*{box-sizing:border-box}a{color:oklch(0.5 0.12 45);text-decoration:none}a:hover{color:oklch(0.44 0.12 45);text-decoration:underline}button{font-family:inherit}button:focus-visible{outline:2px solid oklch(0.56 0.125 45);outline-offset:2px}@keyframes fspin{to{transform:rotate(360deg)}}@keyframes fflow{to{stroke-dashoffset:-24}}</style>
+</helmet>
+<section id="v2" style="padding:56px 56px 96px;display:flex;flex-direction:column;gap:48px;--node:#ffffff;--bg:#f3f4f6;--sunk:rgba(30,45,70,0.05);--hair:rgba(30,45,70,0.08);--tx:#15171b;--tx2:#454a53;--tx3:#626872;--acc:oklch(0.56 0.125 45);--acc-tx:oklch(0.5 0.12 45);--acc-soft:oklch(0.955 0.025 50);--on-acc:#fff;--edge:rgba(30,45,70,0.2);--sh-sm:0 0.5px 1px rgba(20,30,50,0.05),0 2px 8px rgba(20,30,50,0.04);--sh-node:0 0.5px 1px rgba(20,30,50,0.05),0 2px 6px rgba(20,30,50,0.04),0 8px 24px rgba(20,30,50,0.05);--sh-hover:0 1px 2px rgba(20,30,50,0.06),0 14px 34px rgba(20,30,50,0.11);--sh-float:0 0 0 0.5px rgba(20,30,50,0.07),0 6px 16px rgba(20,30,50,0.06),0 24px 56px rgba(20,30,50,0.11);--prop-fg:oklch(0.52 0.12 68);--prop-bg:oklch(0.965 0.045 85);--prop-bd:oklch(0.78 0.11 78);--val-fg:oklch(0.5 0.12 155);--val-bg:oklch(0.96 0.04 155);--run-fg:oklch(0.52 0.13 250);--run-bg:oklch(0.955 0.03 250);--err-fg:oklch(0.53 0.17 27);--err-bg:oklch(0.965 0.03 27);--err-solid:oklch(0.57 0.18 27);--on-err:#fff;--pii-fg:oklch(0.5 0.13 340);--pii-bg:oklch(0.96 0.035 340);--mono:'Commit Mono',ui-monospace,monospace">
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <h1 style="margin:0;font-size:36px;font-weight:600;letter-spacing:-0.03em">Forja, direction Recuit v2</h1>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:14px"><a href="#T">T Typographie</a><a href="#L">L Logo</a><a href="#K">K Tokens</a><a href="#V1">V1 Canvas</a><a href="#V2">V2 Sélection</a><a href="#V3">V3 ⌘K</a><a href="#V4">V4 Premier lancement</a><a href="#V5">V5 Profilage</a><a href="#V6">V6 Modèle Gold</a><a href="#V7">V7 Runs</a><a href="#V8">V8 Sombre</a></div>
+  </div>
+
+  <div id="T" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:#454a53"><a href="#T" style="font:500 12px var(--mono);padding:3px 8px;background:rgba(0,0,0,0.07);color:#15171b;border-radius:6px;text-decoration:none">T</a><span style="font-weight:600;color:#15171b">Typographie : 3 combinaisons, même extrait</span><span>Toutes sous licence OFL. A retenue pour tous les écrans.</span></div>
+    <div style="display:grid;grid-template-columns:repeat(3,440px);gap:20px">
+      <sc-for list="{{ fonts }}" as="f" hint-placeholder-count="3">
+        <div style="{{ f.s }}">
+          <div style="display:flex;align-items:center;gap:8px"><span style="font:500 13px var(--mono);color:var(--tx3)">{{ f.k }}</span><span style="font-size:16px;font-weight:600">{{ f.name }}</span><sc-if value="{{ f.pref }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;height:24px;display:flex;align-items:center;gap:5px;padding:0 9px;border-radius:999px;background:var(--acc-soft);color:var(--acc-tx);font-size:12.5px;font-weight:600"><i class="ph-bold ph-check" style="font-size:12px"></i>Retenue</span></sc-if></div>
+          <div style="font-size:44px;font-weight:600;letter-spacing:-0.03em;line-height:1">Aa Rr 0123 €</div>
+          <div style="border-radius:16px;background:var(--bg);padding:16px;display:flex;align-items:center;gap:0">
+            <div style="flex:1.25;min-width:0;border-radius:10px;background:var(--node);box-shadow:var(--sh-node);padding:11px 12px;display:flex;gap:10px;align-items:flex-start">
+              <span style="width:32px;height:32px;border-radius:9px;background:var(--sunk);color:var(--prop-fg);display:flex;align-items:center;justify-content:center;flex:none"><i class="ph-duotone ph-broom" style="font-size:18px"></i></span>
+              <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:14px;font-weight:600">clients</span><span style="display:flex;align-items:center;gap:6px"><span style="height:22px;display:flex;align-items:center;gap:4px;padding:0 8px 0 6px;border-radius:999px;background:var(--prop-bg);color:var(--prop-fg);border:1px dashed var(--prop-bd);font-size:12px;font-weight:600;box-sizing:border-box;white-space:nowrap;flex:none"><i class="ph ph-circle-dashed" style="font-size:13px"></i>À revoir</span><span style="font-size:12.5px;color:var(--tx3);white-space:nowrap">3 règles</span></span></div>
+            </div>
+            <span style="width:14px;height:2px;background:var(--edge);flex:none"></span>
+            <div style="flex:1;min-width:0;border-radius:10px;background:var(--node);box-shadow:var(--sh-node);padding:11px 12px;display:flex;gap:10px;align-items:flex-start">
+              <span style="width:32px;height:32px;border-radius:9px;background:var(--sunk);color:var(--tx2);display:flex;align-items:center;justify-content:center;flex:none"><i class="ph ph-cube" style="font-size:18px"></i></span>
+              <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:14px;font-weight:600">dim_clients</span><span style="display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--tx3)"><i class="ph ph-check-circle" style="font-size:14px"></i>4 809 lignes</span></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:13px;color:var(--tx3)">Ce que Forja a compris</span>
+            <span style="font-size:18px;line-height:1.6;text-wrap:pretty">Le <span style="font-weight:600;border-bottom:2px solid var(--acc)">chiffre d’affaires HT</span>, par mois et par <span style="font-weight:600;border-bottom:2px solid var(--acc)">ville du client</span>, pour <span style="font-weight:600;border-bottom:2px solid var(--acc)">2025</span>.</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><span style="height:28px;display:flex;align-items:center;gap:5px;padding:0 10px;border-radius:999px;color:var(--val-fg);font-size:13px;font-weight:500;background:var(--val-bg)"><i class="ph-fill ph-check-circle" style="font-size:15px"></i>Total identique aux ventes</span><span style="height:28px;display:flex;align-items:center;gap:5px;padding:0 10px;border-radius:999px;color:var(--prop-fg);font-size:13px;font-weight:600;background:var(--prop-bg)"><i class="ph-fill ph-warning" style="font-size:15px"></i>3 villes, peu de commandes</span></div>
+          <div style="border-radius:12px;background:var(--node);box-shadow:var(--sh-sm);overflow:hidden">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1.2fr;padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--tx3)"><span>Mois</span><span>Ville</span><span style="text-align:right">CA HT</span></div>
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:1fr 1fr 1.2fr;padding:0 14px;height:34px;align-items:center;font-size:14px;border-top:1px solid var(--sunk)"><span>{{ r.m }}</span><span>{{ r.v }}</span><span style="text-align:right;font-variant-numeric:tabular-nums">{{ r.ca }}</span></div></sc-for>
+          </div>
+          <div style="font:400 12.5px/1.6 var(--mono);color:var(--tx2);background:var(--bg);border-radius:10px;padding:10px 12px">SELECT c.ville, sum(v.montant_ht)<br>FROM gold.fct_ventes v · run_0418</div>
+          <div style="font-size:13px;line-height:1.5;color:var(--tx2)">{{ f.note }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div id="L" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:#454a53"><a href="#L" style="font:500 12px var(--mono);padding:3px 8px;background:rgba(0,0,0,0.07);color:#15171b;border-radius:6px;text-decoration:none">L</a><span style="font-weight:600;color:#15171b">Logotype : 3 propositions</span><span>1 appliquée dans l’app.</span></div>
+    <div style="display:grid;grid-template-columns:repeat(3,440px);gap:20px">
+      <div style="border-radius:20px;background:#fff;box-shadow:var(--sh-sm);padding:24px;display:flex;flex-direction:column;gap:22px">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px;font-weight:600">1. Strate</span><span style="margin-left:auto;height:24px;display:flex;align-items:center;gap:5px;padding:0 9px;border-radius:999px;background:var(--acc-soft);color:var(--acc-tx);font-size:12.5px;font-weight:600"><i class="ph-bold ph-check" style="font-size:12px"></i>Appliqué</span></div>
+        <div style="display:flex;align-items:center;gap:28px;height:110px">
+          <span style="width:96px;height:96px;border-radius:24px;background:#15171b;position:relative;flex:none;box-shadow:var(--sh-node)"><span style="position:absolute;left:26px;top:22px;width:13px;height:52px;border-radius:3px;background:#fff"></span><span style="position:absolute;left:26px;top:22px;width:46px;height:13px;border-radius:3px;background:#fff"></span><span style="position:absolute;left:26px;top:44px;width:32px;height:13px;border-radius:3px;background:oklch(0.56 0.125 45)"></span></span>
+          <span style="font-size:52px;font-weight:600;letter-spacing:-0.045em">Forja</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px"><span style="width:32px;height:32px;border-radius:9px;background:#15171b;position:relative;flex:none"><span style="position:absolute;left:8px;top:7px;width:4px;height:17px;border-radius:1px;background:#fff"></span><span style="position:absolute;left:8px;top:7px;width:15px;height:4px;border-radius:1px;background:#fff"></span><span style="position:absolute;left:8px;top:14px;width:10px;height:4px;border-radius:1px;background:oklch(0.56 0.125 45)"></span></span><span style="width:32px;height:32px;border-radius:9px;background:#f3efe9;position:relative;flex:none"><span style="position:absolute;left:8px;top:7px;width:4px;height:17px;border-radius:1px;background:#1a1917"></span><span style="position:absolute;left:8px;top:7px;width:15px;height:4px;border-radius:1px;background:#1a1917"></span><span style="position:absolute;left:8px;top:14px;width:10px;height:4px;border-radius:1px;background:oklch(0.74 0.11 55)"></span></span><span style="font-size:13.5px;color:var(--tx2);line-height:1.5">Un F en trois strates. La barre médiane, en cuivre, est la couche en cours de transformation.</span></div>
+      </div>
+      <div style="border-radius:20px;background:#fff;box-shadow:var(--sh-sm);padding:24px;display:flex;flex-direction:column;gap:22px">
+        <div style="font-size:16px;font-weight:600">2. Passe</div>
+        <div style="display:flex;align-items:center;gap:28px;height:110px">
+          <span style="width:96px;height:96px;border-radius:24px;background:#15171b;position:relative;flex:none;box-shadow:var(--sh-node)"><span style="position:absolute;left:20px;top:30px;width:56px;height:14px;border-radius:7px;background:rgba(255,255,255,0.35)"></span><span style="position:absolute;left:34px;top:52px;width:42px;height:14px;border-radius:7px;background:oklch(0.56 0.125 45)"></span></span>
+          <span style="font-size:52px;font-weight:500;letter-spacing:-0.035em">forja</span>
+        </div>
+        <div style="font-size:13.5px;color:var(--tx2);line-height:1.5">Deux passes : la matière brute, large et terne, puis la matière affinée, plus courte et chaude. Minuscules plus douces, moins institutionnelles.</div>
+      </div>
+      <div style="border-radius:20px;background:#fff;box-shadow:var(--sh-sm);padding:24px;display:flex;flex-direction:column;gap:22px">
+        <div style="font-size:16px;font-weight:600">3. Angle</div>
+        <div style="display:flex;align-items:center;gap:28px;height:110px">
+          <span style="width:96px;height:96px;border-radius:24px;background:#15171b;position:relative;flex:none;overflow:hidden;box-shadow:var(--sh-node)"><span style="position:absolute;left:24px;top:24px;width:48px;height:48px;border-radius:4px 4px 30px 4px;background:oklch(0.56 0.125 45)"></span><span style="position:absolute;left:24px;top:24px;width:22px;height:22px;border-radius:4px;background:#15171b"></span></span>
+          <span style="font-size:36px;font-weight:600;letter-spacing:0.16em">FORJA</span>
+        </div>
+        <div style="font-size:13.5px;color:var(--tx2);line-height:1.5">Un carré dont un angle est adouci, comme une pièce passée au recuit. Capitales espacées, plus distantes.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="K" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:#454a53"><a href="#K" style="font:500 12px var(--mono);padding:3px 8px;background:rgba(0,0,0,0.07);color:#15171b;border-radius:6px;text-decoration:none">K</a><span style="font-weight:600;color:#15171b">Tokens v2</span><span>Clair neutre légèrement froid, sombre inchangé.</span></div>
+    <div style="width:1440px;border-radius:20px;background:var(--bg);padding:40px;display:flex;flex-direction:column;gap:32px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div style="border-radius:18px;background:#fff;box-shadow:var(--sh-sm);padding:22px;display:flex;flex-direction:column;gap:14px"><span style="font-size:16px;font-weight:600">Clair</span><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px"><sc-for list="{{ tokL }}" as="t" hint-placeholder-count="12"><div style="display:flex;flex-direction:column;gap:5px"><span style="{{ t.s }}"></span><span style="font:500 12.5px var(--mono)">{{ t.n }}</span><span style="font:400 12px var(--mono);color:var(--tx3)">{{ t.v }}</span><span style="font-size:13px;color:var(--tx2)">{{ t.u }}</span></div></sc-for></div></div>
+        <div style="border-radius:18px;background:#1a1917;padding:22px;display:flex;flex-direction:column;gap:14px;color:#f3efe9"><span style="font-size:16px;font-weight:600">Sombre</span><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px"><sc-for list="{{ tokD }}" as="t" hint-placeholder-count="12"><div style="display:flex;flex-direction:column;gap:5px"><span style="{{ t.s }}"></span><span style="font:500 12.5px var(--mono)">{{ t.n }}</span><span style="font:400 12px var(--mono);color:#a29b92">{{ t.v }}</span><span style="font-size:13px;color:#c4bdb4">{{ t.u }}</span></div></sc-for></div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px">
+        <div style="border-radius:18px;background:#fff;box-shadow:var(--sh-sm);padding:22px;display:flex;flex-direction:column;gap:16px">
+          <span style="font-size:16px;font-weight:600">Badges par importance</span>
+          <sc-for list="{{ tiers }}" as="t" hint-placeholder-count="3">
+            <div style="display:grid;grid-template-columns:120px 1fr;gap:16px;align-items:center"><div style="display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600">{{ t.t }}</span><span style="font-size:12.5px;color:var(--tx3)">{{ t.d }}</span></div><div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center"><sc-for list="{{ t.items }}" as="x" hint-placeholder-count="3"><span style="{{ x.s }}">{{ x.g }}{{ x.l }}</span></sc-for></div></div>
+          </sc-for>
+          <span style="font-size:16px;font-weight:600;padding-top:8px">Nœuds et liens par état</span>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;background:var(--bg);border-radius:14px;padding:16px">
+            <sc-for list="{{ nodeStates }}" as="n" hint-placeholder-count="6"><div style="display:flex;flex-direction:column;gap:8px"><div style="{{ n.s }}"><span style="{{ n.ts }}"><i class="{{ n.ic }}" style="font-size:16px"></i></span><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:13.5px;font-weight:600">{{ n.name }}</span><span style="{{ n.ls }}">{{ n.l }}</span></div></div><span style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--tx3)">{{ n.link }}{{ n.ld }}</span></div></sc-for>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div style="border-radius:18px;background:#fff;box-shadow:var(--sh-sm);padding:22px;display:flex;flex-direction:column;gap:4px">
+            <span style="font-size:16px;font-weight:600;padding-bottom:8px">Instrument Sans · Commit Mono</span>
+            <sc-for list="{{ type }}" as="t" hint-placeholder-count="7"><div style="display:grid;grid-template-columns:140px 1fr;gap:12px;align-items:baseline;padding:7px 0"><span style="font-size:12.5px;color:var(--tx3)">{{ t.k }}</span><span style="{{ t.s }}">{{ t.v }}</span></div></sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+            <div style="border-radius:18px;background:#fff;box-shadow:var(--sh-sm);padding:20px;display:flex;flex-direction:column;gap:12px"><span style="font-size:15px;font-weight:600">Rayons</span><div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><sc-for list="{{ radii }}" as="r" hint-placeholder-count="6"><div style="display:flex;flex-direction:column;align-items:center;gap:5px"><span style="{{ r.s }}"></span><span style="font-size:12px;color:var(--tx3)">{{ r.k }}</span></div></sc-for></div><span style="font-size:12.5px;color:var(--tx3);line-height:1.5">Nœuds 10, contrôles 10, panneaux 16 à 20, compartiments 24.</span></div>
+            <div style="border-radius:18px;background:var(--bg);padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:inset 0 0 0 1px var(--hair)"><span style="font-size:15px;font-weight:600">Ombres</span><div style="display:flex;gap:12px"><sc-for list="{{ shadows }}" as="r" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;align-items:center;gap:6px"><span style="{{ r.s }}"></span><span style="font-size:12px;color:var(--tx3)">{{ r.k }}</span></div></sc-for></div><span style="font-size:12.5px;color:var(--tx3);line-height:1.5">Teinte bleu ardoise, jamais de noir pur. Flou 24 à 32 px, saturation 180 %.</span></div>
+          </div>
+          <div style="border-radius:18px;background:#fff;box-shadow:var(--sh-sm);padding:20px;display:flex;flex-direction:column;gap:10px"><span style="font-size:15px;font-weight:600">Icônes Phosphor</span><div style="display:flex;gap:14px;flex-wrap:wrap"><sc-for list="{{ icons }}" as="i" hint-placeholder-count="9"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:76px"><span style="width:40px;height:40px;border-radius:11px;background:var(--sunk);color:var(--tx2);display:flex;align-items:center;justify-content:center"><i class="{{ i.ic }}" style="font-size:21px"></i></span><span style="font-size:12px;color:var(--tx3);text-align:center;line-height:1.3">{{ i.l }}</span></div></sc-for></div><span style="font-size:12.5px;color:var(--tx3)">Regular au repos, duotone pour l’état actif (sélection, à revoir, en cours).</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start">
+    <sc-for list="{{ screens }}" as="sc" hint-placeholder-count="8">
+      <div id="{{ sc.id }}" style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:#454a53"><a href="{{ sc.href }}" style="font:500 12px var(--mono);padding:3px 8px;background:rgba(0,0,0,0.07);color:#15171b;border-radius:6px;text-decoration:none">{{ sc.id }}</a><span style="font-weight:600;color:#15171b">{{ sc.t }}</span><span>{{ sc.d }}</span></div>
+        <div style="width:1440px;height:900px;border-radius:16px;overflow:hidden;box-shadow:0 0 0 0.5px rgba(0,0,0,0.1),0 30px 80px rgba(20,30,50,0.16)">
+          <dc-import name="ForjaApp" screen="{{ sc.screen }}" theme="{{ sc.theme }}" selected="{{ sc.sel }}" tab="cols" palette="{{ sc.pal }}" query="{{ sc.q }}" menu="{{ sc.menu }}" hint-size="1440px,900px" style="width:1440px;height:900px;display:block"></dc-import>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  b(k, l, sz) {
+    sz = sz || 13; const h = React.createElement;
+    const M = { err: ['Erreur', 'ph-fill ph-warning-circle', 'var(--on-err)', 'var(--err-solid)', 'none', 600, 1], prop: ['À revoir', 'ph ph-circle-dashed', 'var(--prop-fg)', 'var(--prop-bg)', '1px dashed var(--prop-bd)', 600, 1], warn: ['À surveiller', 'ph-fill ph-warning', 'var(--prop-fg)', 'var(--prop-bg)', 'none', 600, 1], run: ['En cours', 0, 'var(--run-fg)', 'var(--run-bg)', 'none', 500, 1], pii: ['Pseudonymisé', 0, 'var(--pii-fg)', 'var(--pii-bg)', 'none', 500, 1], val: ['Validé', 'ph-fill ph-check-circle', 'var(--val-fg)', '', '', 500, 0], app: ['Appliqué', 'ph ph-check', 'var(--tx3)', '', '', 400, 0], pub: ['Publié', 'ph ph-check', 'var(--tx3)', '', '', 400, 0], rej: ['Rejeté', 'ph ph-x-circle', 'var(--tx3)', '', '', 400, 0], queue: ['En attente', 'ph ph-circle-dashed', 'var(--tx3)', '', '', 400, 0] }[k];
+    const g = k === 'run' ? h('span', { style: { width: 12, height: 12, borderRadius: '50%', border: '1.5px solid currentColor', borderRightColor: 'transparent', display: 'inline-block', animation: 'fspin .9s linear infinite', boxSizing: 'border-box' } }) : k === 'pii' ? h('span', { style: { width: 12, height: 12, borderRadius: 3, border: '1px solid currentColor', background: 'repeating-linear-gradient(135deg,currentColor 0 1px,transparent 1px 3.5px)', display: 'inline-block', boxSizing: 'border-box' } }) : h('i', { className: M[1], style: { fontSize: sz + 2 } });
+    const base = { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: sz, fontWeight: M[5], color: M[2], whiteSpace: 'nowrap', lineHeight: 1, boxSizing: 'border-box' };
+    return { l: l || M[0], g, s: M[6] ? { ...base, height: Math.round(sz * 1.84), padding: `0 ${Math.round(sz * 0.72)}px 0 ${Math.round(sz * 0.52)}px`, borderRadius: 999, background: M[3], border: M[4] } : base };
+  }
+  renderVals() {
+    const b = this.b.bind(this), h = React.createElement;
+    const card = fam => ({ borderRadius: 20, background: '#fff', boxShadow: 'var(--sh-sm)', padding: 24, display: 'flex', flexDirection: 'column', gap: 18, fontFamily: fam + ", system-ui, sans-serif", color: 'var(--tx)' });
+    const fonts = [
+      { k: 'A', name: 'Instrument Sans + Commit Mono', pref: true, s: { ...card("'Instrument Sans'"), boxShadow: '0 0 0 2px var(--acc), var(--sh-sm)' }, note: 'Légèrement étroite, donc des noms de tables plus longs tiennent sans troncature sur les nœuds. Chiffres tabulaires nets, ton neutre proche de SF Pro.' },
+      { k: 'B', name: 'Hanken Grotesk + Commit Mono', s: card("'Hanken Grotesk'"), note: 'Plus ronde et plus chaleureuse. Plus large de 4 à 6 %, ce qui coûte de la place dans le canvas.' },
+      { k: 'C', name: 'Schibsted Grotesk + Commit Mono', s: card("'Schibsted Grotesk'"), note: 'Plus de caractère, origine éditoriale. Les titres sont réussis ; en petit corps, l’interface devient plus marquée.' }
+    ];
+    const rows = [['Janv. 2025', 'Paris', '112 804,15 €'], ['Janv. 2025', 'Lyon', '48 312,90 €'], ['Févr. 2025', 'Nantes', '18 402,33 €']].map(r => ({ m: r[0], v: r[1], ca: r[2] }));
+    const sw = (c, dk) => ({ height: 48, borderRadius: 11, background: c, boxShadow: dk ? 'inset 0 0 0 1px rgba(255,240,225,0.12)' : 'inset 0 0 0 1px rgba(30,45,70,0.1)' });
+    const TL = [['--bg', '#f3f4f6', 'Fond, canvas'], ['--node', '#ffffff', 'Nœuds, cartes'], ['--side', 'blanc 80 %', 'Barre latérale'], ['--glass', 'blanc 74 %', 'Flottants'], ['--tx', '#15171b', 'Texte'], ['--tx2', '#454a53', 'Secondaire'], ['--tx3', '#626872', 'Méta, AA 5,1:1'], ['--lane', 'ardoise 3,5 %', 'Compartiments'], ['--acc', 'oklch(.56 .125 45)', 'Cuivre, action'], ['--acc-soft', 'oklch(.955 .025 50)', 'Sélection'], ['--sunk', 'ardoise 5 %', 'Champs, tuiles'], ['--edge', 'ardoise 20 %', 'Liens']];
+    const TLv = ['#f3f4f6', '#ffffff', 'rgba(249,250,251,0.8)', 'rgba(255,255,255,0.74)', '#15171b', '#454a53', '#626872', 'rgba(30,45,70,0.035)', 'oklch(0.56 0.125 45)', 'oklch(0.955 0.025 50)', 'rgba(30,45,70,0.05)', 'rgba(30,45,70,0.2)'];
+    const TD = [['--bg', '#1a1917'], ['--node', '#272523'], ['--side', 'rgba(34,32,30,.8)'], ['--glass', 'rgba(40,38,35,.74)'], ['--tx', '#f3efe9'], ['--tx2', '#c4bdb4'], ['--tx3', '#a29b92'], ['--lane', 'crème 3 %'], ['--acc', 'oklch(.74 .11 55)'], ['--acc-soft', 'oklch(.33 .05 50)'], ['--sunk', 'crème 7 %'], ['--edge', 'crème 20 %']];
+    const TDv = ['#1a1917', '#272523', 'rgba(34,32,30,0.8)', 'rgba(40,38,35,0.74)', '#f3efe9', '#c4bdb4', '#a29b92', 'rgba(255,240,225,0.03)', 'oklch(0.74 0.11 55)', 'oklch(0.33 0.05 50)', 'rgba(255,240,225,0.07)', 'rgba(255,240,225,0.2)'];
+    const tokL = TL.map((t, i) => ({ n: t[0], v: t[1], u: t[2], s: sw(TLv[i]) })), tokD = TD.map((t, i) => ({ n: t[0], v: t[1], u: TL[i][2], s: sw(TDv[i], 1) }));
+    const tiers = [['Critique', 'Pilule affirmée', [b('err'), b('prop'), b('warn')]], ['Actif', 'Pilule teintée', [b('run', '62 %'), b('pii')]], ['Calme', 'Icône et texte', [b('val'), b('app'), b('pub'), b('rej'), b('queue')]]].map(t => ({ t: t[0], d: t[1], items: t[2] }));
+    const LC = { prop: 'var(--prop-fg)', err: 'var(--err-solid)', run: 'var(--run-fg)', queue: 'var(--edge)' };
+    const link = k => { const st = k === 'prop' ? 'var(--prop-fg)' : k === 'err' ? 'var(--err-solid)' : k === 'lin' ? 'var(--acc)' : 'var(--edge)'; const ps = [h('path', { key: 'a', d: 'M2 9 C20 9, 30 3, 48 3', fill: 'none', style: { stroke: st, strokeWidth: k === 'lin' ? 2.5 : 1.6, strokeDasharray: k === 'prop' ? '5 5' : k === 'err' ? '2 4' : 'none', strokeLinecap: 'round' } })]; if (k === 'run') ps.push(h('path', { key: 'b', d: 'M2 9 C20 9, 30 3, 48 3', fill: 'none', style: { stroke: 'var(--run-fg)', strokeWidth: 2.5, strokeLinecap: 'round', strokeDasharray: '2 10', animation: 'fflow .8s linear infinite' } })); return h('svg', { width: 50, height: 12, style: { overflow: 'visible', flex: 'none' } }, ps); };
+    const nodeStates = [['app', 'dim_produits', '640 lignes', 'ph ph-cube', 'Appliqué : ombre seule'], ['prop', 'clients', 'À revoir', 'ph-duotone ph-broom', 'Proposé : pointillé'], ['err', 'produits', 'Erreur', 'ph-duotone ph-broom', 'Erreur : pointillé serré'], ['run', 'commandes.csv', '62 %', 'ph-duotone ph-file-csv', 'En cours : flux animé'], ['queue', 'fct_ventes', 'En attente', 'ph ph-star', 'En attente'], ['lin', 'dim_clients', '4 809 lignes', 'ph-duotone ph-cube', 'Sélection et lignée']].map(([k, name, l, ic, ld]) => ({ name, l, ic, ld, link: link(k),
+      s: { borderRadius: 10, background: 'var(--node)', padding: '10px 11px', display: 'flex', gap: 9, alignItems: 'center', boxShadow: [LC[k] ? `inset 3px 0 0 ${LC[k]}` : '', k === 'lin' ? '0 0 0 2px var(--acc)' : '', 'var(--sh-node)'].filter(Boolean).join(', ') },
+      ts: { width: 30, height: 30, borderRadius: 9, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: k === 'lin' ? 'var(--acc-soft)' : 'var(--sunk)', color: k === 'lin' ? 'var(--acc-tx)' : k === 'app' || k === 'queue' ? 'var(--tx2)' : LC[k] },
+      ls: { fontSize: 12.5, fontWeight: k === 'app' || k === 'queue' || k === 'lin' ? 400 : 600, color: k === 'prop' ? 'var(--prop-fg)' : k === 'err' ? 'var(--err-fg)' : k === 'run' ? 'var(--run-fg)' : 'var(--tx3)' } }));
+    const type = [['Titre écran 28 · 600', 'Modèle en étoile', 28, 600, -0.025], ['Titre panneau 18 · 600', 'dim_clients', 18, 600, -0.015], ['Section 16 · 600', 'À résoudre', 16, 600, -0.01], ['Lecture 18 · 400', 'Le chiffre d’affaires HT, par mois', 18, 400, -0.005], ['Corps 14,5 · 400', '94 % des valeurs existent dans clients.id_client.', 14.5, 400, 0], ['Interface min. 13', 'Proposé il y a 12 min', 13, 400, 0]].map(t => ({ k: t[0], v: t[1], s: { fontSize: t[2], fontWeight: t[3], letterSpacing: t[4] + 'em', lineHeight: 1.25, color: t[2] <= 13 ? 'var(--tx3)' : 'var(--tx)' } }));
+    type.push({ k: 'Mono 12,5 · 400', v: 'commandes.id_client · run_0418', s: { font: '400 12.5px var(--mono)' } });
+    const radii = [['6', 6], ['10', 10], ['12', 12], ['16', 16], ['20', 20], ['24', 24]].map(([k, r]) => ({ k, s: { width: 40, height: 40, borderRadius: r, background: 'var(--bg)', boxShadow: 'inset 0 0 0 1.5px var(--edge)' } }));
+    const shadows = [['sm', 'var(--sh-sm)'], ['nœud', 'var(--sh-node)'], ['survol', 'var(--sh-hover)'], ['flottant', 'var(--sh-float)']].map(([k, s]) => ({ k, s: { width: 56, height: 48, borderRadius: 12, background: '#fff', boxShadow: s } }));
+    const icons = [['ph ph-file-csv', 'Source CSV'], ['ph ph-file-xls', 'Source Excel'], ['ph ph-broom', 'Nettoyage'], ['ph ph-cube', 'Dimension'], ['ph ph-star', 'Fait'], ['ph ph-chart-pie-slice', 'Data mart'], ['ph ph-chart-bar', 'Power BI'], ['ph ph-chart-line-up', 'Superset'], ['ph ph-export', 'Export']].map(([ic, l]) => ({ ic, l }));
+    const scr = (id, t, d, screen, x) => ({ id, href: '#' + id, t, d, screen, theme: 'light', sel: '', pal: false, q: '', menu: false, ...(x || {}) });
+    const screens = [
+      scr('V1', 'Canvas du pipeline', 'Barre latérale repliée en rail. Glisser, molette, ⌘K. Double-clic sur fct_ventes ouvre le modèle.', 'pipeline'),
+      scr('V2', 'dim_clients sélectionné', 'Lignée en cuivre, inspecteur sur l’onglet Colonnes.', 'pipeline', { sel: 'g_dimcli' }),
+      scr('V3', 'Palette de commande', 'Flèches et Entrée pour naviguer. Effacez la saisie pour voir les récents.', 'pipeline', { pal: true, q: 'cli' }),
+      scr('V4', 'Premier lancement', 'Cliquez « Choisir des fichiers » ou déposez un fichier.', 'onboard-empty'),
+      scr('V5', 'Profilage en cours', 'Les sources apparaissent une à une. Boucle de 12 s.', 'onboard-profiling'),
+      scr('V6', 'Revue du modèle en étoile', 'Résolvez les 2 points pour activer « Valider le modèle ». Cliquez une dimension pour l’historisation.', 'gold'),
+      scr('V7', 'Runs', 'Cliquez un run pour son détail. run_0418 avance en direct.', 'runs'),
+      scr('V8', 'Canvas sombre, menu utilisateur ouvert', 'Thème et vue modifiables depuis le menu.', 'pipeline', { theme: 'dark', menu: true })
+    ];
+    return { fonts, rows, tokL, tokD, tiers, nodeStates, type, radii, shadows, icons, screens };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/duotone/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<style>@font-face{font-family:'Commit Mono';src:url(https://cdn.jsdelivr.net/fontsource/fonts/commit-mono@latest/latin-400-normal.woff2) format('woff2');font-weight:400;font-display:swap}@font-face{font-family:'Commit Mono';src:url(https://cdn.jsdelivr.net/fontsource/fonts/commit-mono@latest/latin-500-normal.woff2) format('woff2');font-weight:500;font-display:swap}body{margin:0;background:#e9eaed;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#15171b}*{box-sizing:border-box}a{color:oklch(0.5 0.12 45);text-decoration:none}a:hover{color:oklch(0.44 0.12 45);text-decoration:underline}button{font-family:inherit}@keyframes fspin{to{transform:rotate(360deg)}}@keyframes fflow{to{stroke-dashoffset:-24}}</style>
+</helmet>
+<section id="v3" style="padding:56px 56px 96px;display:flex;flex-direction:column;gap:52px;--node:#ffffff;--bg:#f3f4f6;--sunk:rgba(30,45,70,0.05);--hair:rgba(30,45,70,0.08);--tx:#15171b;--tx2:#454a53;--tx3:#626872;--acc:oklch(0.56 0.125 45);--acc-tx:oklch(0.5 0.12 45);--acc-soft:oklch(0.955 0.025 50);--on-acc:#fff;--edge:rgba(30,45,70,0.2);--glass-hi:rgba(255,255,255,0.9);--sh-sm:0 0.5px 1px rgba(20,30,50,0.05),0 2px 8px rgba(20,30,50,0.04);--sh-node:0 0.5px 1px rgba(20,30,50,0.05),0 2px 6px rgba(20,30,50,0.04),0 8px 24px rgba(20,30,50,0.05);--sh-hover:0 1px 2px rgba(20,30,50,0.06),0 14px 34px rgba(20,30,50,0.11);--sh-float:0 0 0 0.5px rgba(20,30,50,0.07),0 6px 16px rgba(20,30,50,0.06),0 24px 56px rgba(20,30,50,0.11);--prop-fg:oklch(0.52 0.12 68);--prop-bg:oklch(0.965 0.045 85);--prop-bd:oklch(0.78 0.11 78);--val-fg:oklch(0.5 0.12 155);--val-bg:oklch(0.96 0.04 155);--run-fg:oklch(0.52 0.13 250);--run-bg:oklch(0.955 0.03 250);--err-fg:oklch(0.53 0.17 27);--err-bg:oklch(0.965 0.03 27);--err-solid:oklch(0.57 0.18 27);--on-err:#fff;--pii-fg:oklch(0.5 0.13 340);--pii-bg:oklch(0.96 0.035 340);--mono:'Commit Mono',ui-monospace,monospace;--sans:'Instrument Sans',system-ui,sans-serif">
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <h1 style="margin:0;font-size:36px;font-weight:600;letter-spacing:-0.03em">Forja, direction Recuit v3</h1>
+    <div style="font-size:15px;color:#454a53">Récapitulatif pour l’implémentation : écrans et routes, composants, maquettes finales.</div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:14px"><a href="#R">R Écrans et routes</a><a href="#C">C Composants</a><sc-for list="{{ screens }}" as="sc" hint-placeholder-count="9"><a href="{{ sc.href }}">{{ sc.id }} {{ sc.t }}</a></sc-for></div>
+  </div>
+
+  <div id="R" style="width:1440px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:#454a53"><a href="#R" style="font:500 12px var(--mono);padding:3px 8px;background:rgba(0,0,0,0.07);color:#15171b;border-radius:6px;text-decoration:none">R</a><span style="font-weight:600;color:#15171b">Écrans et routes proposées</span><span>App Router Next.js. Les overlays sont des états d’URL, pas des pages.</span></div>
+    <div style="border-radius:20px;background:#fff;box-shadow:var(--sh-sm);overflow:hidden">
+      <div style="display:grid;grid-template-columns:240px 380px 110px 140px minmax(0,1fr);gap:16px;padding:14px 22px 10px;font-size:12.5px;font-weight:600;color:var(--tx3)"><span>Écran</span><span>Route</span><span>Rôle</span><span>Maquette</span><span>Notes</span></div>
+      <sc-for list="{{ routes }}" as="r" hint-placeholder-count="18">
+        <div style="display:grid;grid-template-columns:240px 380px 110px 140px minmax(0,1fr);gap:16px;align-items:center;padding:0 22px;min-height:50px;border-top:1px solid var(--sunk)">
+          <span style="font-size:14.5px;font-weight:600">{{ r.n }}</span>
+          <span style="font:400 13px var(--mono);color:var(--tx)">{{ r.r }}</span>
+          <span style="font-size:13.5px;color:var(--tx2)">{{ r.role }}</span>
+          <a href="{{ r.href }}" style="{{ r.ls }}">{{ r.m }}</a>
+          <span style="font-size:13.5px;color:var(--tx2);line-height:1.4">{{ r.note }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div id="C" style="width:1440px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:#454a53"><a href="#C" style="font:500 12px var(--mono);padding:3px 8px;background:rgba(0,0,0,0.07);color:#15171b;border-radius:6px;text-decoration:none">C</a><span style="font-weight:600;color:#15171b">Inventaire des composants</span><span>Base shadcn/ui restylée, React Flow pour le canvas, Framer Motion pour les transitions.</span></div>
+    <div style="border-radius:20px;background:#fff;box-shadow:var(--sh-sm);overflow:hidden">
+      <div style="display:grid;grid-template-columns:200px 190px minmax(0,1fr) minmax(0,1fr);gap:16px;padding:14px 22px 10px;font-size:12.5px;font-weight:600;color:var(--tx3)"><span>Composant</span><span>Base</span><span>Variantes</span><span>États</span></div>
+      <sc-for list="{{ comps }}" as="c" hint-placeholder-count="16">
+        <div style="display:grid;grid-template-columns:200px 190px minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start;padding:13px 22px;border-top:1px solid var(--sunk)">
+          <span style="font:500 13.5px var(--mono)">{{ c.n }}</span>
+          <span style="font-size:13.5px;color:var(--tx2)">{{ c.base }}</span>
+          <span style="font-size:13.5px;color:var(--tx2);line-height:1.45">{{ c.v }}</span>
+          <span style="font-size:13.5px;color:var(--tx2);line-height:1.45">{{ c.st }}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start">
+      <div style="border-radius:20px;background:var(--bg);padding:22px;display:flex;flex-direction:column;gap:14px">
+        <span style="font-size:16px;font-weight:600">CanvasNode : types × états</span>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+          <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="12">
+            <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12.5px;color:var(--tx3)">{{ n.cap }}</span>
+              <div style="{{ n.s }}"><span style="{{ n.ts }}"><i class="{{ n.ic }}" style="font-size:19px"></i></span><div style="display:flex;flex-direction:column;gap:3px;min-width:0;flex:1"><span style="font-size:14px;font-weight:600;line-height:1.25">{{ n.name }}</span><span style="display:flex;align-items:center;gap:6px;min-width:0"><sc-if value="{{ n.loud }}" hint-placeholder-val="{{ false }}"><span style="{{ n.b.s }}">{{ n.b.g }}{{ n.b.l }}</span></sc-if><sc-if value="{{ n.calm }}" hint-placeholder-val="{{ true }}"><i class="ph ph-check-circle" style="font-size:14px;color:var(--tx3)"></i></sc-if><span style="font-size:12.5px;color:var(--tx3);white-space:nowrap">{{ n.info }}</span></span></div></div>
+            </div>
+          </sc-for>
+        </div>
+        <span style="font-size:16px;font-weight:600;padding-top:6px">CanvasEdge</span>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px"><sc-for list="{{ edges }}" as="e" hint-placeholder-count="6"><div style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--tx2)">{{ e.svg }}{{ e.l }}</div></sc-for></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div style="border-radius:20px;background:#fff;box-shadow:var(--sh-sm);padding:22px;display:flex;flex-direction:column;gap:12px">
+          <span style="font-size:16px;font-weight:600">StatusBadge et CheckBadge</span>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><sc-for list="{{ badges }}" as="x" hint-placeholder-count="9"><span style="{{ x.s }}">{{ x.g }}{{ x.l }}</span></sc-for></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ checks }}" as="x" hint-placeholder-count="3"><span style="{{ x.s }}"><i class="{{ x.ic }}" style="font-size:15px"></i>{{ x.l }}</span></sc-for></div>
+        </div>
+        <div style="border-radius:20px;background:#fff;box-shadow:var(--sh-sm);padding:22px;display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:16px;font-weight:600;padding-bottom:4px">AgentStep</span>
+          <sc-for list="{{ steps }}" as="t" hint-placeholder-count="4"><div style="display:flex;gap:12px;align-items:flex-start"><span style="{{ t.ms }}">{{ t.mk }}</span><div style="flex:1;min-width:0"><div style="{{ t.ts }}">{{ t.t }}</div><div style="font-size:13px;color:var(--tx3)">{{ t.d }}</div><sc-if value="{{ t.bar }}" hint-placeholder-val="{{ false }}"><div style="height:4px;border-radius:2px;background:var(--run-bg);margin-top:6px;display:flex;overflow:hidden"><span style="width:58%;background:var(--run-fg);border-radius:2px"></span></div></sc-if></div></div></sc-for>
+        </div>
+        <div style="border-radius:20px;background:#fff;box-shadow:var(--sh-sm);padding:22px;display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:16px;font-weight:600;padding-bottom:4px">ClarifyOption</span>
+          <sc-for list="{{ opts }}" as="o" hint-placeholder-count="3"><div style="{{ o.s }}"><span style="{{ o.rs }}"></span><span style="flex:1;display:flex;flex-direction:column"><span style="font-size:14.5px;font-weight:600">{{ o.t }}</span><span style="font-size:13px;color:var(--tx3)">{{ o.d }}</span></span><span style="font-size:12.5px;color:var(--tx3)">{{ o.cap }}</span></div></sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;align-items:start">
+      <div style="border-radius:20px;background:var(--bg);padding:22px;display:flex;flex-direction:column;gap:12px">
+        <span style="font-size:16px;font-weight:600">RuleCard</span>
+        <sc-for list="{{ rules }}" as="r" hint-placeholder-count="3">
+          <div style="{{ r.s }}">
+            <div style="display:flex;align-items:center;gap:8px"><span style="{{ r.b.s }}">{{ r.b.g }}{{ r.b.l }}</span><span style="font:400 12px var(--mono);color:var(--tx3)">{{ r.id }}</span><span style="margin-left:auto;font-size:12.5px;color:var(--tx3)">{{ r.cap }}</span></div>
+            <div style="font-size:15px;font-weight:600">{{ r.t }}</div>
+            <div style="border-radius:10px;background:var(--sunk);padding:6px 12px;display:grid;grid-template-columns:1fr 18px 1fr;font:400 12.5px var(--mono);align-items:center;height:32px"><span style="color:var(--tx2)">{{ r.a }}</span><span style="color:var(--tx3)">→</span><span>{{ r.z }}</span></div>
+            <sc-if value="{{ r.act }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:6px;justify-content:flex-end"><span style="height:30px;padding:0 10px;border-radius:9px;font-size:13px;font-weight:500;color:var(--tx2);display:flex;align-items:center">Rejeter</span><span style="height:30px;padding:0 10px;border-radius:9px;font-size:13px;font-weight:500;background:var(--node);box-shadow:inset 0 0 0 1px var(--hair);display:flex;align-items:center">Modifier</span><span style="height:30px;padding:0 12px;border-radius:9px;font-size:13px;font-weight:600;background:var(--acc);color:var(--on-acc);display:flex;align-items:center">Valider</span></div></sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div style="border-radius:20px;background:#fff;box-shadow:var(--sh-sm);padding:22px;display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:16px;font-weight:600">DataTable</span>
+          <div style="border-radius:12px;box-shadow:inset 0 0 0 1px var(--hair);overflow:hidden">
+            <div style="display:grid;grid-template-columns:1fr 1.2fr 0.9fr;padding:8px 12px;font-size:12.5px;font-weight:600;color:var(--tx3)"><span>Date</span><span style="display:flex;align-items:center;gap:5px;color:var(--pii-fg)"><span style="width:11px;height:11px;border-radius:3px;border:1px solid currentColor;background:repeating-linear-gradient(135deg,currentColor 0 1px,transparent 1px 3.5px)"></span>Client</span><span style="text-align:right">Montant HT</span></div>
+            <sc-for list="{{ trows }}" as="r" hint-placeholder-count="3"><div style="{{ r.s }}"><span style="color:var(--tx2)">{{ r.d }}</span><span style="justify-self:start;font:400 12.5px var(--mono);color:var(--pii-fg);background:repeating-linear-gradient(135deg,var(--pii-bg) 0 5px,transparent 5px 10px);border-radius:6px;padding:2px 7px">{{ r.c }}</span><span style="text-align:right;font-variant-numeric:tabular-nums">{{ r.m }}</span></div></sc-for>
+          </div>
+          <span style="font-size:12.5px;color:var(--tx3)">Ligne de 38 px, chiffres tabulaires, colonne pseudonymisée hachurée, ligne sélectionnée teintée cuivre.</span>
+        </div>
+        <div style="border-radius:20px;background:#fff;box-shadow:var(--sh-sm);padding:22px;display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:16px;font-weight:600;padding-bottom:4px">CommandPalette, item</span>
+          <sc-for list="{{ pal }}" as="p" hint-placeholder-count="3"><div style="{{ p.s }}"><span style="{{ p.ts }}"><i class="{{ p.ic }}" style="font-size:17px"></i></span><span style="flex:1;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">{{ p.l }}</span><span style="font-size:12.5px;color:var(--tx3)">{{ p.d }}</span></span><span style="font-size:12px;color:var(--tx3);background:var(--sunk);border-radius:6px;padding:2px 7px">{{ p.k }}</span></div></sc-for>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div style="border-radius:20px;background:var(--bg);padding:22px;display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:16px;font-weight:600">Toast, en haut au centre</span>
+          <sc-for list="{{ toasts }}" as="t" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:12px;padding:12px 16px 12px 14px;border-radius:16px;background:var(--glass-hi);box-shadow:var(--sh-float)"><span style="{{ t.is }}"><i class="{{ t.ic }}" style="font-size:13px"></i></span><div style="flex:1"><div style="font-size:14px;font-weight:600">{{ t.t }}</div><div style="font-size:13px;color:var(--tx3)">{{ t.d }}</div></div><sc-if value="{{ t.hasA }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;font-weight:600;color:var(--acc-tx)">{{ t.a }}</span></sc-if></div></sc-for>
+        </div>
+        <div style="border-radius:20px;background:#fff;box-shadow:var(--sh-sm);padding:22px;display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:16px;font-weight:600">Lane (compartiment)</span>
+          <div style="display:flex;gap:10px;height:150px">
+            <div style="flex:1;border-radius:18px;background:rgba(30,45,70,0.035);padding:14px 14px;display:flex;flex-direction:column;gap:2px"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:15px;font-weight:600">Nettoyage</span><span style="height:22px;display:flex;align-items:center;gap:4px;padding:0 8px 0 6px;border-radius:999px;background:var(--prop-bg);color:var(--prop-fg);border:1px dashed var(--prop-bd);font-size:12px;font-weight:600;box-sizing:border-box"><i class="ph ph-circle-dashed" style="font-size:13px"></i>1</span><i class="ph ph-caret-line-left" style="margin-left:auto;font-size:16px;color:var(--tx3)"></i></div><span style="font-size:13px;color:var(--tx3)">Silver, 4 tables</span><span style="font-size:12.5px;color:var(--tx3);margin-top:auto">Ouvert</span></div>
+            <div style="width:56px;border-radius:18px;background:rgba(30,45,70,0.035);display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 0"><i class="ph ph-caret-line-right" style="font-size:16px;color:var(--tx3)"></i><span style="writing-mode:vertical-rl;font-size:14px;font-weight:600">Diffusion</span><span style="font-size:12.5px;color:var(--tx3)">3</span></div>
+            <div style="flex:1;border-radius:18px;background:rgba(30,45,70,0.035);padding:14px;display:flex;flex-direction:column;gap:4px"><span style="font-size:34px;font-weight:600;letter-spacing:-0.04em;line-height:1">4</span><span style="font-size:13px;color:var(--tx2)">tables</span><span style="font-size:12.5px;color:var(--tx3);margin-top:auto">Zoom éloigné</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start">
+    <sc-for list="{{ screens }}" as="sc" hint-placeholder-count="9">
+      <div id="{{ sc.id }}" style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:#454a53"><a href="{{ sc.href }}" style="font:500 12px var(--mono);padding:3px 8px;background:rgba(0,0,0,0.07);color:#15171b;border-radius:6px;text-decoration:none">{{ sc.id }}</a><span style="font-weight:600;color:#15171b">{{ sc.t }}</span><span style="font:400 12.5px var(--mono);color:#626872">{{ sc.route }}</span><span>{{ sc.d }}</span></div>
+        <div style="{{ sc.fs }}">
+          <dc-import name="ForjaApp" screen="{{ sc.screen }}" theme="{{ sc.theme }}" notif="{{ sc.notif }}" hint-size="1440px,900px" style="{{ sc.is }}"></dc-import>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  b(k, l, sz) {
+    sz = sz || 13; const h = React.createElement;
+    const M = { err: ['Erreur', 'ph-fill ph-warning-circle', 'var(--on-err)', 'var(--err-solid)', 'none', 600, 1], prop: ['À revoir', 'ph ph-circle-dashed', 'var(--prop-fg)', 'var(--prop-bg)', '1px dashed var(--prop-bd)', 600, 1], warn: ['À surveiller', 'ph-fill ph-warning', 'var(--prop-fg)', 'var(--prop-bg)', 'none', 600, 1], run: ['En cours', 0, 'var(--run-fg)', 'var(--run-bg)', 'none', 500, 1], pii: ['Pseudonymisé', 0, 'var(--pii-fg)', 'var(--pii-bg)', 'none', 500, 1], val: ['Validé', 'ph-fill ph-check-circle', 'var(--val-fg)', '', '', 500, 0], app: ['Appliqué', 'ph ph-check', 'var(--tx3)', '', '', 400, 0], rej: ['Rejeté', 'ph ph-x-circle', 'var(--tx3)', '', '', 400, 0], queue: ['En attente', 'ph ph-circle-dashed', 'var(--tx3)', '', '', 400, 0] }[k];
+    const g = k === 'run' ? h('span', { style: { width: 11, height: 11, borderRadius: '50%', border: '1.5px solid currentColor', borderRightColor: 'transparent', display: 'inline-block', animation: 'fspin .9s linear infinite', boxSizing: 'border-box' } }) : k === 'pii' ? h('span', { style: { width: 11, height: 11, borderRadius: 3, border: '1px solid currentColor', background: 'repeating-linear-gradient(135deg,currentColor 0 1px,transparent 1px 3.5px)', display: 'inline-block', boxSizing: 'border-box' } }) : h('i', { className: M[1], style: { fontSize: sz + 2 } });
+    const base = { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: sz, fontWeight: M[5], color: M[2], whiteSpace: 'nowrap', lineHeight: 1, boxSizing: 'border-box', flex: 'none' };
+    return { l: l || M[0], g, s: M[6] ? { ...base, height: Math.round(sz * 1.84), padding: `0 ${Math.round(sz * 0.72)}px 0 ${Math.round(sz * 0.52)}px`, borderRadius: 999, background: M[3], border: M[4] } : base };
+  }
+  renderVals() {
+    const b = this.b.bind(this), h = React.createElement;
+    const scr = (id, t, route, d, screen, x) => ({ id, href: '#' + id, t, route, d, screen, theme: 'light', notif: false, fs: { width: 1440, height: 900, borderRadius: 16, overflow: 'hidden', boxShadow: '0 0 0 0.5px rgba(0,0,0,0.1),0 30px 80px rgba(20,30,50,0.16)' }, is: { width: 1440, height: 900, display: 'block' }, ...(x || {}) });
+    const tab = { fs: { width: 1024, height: 1366, borderRadius: 32, overflow: 'hidden', boxShadow: '0 0 0 10px #1b1b1d,0 0 0 11px #3a3a3c,0 40px 90px rgba(20,30,50,0.3)' }, is: { width: 1024, height: 1366, display: 'block' } };
+    const screens = [
+      scr('S1', 'Canvas du pipeline', '/projects/[id]/pipeline', 'Tout le pipeline cadré, fct_ventes dans Modèle, lignées alignées.', 'pipeline'),
+      scr('S2', 'Notifications ouvertes', '?panel=notifications', 'Actions directes depuis chaque notification.', 'pipeline', { notif: true }),
+      scr('S3', 'Couche sémantique', '/projects/[id]/semantic', 'Cliquez une métrique, changez son additivité, validez les synonymes.', 'semantic'),
+      scr('S4', 'Accueil analyst', '/projects/[id]/home', 'Le champ ouvre l’agent.', 'home'),
+      scr('S5', 'Mes data marts', '/projects/[id]/marts', 'Filtrez, ouvrez « Exporter ».', 'marts'),
+      scr('S6', 'Réglages du projet', '/projects/[id]/settings', 'Changez de fournisseur IA.', 'settings'),
+      scr('S7', 'Connexion', '/auth/login', '', 'login'),
+      scr('S8', 'Nouveau mot de passe', '/auth/change-password', 'Premier accès.', 'password'),
+      scr('S9', 'Agent métier, tablette', '/projects/[id]/ask/[conversationId]', '1024 × 1366, sombre. Choisissez une option.', 'agent', { theme: 'dark', ...tab })
+    ];
+    const ls = on => ({ fontSize: 13.5, fontWeight: 500, color: on ? 'var(--acc-tx)' : 'var(--tx3)' });
+    const routes = [
+      ['Connexion', '/auth/login', 'Tous', 'S7', '#S7', ''], ['Nouveau mot de passe', '/auth/change-password', 'Tous', 'S8', '#S8', 'Redirection forcée au premier accès'],
+      ['Canvas du pipeline', '/projects/[id]/pipeline', 'Engineer', 'S1', '#S1', 'Projet vide : même route, état de dépôt (v2 V4 et V5)'], ['Nœud sélectionné', '/projects/[id]/pipeline?node=dim_clients&tab=columns', 'Engineer', 'v2 V2', 'Forja Recuit v2.dc.html#V2', 'Inspecteur en Sheet, partageable par URL'],
+      ['Palette de commande', 'global, ⌘K', 'Tous', 'v2 V3', 'Forja Recuit v2.dc.html#V3', 'Dialog, sans changement de route'], ['Notifications', '?panel=notifications', 'Tous', 'S2', '#S2', 'Popover depuis la cloche'],
+      ['Revue du plan Silver', '/projects/[id]/sources/[sourceId]/plan', 'Engineer', 'v1 C3', 'Forja C - Recuit.dc.html#C3', 'À porter dans la structure v2'], ['Modèle en étoile', '/projects/[id]/model', 'Engineer', 'v2 V6', 'Forja Recuit v2.dc.html#V6', ''],
+      ['Runs', '/projects/[id]/runs', 'Engineer', 'v2 V7', 'Forja Recuit v2.dc.html#V7', 'Détail : /projects/[id]/runs/[runId]'], ['Couche sémantique', '/projects/[id]/semantic', 'Engineer', 'S3', '#S3', 'Édition : ?metric=chiffre_affaires'],
+      ['Réglages du projet', '/projects/[id]/settings', 'Propriétaire', 'S6', '#S6', 'Onglets : members, ai, api-keys'], ['Accueil analyst', '/projects/[id]/home', 'Analyst', 'S4', '#S4', 'Page d’arrivée du rôle Analyst'],
+      ['Agent métier', '/projects/[id]/ask/[conversationId]', 'Analyst', 'S9', '#S9', 'Nouvelle question : /projects/[id]/ask'], ['Mes data marts', '/projects/[id]/marts', 'Analyst', 'S5', '#S5', ''],
+      ['Aperçu de vérification', '/projects/[id]/marts/[martId]/preview', 'Analyst', 'v1 C5', 'Forja C - Recuit.dc.html#C5', 'À porter dans la structure v2']
+    ].map(r => ({ n: r[0], r: r[1], role: r[2], m: r[3], href: r[4], note: r[5], ls: ls(r[4].startsWith('#')) }));
+    const comps = [
+      ['AppShell', 'layout', 'Sidebar ouverte 240, rail 64, overlay tablette 280', 'Repliée par défaut sur le canvas, navigation par rôle'], ['TopBar', 'layout', 'Projet, fil d’Ariane, recherche ⌘K, run, cloche, compte', 'Transparente sur le canvas, opaque ailleurs'],
+      ['CanvasNode', 'React Flow node', 'source, silver, dimension, fact, mart, destination', 'appliqué, à revoir, erreur, en cours, en attente, sélectionné, estompé ; zoom éloigné, standard, rapproché'],
+      ['CanvasEdge', 'React Flow edge', 'appliqué, proposé, erreur, lignée ; pastille de confiance', 'flux animé en cours, estompé'], ['Lane', 'React Flow group', 'ouvert, replié, compteurs en zoom éloigné', 'chips d’état par compartiment'],
+      ['CanvasToolbar', 'Toolbar', 'filtres d’état, zoom, ajuster, mise en page, ajouter, lancer', 'centrée entre la sidebar et la minimap'], ['Minimap', 'React Flow MiniMap', 'nœuds colorés par état, cadre cuivre', 'masquée quand l’inspecteur est ouvert'],
+      ['Inspector', 'Sheet + Tabs', 'Aperçu, Colonnes, Règles, Qualité, Historique', 'glisse depuis la droite, ressort 380/34'], ['StatusBadge', 'Badge', 'critique (pilule pleine ou pointillée), actif (teinté), calme (icône et texte)', 'erreur, à revoir, à surveiller, en cours, pseudonymisé, validé, appliqué, rejeté, en attente'],
+      ['RuleCard', 'Card', 'avec aperçu avant/après, paramètres dépliés', 'proposé, validé, rejeté, en édition'], ['CheckBadge', 'Badge + Tooltip', 'réussi, à surveiller, échec', 'sélectionné (anneau)'],
+      ['AgentStep', 'liste', 'terminé, en cours avec barre, en attente de réponse, à venir', 'apparition 300 ms'], ['ClarifyOption', 'RadioGroup', 'titre, description, effectif', 'repos, survol (élévation), sélectionné'],
+      ['DataTable', 'Table + TanStack', 'colonnes texte, nombre, identifiant, pseudonymisée', 'ligne sélectionnée, chargement en squelette, vide'], ['CommandPalette', 'Command (cmdk)', 'groupes Récents, Nœuds, Actions', 'item actif, raccourci, aucun résultat'],
+      ['Toast', 'Sonner', 'succès, information, erreur avec action', 'en haut au centre, 2,6 à 3,5 s'], ['NotificationItem', 'Popover', 'run, plan, data mart, échec', 'non lue (point cuivre), lue']
+    ].map(c => ({ n: c[0], base: c[1], v: c[2], st: c[3] }));
+    const LC = { prop: 'var(--prop-fg)', err: 'var(--err-solid)', run: 'var(--run-fg)', queue: 'var(--edge)' };
+    const nodes = [['Source', 'ph-file-csv', 'clients.csv', '4 812 lignes', 'app'], ['Nettoyage', 'ph-broom', 'clients', '3 règles', 'prop', 'À revoir'], ['Nettoyage', 'ph-broom', 'produits', 'prix_ht absent', 'err'], ['Source', 'ph-file-csv', 'commandes.csv', 'Profilage', 'run', '62 %'], ['Fait', 'ph-star', 'fct_ventes', '', 'queue'], ['Dimension', 'ph-cube', 'dim_clients', '4 809 lignes', 'sel'], ['Data mart', 'ph-chart-pie-slice', 'Quantité par catégorie', '12 lignes', 'app'], ['Destination', 'ph-chart-bar', 'Power BI', '1 publié', 'app'], ['Destination', 'ph-export', 'Exports', 'Mensuel', 'app']]
+      .map(n => { const k = n[4], loud = k !== 'app' && k !== 'sel', act = loud || k === 'sel'; return { cap: n[0] + ' · ' + ({ app: 'appliqué', prop: 'à revoir', err: 'erreur', run: 'en cours', queue: 'en attente', sel: 'sélectionné' })[k], ic: (act ? 'ph-duotone ' : 'ph ') + n[1], name: n[2], info: n[3], loud, calm: !loud, b: b(k === 'sel' ? 'app' : k, n[5], 12),
+        s: { borderRadius: 10, background: 'var(--node)', padding: '11px 12px', display: 'flex', gap: 10, alignItems: 'flex-start', minHeight: 64, boxShadow: [LC[k] ? `inset 3px 0 0 ${LC[k]}` : '', k === 'sel' ? '0 0 0 2px var(--acc)' : '', 'var(--sh-node)'].filter(Boolean).join(', ') },
+        ts: { width: 32, height: 32, borderRadius: 9, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: k === 'sel' ? 'var(--acc-soft)' : 'var(--sunk)', color: k === 'sel' ? 'var(--acc-tx)' : LC[k] && k !== 'queue' ? LC[k] : 'var(--tx2)' } }; });
+    const ed = (k, l) => { const st = k === 'prop' ? 'var(--prop-fg)' : k === 'err' ? 'var(--err-solid)' : k === 'lin' ? 'var(--acc)' : 'var(--edge)'; const ps = [h('path', { key: 'a', d: 'M2 12 C24 12, 34 4, 58 4', fill: 'none', style: { stroke: st, strokeWidth: k === 'lin' ? 2.5 : 1.6, strokeDasharray: k === 'prop' ? '5 5' : k === 'err' ? '2 4' : 'none', strokeLinecap: 'round', opacity: k === 'dim' ? 0.2 : 1 } })]; if (k === 'run') ps.push(h('path', { key: 'b', d: 'M2 12 C24 12, 34 4, 58 4', fill: 'none', style: { stroke: 'var(--run-fg)', strokeWidth: 2.5, strokeLinecap: 'round', strokeDasharray: '2 10', animation: 'fflow .8s linear infinite' } })); return { l, svg: h('svg', { width: 60, height: 16, style: { overflow: 'visible', flex: 'none' } }, ps) }; };
+    const edges = [ed('app', 'Appliqué'), ed('prop', 'Proposé'), ed('err', 'Erreur'), ed('run', 'En cours'), ed('lin', 'Lignée'), ed('dim', 'Estompé')];
+    const badges = ['err', 'prop', 'warn', 'run', 'pii', 'val', 'app', 'rej', 'queue'].map(k => b(k));
+    const checks = [['ph-fill ph-check-circle', 'Réussi', 'var(--val-fg)', 'var(--val-bg)', ''], ['ph-fill ph-warning', 'À surveiller', 'var(--prop-fg)', 'var(--prop-bg)', '0 0 0 2px #fff, 0 0 0 3.5px var(--prop-fg)'], ['ph-fill ph-x-circle', 'Échec', 'var(--on-err)', 'var(--err-solid)', '']].map(c => ({ ic: c[0], l: c[1], s: { height: 32, display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px 0 10px', borderRadius: 999, fontSize: 13.5, fontWeight: 600, color: c[2], background: c[3], boxShadow: c[4] || 'none' } }));
+    const mkS = (k) => ({ width: 24, height: 24, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, ...(k === 'done' ? { background: 'var(--val-bg)', color: 'var(--val-fg)' } : k === 'wait' ? { background: 'var(--prop-bg)', color: 'var(--prop-fg)', boxShadow: 'inset 0 0 0 1px var(--prop-bd)' } : k === 'run' ? { background: 'var(--run-bg)', color: 'var(--run-fg)' } : { boxShadow: 'inset 0 0 0 1.5px var(--edge)' }) });
+    const steps = [['done', 'Compréhension de la question', 'Terminé'], ['run', 'Construction du data mart', 'En cours'], ['wait', 'Une précision est nécessaire', 'En attente de réponse'], ['idle', 'Contrôles de cohérence', 'À venir']].map(([k, t, d]) => ({ t, d, bar: k === 'run', ms: mkS(k), mk: k === 'done' ? h('i', { className: 'ph-bold ph-check' }) : k === 'wait' ? h('i', { className: 'ph-bold ph-question' }) : k === 'run' ? h('span', { style: { width: 11, height: 11, borderRadius: '50%', border: '1.5px solid currentColor', borderRightColor: 'transparent', display: 'inline-block', animation: 'fspin .9s linear infinite', boxSizing: 'border-box' } }) : '', ts: { fontSize: 14.5, fontWeight: k === 'idle' ? 400 : 600, color: k === 'idle' ? 'var(--tx3)' : 'var(--tx)' } }));
+    const opts = [['rest', 'Clients du segment Professionnel', '1 284 clients', 'Repos'], ['hov', 'Clients ayant un SIRET', '1 102 clients', 'Survol'], ['sel', 'L’un ou l’autre', '1 391 clients', 'Sélectionné']].map(([k, t, d, cap]) => ({ t, d, cap, s: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', minHeight: 60, borderRadius: 14, background: k === 'sel' ? 'var(--acc-soft)' : 'var(--node)', boxShadow: k === 'sel' ? 'inset 0 0 0 1.5px var(--acc)' : k === 'hov' ? 'var(--sh-hover)' : 'var(--sh-sm)', transform: k === 'hov' ? 'translateY(-1px)' : 'none' }, rs: { width: 18, height: 18, borderRadius: '50%', flex: 'none', background: 'var(--node)', boxShadow: k === 'sel' ? 'inset 0 0 0 5px var(--acc)' : 'inset 0 0 0 1.5px var(--edge)' } }));
+    const rules = [['prop', 'R-02', 'Convertir en date', '31/02/2024', 'vide', 'Proposé', 1], ['val', 'R-04', 'Pseudonymiser l’email', 'j.dupont@…', 'cli_8f2c41a0', 'Validé'], ['rej', 'R-06', 'Remplir les segments', '(vide)', 'Non renseigné', 'Rejeté']].map(r => ({ b: b(r[0], null, 12.5), id: r[1], t: r[2], a: r[3], z: r[4], cap: r[5], act: !!r[6], s: { borderRadius: 16, background: 'var(--node)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, boxShadow: 'var(--sh-sm)', outline: r[0] === 'prop' ? '1.5px dashed var(--prop-bd)' : 'none', outlineOffset: -1.5, opacity: r[0] === 'rej' ? 0.62 : 1 } }));
+    const trows = [['03/01/2025', 'cli_8f2c41a0', '1 240,00 €', 0], ['06/01/2025', 'cli_e7a90b54', '2 015,80 €', 1], ['09/01/2025', 'cli_5d11c3f2', '712,00 €', 0]].map(r => ({ d: r[0], c: r[1], m: r[2], s: { display: 'grid', gridTemplateColumns: '1fr 1.2fr 0.9fr', padding: '0 12px', height: 38, alignItems: 'center', fontSize: 14, borderTop: '1px solid var(--sunk)', background: r[3] ? 'var(--acc-soft)' : 'transparent' } }));
+    const pal = [['ph ph-broom', 'clients', 'Nettoyage', '↵', 1], ['ph ph-cube', 'dim_clients', 'Modèle en étoile', '', 0], ['ph ph-play', 'Lancer un run complet', 'Sources, nettoyage, modèle', '⌘R', 0]].map(p => ({ ic: p[0], l: p[1], d: p[2], k: p[3] || '·', s: { display: 'flex', alignItems: 'center', gap: 12, padding: '8px 10px', borderRadius: 12, background: p[4] ? 'var(--acc-soft)' : 'transparent' }, ts: { width: 32, height: 32, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', background: p[4] ? 'var(--node)' : 'var(--sunk)', color: p[4] ? 'var(--acc-tx)' : 'var(--tx2)' } }));
+    const tIc = (bg, c) => ({ width: 24, height: 24, borderRadius: '50%', background: bg, color: c, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' });
+    const toasts = [['ph-fill ph-check', tIc('var(--val-bg)', 'var(--val-fg)'), 'Modèle validé', 'Construction de fct_ventes planifiée', ''], ['ph-bold ph-info', tIc('var(--run-bg)', 'var(--run-fg)'), 'Profilage lancé', 'Vous serez notifié à la fin', ''], ['ph-bold ph-x', tIc('var(--err-solid)', 'var(--on-err)'), 'Échec du nettoyage de produits', 'Colonne prix_ht introuvable', 'Corriger']].map(t => ({ ic: t[0], is: t[1], t: t[2], d: t[3], a: t[4], hasA: !!t[4] }));
+    return { screens, routes, comps, nodes, edges, badges, checks, steps, opts, rules, trows, pal, toasts };
+  }
+}
+</script>
+</body>
+</html>

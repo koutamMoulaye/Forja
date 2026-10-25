@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/duotone/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<style>@font-face{font-family:'Commit Mono';src:url(https://cdn.jsdelivr.net/fontsource/fonts/commit-mono@latest/latin-400-normal.woff2) format('woff2');font-weight:400;font-display:swap}@font-face{font-family:'Commit Mono';src:url(https://cdn.jsdelivr.net/fontsource/fonts/commit-mono@latest/latin-500-normal.woff2) format('woff2');font-weight:500;font-display:swap}@keyframes fflow{to{stroke-dashoffset:-24}}@keyframes fspin{to{transform:rotate(360deg)}}@keyframes fshim{0%{background-position:-420px 0}100%{background-position:420px 0}}</style>
+</helmet>
+<div ref="{{ root }}" tabIndex="0" onKeyDown="{{ key }}" onMouseEnter="{{ hin }}" onMouseLeave="{{ hout }}" style="{{ rootS }}">
+
+  <sc-if value="{{ isCanvas }}" hint-placeholder-val="{{ true }}">
+    <div ref="{{ vpRef }}" onPointerDown="{{ down }}" onPointerMove="{{ move }}" onPointerUp="{{ up }}" onDragOver="{{ dragOver }}" onDragLeave="{{ dragLeave }}" onDrop="{{ drop }}" style="{{ cvS }}">
+      <div style="{{ worldS }}">
+        <sc-for list="{{ lanes }}" as="l" hint-placeholder-count="4">
+          <div style="{{ l.s }}">
+            <sc-if value="{{ l.open }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;align-items:center;gap:10px;padding:22px 14px 0 22px">
+                <span style="font-size:19px;font-weight:600;letter-spacing:-0.015em;white-space:nowrap">{{ l.t }}</span>
+                <sc-for list="{{ l.chips }}" as="c" hint-placeholder-count="1"><span style="{{ c.s }}">{{ c.g }}{{ c.l }}</span></sc-for>
+                <button data-ui="1" onClick="{{ l.toggle }}" title="Replier" style="margin-left:auto;width:34px;height:34px;border-radius:10px;border:0;background:transparent;color:var(--tx3);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--sunk);color:var(--tx)"><i class="ph ph-caret-line-left" style="font-size:19px"></i></button>
+              </div>
+              <div style="padding:2px 22px 0;font-size:15px;color:var(--tx3);white-space:nowrap">{{ l.sub }}</div>
+            </sc-if>
+            <sc-if value="{{ l.closed }}" hint-placeholder-val="{{ false }}">
+              <button data-ui="1" onClick="{{ l.toggle }}" title="Déplier" style="width:100%;height:100%;border:0;background:transparent;color:var(--tx2);display:flex;flex-direction:column;align-items:center;gap:14px;padding:22px 0;cursor:pointer;font-family:inherit" style-hover="color:var(--tx)"><i class="ph ph-caret-line-right" style="font-size:19px"></i><span style="writing-mode:vertical-rl;font-size:17px;font-weight:600">{{ l.t }}</span><span style="font-size:15px;color:var(--tx3);font-variant-numeric:tabular-nums">{{ l.count }}</span></button>
+            </sc-if>
+          </div>
+        </sc-for>
+        {{ edgesEl }}
+        <sc-for list="{{ ghosts }}" as="gh" hint-placeholder-count="0"><span style="{{ gh }}"></span></sc-for>
+        <sc-for list="{{ elabels }}" as="e" hint-placeholder-count="1"><span style="{{ e.s }}"><i class="ph ph-link-simple" style="font-size:15px"></i>{{ e.l }}</span></sc-for>
+        <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="18">
+          <div data-node="1" onClick="{{ n.click }}" onDoubleClick="{{ n.dbl }}" onMouseEnter="{{ n.enter }}" onMouseLeave="{{ n.leave }}" style="{{ n.s }}">
+            <sc-if value="{{ n.show }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;gap:12px;align-items:flex-start;min-width:0">
+                <span style="{{ n.tile }}"><i class="{{ n.icc }}" style="font-size:21px"></i></span>
+                <div style="min-width:0;flex:1;display:flex;flex-direction:column;gap:3px;padding-top:1px">
+                  <div style="{{ n.nameS }}">{{ n.name }}</div>
+                  <div style="display:flex;align-items:center;gap:7px;min-width:0;height:23px">
+                    <sc-if value="{{ n.loud }}" hint-placeholder-val="{{ false }}"><span style="{{ n.b.s }}">{{ n.b.g }}{{ n.b.l }}</span></sc-if>
+                    <sc-if value="{{ n.calm }}" hint-placeholder-val="{{ true }}"><i class="ph ph-check-circle" style="font-size:16px;color:var(--tx3);flex:none"></i></sc-if>
+                    <span style="font-size:15.5px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums">{{ n.info }}</span>
+                  </div>
+                </div>
+                <sc-if value="{{ n.pii }}" hint-placeholder-val="{{ false }}"><span title="Colonnes pseudonymisées" style="color:var(--pii-fg);display:flex;padding-top:4px">{{ hatch }}</span></sc-if>
+              </div>
+              <sc-if value="{{ n.isNear }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:8px;padding-left:50px">
+                  <sc-if value="{{ n.hasQ }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px"><span style="flex:1;height:5px;border-radius:3px;background:var(--sunk);display:flex;overflow:hidden"><span style="{{ n.qs }}"></span></span><span style="font-size:13.5px;color:var(--tx2);font-variant-numeric:tabular-nums">Qualité {{ n.q }}</span></div></sc-if>
+                  <div style="display:flex;flex-wrap:wrap;gap:4px"><sc-for list="{{ n.near }}" as="k" hint-placeholder-count="2"><span style="font:400 13px var(--mono);background:var(--sunk);color:var(--tx2);border-radius:6px;padding:2px 7px">{{ k }}</span></sc-for></div>
+                </div>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ n.isRun }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:14px;right:14px;bottom:7px;height:3px;border-radius:2px;background:var(--run-bg);overflow:hidden;display:flex"><span style="{{ n.ps }}"></span></span></sc-if>
+          </div>
+        </sc-for>
+        <sc-for list="{{ farL }}" as="f" hint-placeholder-count="4">
+          <div style="{{ f.s }}">
+            <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:84px;font-weight:600;letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums">{{ f.count }}</span><span style="font-size:28px;color:var(--tx2)">{{ f.unit }}</span></div>
+            <div style="font-size:26px;color:var(--tx2);line-height:1.4">{{ f.sum }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+        <div data-ui="1" style="{{ dropS }}">
+          <div style="{{ dropInS }}">
+            <span style="width:64px;height:64px;border-radius:18px;background:var(--acc-soft);color:var(--acc-tx);display:flex;align-items:center;justify-content:center"><i class="ph-duotone ph-tray-arrow-up" style="font-size:34px"></i></span>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+              <div style="font-size:26px;font-weight:600;letter-spacing:-0.022em">Déposez vos fichiers</div>
+              <div style="font-size:15px;color:var(--tx2)">Forja les profile, puis propose un plan de nettoyage.</div>
+            </div>
+            <button onClick="{{ drop }}" style="height:44px;padding:0 20px;border-radius:12px;border:0;background:var(--acc);color:var(--on-acc);font:600 15px var(--sans);cursor:pointer;display:flex;align-items:center;gap:8px" style-hover="filter:brightness(1.06)"><i class="ph ph-folder-open" style="font-size:18px"></i>Choisir des fichiers</button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
+              <span style="height:28px;display:flex;align-items:center;gap:6px;padding:0 10px;border-radius:8px;background:var(--sunk);font-size:13px;color:var(--tx2)"><i class="ph ph-file-csv" style="font-size:16px"></i>CSV</span>
+              <span style="height:28px;display:flex;align-items:center;gap:6px;padding:0 10px;border-radius:8px;background:var(--sunk);font-size:13px;color:var(--tx2)"><i class="ph ph-file-xls" style="font-size:16px"></i>Excel (.xlsx, .xls)</span>
+              <span style="height:28px;display:flex;align-items:center;gap:6px;padding:0 10px;border-radius:8px;background:var(--sunk);font-size:13px;color:var(--tx2)"><i class="ph ph-database" style="font-size:16px"></i>Parquet</span>
+              <span style="height:28px;display:flex;align-items:center;gap:6px;padding:0 10px;border-radius:8px;background:var(--sunk);font-size:13px;color:var(--tx2)"><i class="ph ph-brackets-curly" style="font-size:16px"></i>JSON</span>
+            </div>
+            <div style="font-size:13px;color:var(--tx3)">Jusqu’à 2 Go par fichier. Les fichiers restent sur ce poste.</div>
+          </div>
+          <button style="align-self:center;border:0;background:transparent;color:var(--tx2);font:500 14px var(--sans);cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="color:var(--tx)">Ouvrir le projet de démo<i class="ph ph-arrow-right" style="font-size:15px"></i></button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ hasTools }}" hint-placeholder-val="{{ true }}">
+        <div data-ui="1" style="{{ tbS }}">
+          <div style="display:flex;gap:2px;padding:3px;border-radius:12px;background:var(--sunk)">
+            <sc-for list="{{ filters }}" as="f" hint-placeholder-count="4"><button onClick="{{ f.go }}" style="{{ f.s }}">{{ f.l }}<sc-if value="{{ f.hasN }}" hint-placeholder-val="{{ false }}"><span style="{{ f.ns }}">{{ f.n }}</span></sc-if></button></sc-for>
+          </div>
+          <span style="width:1px;height:22px;background:var(--hair);margin:0 4px"></span>
+          <button onClick="{{ zoomOut }}" title="Zoom arrière" style="width:36px;height:36px;border-radius:10px;border:0;background:transparent;color:var(--tx);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:var(--sunk)"><i class="ph ph-minus" style="font-size:17px"></i></button>
+          <span style="width:50px;text-align:center;font-size:13px;color:var(--tx2);font-variant-numeric:tabular-nums">{{ zPct }}</span>
+          <button onClick="{{ zoomIn }}" title="Zoom avant" style="width:36px;height:36px;border-radius:10px;border:0;background:transparent;color:var(--tx);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:var(--sunk)"><i class="ph ph-plus" style="font-size:17px"></i></button>
+          <button onClick="{{ fitB }}" title="Ajuster à l’écran" style="width:36px;height:36px;border-radius:10px;border:0;background:transparent;color:var(--tx);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:var(--sunk)"><i class="ph ph-corners-out" style="font-size:18px"></i></button>
+          <button onClick="{{ autoL }}" title="Mise en page automatique" style="width:36px;height:36px;border-radius:10px;border:0;background:transparent;color:var(--tx);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:var(--sunk)"><i class="ph ph-tree-structure" style="font-size:18px"></i></button>
+          <span style="width:1px;height:22px;background:var(--hair);margin:0 4px"></span>
+          <button style="height:36px;padding:0 12px;border-radius:10px;border:0;background:transparent;color:var(--tx);font:500 14px var(--sans);cursor:pointer;display:flex;align-items:center;gap:7px;white-space:nowrap" style-hover="background:var(--sunk)"><i class="ph ph-upload-simple" style="font-size:17px"></i>Ajouter</button>
+          <button onClick="{{ startRun }}" style="height:36px;padding:0 14px;border-radius:10px;border:0;background:var(--acc);color:var(--on-acc);font:600 14px var(--sans);cursor:pointer;display:flex;align-items:center;gap:7px;white-space:nowrap" style-hover="filter:brightness(1.06)"><i class="ph-fill ph-play" style="font-size:14px"></i>Lancer un run</button>
+        </div>
+        <div data-ui="1" onClick="{{ mmClick }}" title="Minimap" style="{{ mm.s }}">
+          <sc-for list="{{ mm.lanes }}" as="r" hint-placeholder-count="4"><span style="{{ r }}"></span></sc-for>
+          <sc-for list="{{ mm.nodes }}" as="r" hint-placeholder-count="18"><span style="{{ r }}"></span></sc-for>
+          <span style="{{ mm.view }}"></span>
+        </div>
+      </sc-if>
+
+      <aside data-ui="1" style="{{ inspS }}">
+        <div style="padding:18px 18px 12px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:flex-start;gap:12px">
+            <span style="{{ ins.tile }}"><i class="{{ ins.icc }}" style="font-size:22px"></i></span>
+            <div style="min-width:0;flex:1"><div style="font-size:18px;font-weight:600;letter-spacing:-0.015em;line-height:1.3">{{ ins.name }}</div><div style="font-size:13px;color:var(--tx3)">{{ ins.sub }}</div></div>
+            <button onClick="{{ closeSel }}" title="Fermer" style="width:32px;height:32px;border-radius:10px;border:0;background:var(--sunk);color:var(--tx2);cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center" style-hover="color:var(--tx)"><i class="ph ph-x" style="font-size:16px"></i></button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:32px">
+            <span style="{{ ins.b.s }}">{{ ins.b.g }}{{ ins.b.l }}</span>
+            <sc-if value="{{ ins.hasPii }}" hint-placeholder-val="{{ false }}"><span style="{{ ins.pb.s }}">{{ ins.pb.g }}{{ ins.pb.l }}</span></sc-if>
+            <button onClick="{{ ins.open }}" style="{{ ins.openS }}">{{ ins.openL }}</button>
+          </div>
+          <div style="display:flex;padding:3px;border-radius:11px;background:var(--sunk)">
+            <sc-for list="{{ ins.tabs }}" as="t" hint-placeholder-count="5"><button onClick="{{ t.go }}" style="{{ t.s }}">{{ t.l }}</button></sc-for>
+          </div>
+        </div>
+        <div style="flex:1;min-height:0;overflow:auto;padding:4px 18px 18px;display:flex;flex-direction:column;gap:12px">
+          <sc-if value="{{ ins.isOv }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:14px;line-height:1.55;color:var(--tx2);text-wrap:pretty">{{ ins.desc }}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><sc-for list="{{ ins.stats }}" as="st" hint-placeholder-count="4"><div style="background:var(--node);border-radius:12px;padding:10px 12px;box-shadow:var(--sh-sm)"><div style="font-size:12.5px;color:var(--tx3)">{{ st.k }}</div><div style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">{{ st.v }}</div></div></sc-for></div>
+            <div style="font-size:13px;font-weight:600;color:var(--tx3);padding-top:4px">En amont</div>
+            <sc-for list="{{ ins.up }}" as="u" hint-placeholder-count="1"><button onClick="{{ u.go }}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:0;background:var(--node);box-shadow:var(--sh-sm);color:var(--tx);font:500 14px var(--sans);cursor:pointer;text-align:left" style-hover="box-shadow:var(--sh-hover)"><i class="{{ u.ic }}" style="font-size:18px;color:var(--tx2)"></i><span style="flex:1;min-width:0">{{ u.name }}</span><span style="{{ u.b.s }}">{{ u.b.g }}{{ u.b.l }}</span></button></sc-for>
+            <sc-if value="{{ ins.noUp }}" hint-placeholder-val="{{ false }}"><div style="font-size:13.5px;color:var(--tx3)">Point d’entrée du pipeline.</div></sc-if>
+            <div style="font-size:13px;font-weight:600;color:var(--tx3);padding-top:4px">En aval</div>
+            <sc-for list="{{ ins.down }}" as="u" hint-placeholder-count="2"><button onClick="{{ u.go }}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:0;background:var(--node);box-shadow:var(--sh-sm);color:var(--tx);font:500 14px var(--sans);cursor:pointer;text-align:left" style-hover="box-shadow:var(--sh-hover)"><i class="{{ u.ic }}" style="font-size:18px;color:var(--tx2)"></i><span style="flex:1;min-width:0">{{ u.name }}</span><span style="{{ u.b.s }}">{{ u.b.g }}{{ u.b.l }}</span></button></sc-for>
+            <sc-if value="{{ ins.noDown }}" hint-placeholder-val="{{ false }}"><div style="font-size:13.5px;color:var(--tx3)">Fin de la lignée.</div></sc-if>
+          </sc-if>
+          <sc-if value="{{ ins.isCols }}" hint-placeholder-val="{{ true }}">
+            <div style="font-size:13.5px;color:var(--tx3)">{{ ins.colSum }}</div>
+            <sc-if value="{{ ins.hasPii }}" hint-placeholder-val="{{ false }}">
+              <div style="border-radius:12px;padding:6px;background:repeating-linear-gradient(135deg,var(--pii-bg) 0 6px,transparent 6px 12px)">
+                <div style="background:var(--node);border-radius:9px;padding:10px 12px;font-size:13.5px;line-height:1.5;color:var(--tx2)"><span style="color:var(--pii-fg);font-weight:600">2 colonnes pseudonymisées</span> par la règle R-04. Valeurs d’origine conservées sur ce poste ; email et téléphone ne sont pas repris dans le modèle.</div>
+              </div>
+            </sc-if>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <sc-for list="{{ ins.cols }}" as="c" hint-placeholder-count="8">
+                <div style="{{ c.s }}">
+                  <div style="min-width:0;flex:1;display:flex;flex-direction:column;gap:2px">
+                    <div style="display:flex;align-items:center;gap:7px"><span style="font:500 13px var(--mono);color:var(--tx)">{{ c.n }}</span><sc-if value="{{ c.key }}" hint-placeholder-val="{{ false }}"><i class="ph-fill ph-key" title="Clé" style="font-size:14px;color:var(--tx3)"></i></sc-if></div>
+                    <div style="font-size:13px;color:var(--tx3)">{{ c.d }}</div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none">
+                    <sc-if value="{{ c.pii }}" hint-placeholder-val="{{ false }}"><span style="{{ c.pb.s }}">{{ c.pb.g }}{{ c.pb.l }}</span></sc-if>
+                    <span style="font-size:12.5px;color:var(--tx3)">{{ c.t }}</span>
+                    <span style="{{ c.exS }}">{{ c.ex }}</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ ins.isRules }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:14px;line-height:1.55;color:var(--tx2)">{{ ins.rulesIntro }}</div>
+            <sc-for list="{{ ins.rules }}" as="r" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;background:var(--node);box-shadow:var(--sh-sm)"><span style="font:400 12.5px var(--mono);color:var(--tx3)">{{ r.id }}</span><span style="flex:1;font-size:14px;font-weight:500">{{ r.t }}</span><span style="{{ r.b.s }}">{{ r.b.g }}{{ r.b.l }}</span></div></sc-for>
+          </sc-if>
+          <sc-if value="{{ ins.isQual }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:baseline;gap:6px"><span style="font-size:40px;font-weight:600;letter-spacing:-0.035em;font-variant-numeric:tabular-nums">{{ ins.score }}</span><span style="color:var(--tx3)">/100</span></div>
+            <sc-for list="{{ ins.bars }}" as="r" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:100px 1fr 34px;align-items:center;gap:10px;font-size:13.5px"><span style="color:var(--tx2)">{{ r.k }}</span><span style="height:6px;border-radius:3px;background:var(--sunk);overflow:hidden;display:flex"><span style="{{ r.s }}"></span></span><span style="text-align:right;font-variant-numeric:tabular-nums">{{ r.v }}</span></div></sc-for>
+            <sc-for list="{{ ins.checks }}" as="c" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:10px;font-size:14px"><span style="{{ c.b.s }}">{{ c.b.g }}{{ c.b.l }}</span>{{ c.t }}</div></sc-for>
+          </sc-if>
+          <sc-if value="{{ ins.isHist }}" hint-placeholder-val="{{ false }}">
+            <sc-for list="{{ ins.hist }}" as="r" hint-placeholder-count="3"><div style="display:flex;gap:12px;padding:11px 12px;border-radius:12px;background:var(--node);box-shadow:var(--sh-sm)"><span style="font:400 12.5px var(--mono);color:var(--tx3);padding-top:2px">{{ r.id }}</span><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:500">{{ r.t }}</div><div style="font-size:13px;color:var(--tx3)">{{ r.d }}</div></div><span style="{{ r.b.s }}">{{ r.b.g }}{{ r.b.l }}</span></div></sc-for>
+          </sc-if>
+          <sc-if value="{{ ins.generic }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:14px;line-height:1.55;color:var(--tx2)">{{ ins.genMsg }}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ ins.near }}" as="k" hint-placeholder-count="2"><span style="font:400 13px var(--mono);background:var(--sunk);color:var(--tx2);border-radius:6px;padding:3px 8px">{{ k }}</span></sc-for></div>
+          </sc-if>
+        </div>
+      </aside>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isGold }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ bodyS }}">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:10px 28px 24px;gap:16px">
+        <div style="display:flex;align-items:flex-end;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <h1 style="margin:0;font-size:28px;font-weight:600;letter-spacing:-0.025em;line-height:1.2">Modèle en étoile</h1>
+            <div style="font-size:14.5px;color:var(--tx2)">Proposé il y a 1 h · 1 fait, 3 dimensions</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button onClick="{{ gEdit }}" style="height:40px;padding:0 16px;border-radius:11px;border:0;background:var(--node);box-shadow:var(--sh-sm);color:var(--tx);font:500 14.5px var(--sans);cursor:pointer;display:flex;align-items:center;gap:8px" style-hover="box-shadow:var(--sh-hover)"><i class="ph ph-pencil-simple" style="font-size:17px"></i>Modifier</button>
+            <button onClick="{{ gValidate }}" style="{{ gValS }}"><i class="ph-bold ph-check" style="font-size:15px"></i>{{ gValL }}</button>
+          </div>
+        </div>
+        <div style="flex:1;min-height:0;position:relative;border-radius:22px;background:var(--lane)">
+          {{ gSvg }}
+          <sc-for list="{{ gDims }}" as="d" hint-placeholder-count="3">
+            <div onClick="{{ d.go }}" onMouseEnter="{{ d.enter }}" onMouseLeave="{{ d.leave }}" style="{{ d.s }}">
+              <div style="display:flex;align-items:center;gap:10px"><span style="width:34px;height:34px;border-radius:10px;background:var(--sunk);color:var(--tx2);display:flex;align-items:center;justify-content:center;flex:none"><i class="ph-duotone ph-cube" style="font-size:19px"></i></span><span style="font:500 14.5px var(--mono);flex:1;min-width:0">{{ d.name }}</span><sc-if value="{{ d.pii }}" hint-placeholder-val="{{ false }}"><span title="Colonnes pseudonymisées" style="color:var(--pii-fg);display:flex">{{ hatch }}</span></sc-if></div>
+              <span style="align-self:flex-start;height:24px;display:flex;align-items:center;gap:6px;padding:0 9px;border-radius:999px;background:var(--sunk);color:var(--tx2);font-size:12.5px;font-weight:500"><i class="{{ d.scdIc }}" style="font-size:14px"></i>{{ d.scdL }}</span>
+              <div style="display:flex;flex-direction:column;gap:2px"><span style="font:400 12.5px var(--mono);color:var(--tx2)">{{ d.key }}</span><span style="font-size:13px;color:var(--tx3)">{{ d.rows }}</span></div>
+            </div>
+          </sc-for>
+          <sc-for list="{{ gPins }}" as="p" hint-placeholder-count="2"><button onClick="{{ p.go }}" style="{{ p.s }}">{{ p.b.g }}{{ p.l }}</button></sc-for>
+          <sc-for list="{{ gCard }}" as="c" hint-placeholder-count="3"><span style="{{ c.s }}">{{ c.l }}</span></sc-for>
+          <div onClick="{{ gFact.go }}" onMouseEnter="{{ gFact.enter }}" onMouseLeave="{{ gFact.leave }}" style="{{ gFact.s }}">
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:38px;height:38px;border-radius:11px;background:var(--acc-soft);color:var(--acc-tx);display:flex;align-items:center;justify-content:center;flex:none"><i class="ph-duotone ph-star" style="font-size:21px"></i></span><div style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font:500 15.5px var(--mono)">fct_ventes</span><span style="font-size:13px;color:var(--tx3)">6 750 lignes</span></div><span style="{{ gFact.b.s }}">{{ gFact.b.g }}{{ gFact.b.l }}</span></div>
+            <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12.5px;font-weight:600;color:var(--tx3)">Grain</span><span style="font-size:14.5px">Une ligne par ligne de commande</span></div>
+            <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:12.5px;font-weight:600;color:var(--tx3)">Clés</span>
+              <sc-for list="{{ gFact.keys }}" as="k" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:8px;font-size:13px"><i class="{{ k.ic }}" style="{{ k.is }}"></i><span style="font:400 13px var(--mono)">{{ k.c }}</span><span style="margin-left:auto;color:var(--tx3);font-family:var(--mono);font-size:12.5px">{{ k.t }}</span></div></sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:12.5px;font-weight:600;color:var(--tx3)">Mesures</span>
+              <sc-for list="{{ gFact.meas }}" as="k" hint-placeholder-count="4"><div style="display:flex;align-items:baseline;gap:8px;font-size:14px"><span style="font-weight:500">{{ k.l }}</span><span style="margin-left:auto;font-size:13px;color:var(--tx3);white-space:nowrap">{{ k.a }}</span></div></sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+      <aside style="width:372px;flex:none;margin:10px 12px 12px 0;border-radius:20px;background:var(--node);box-shadow:var(--sh-sm);display:flex;flex-direction:column;overflow:hidden">
+        <div style="flex:1;min-height:0;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:16px;font-weight:600">À résoudre</span><span style="font-size:14px;color:var(--tx3);font-variant-numeric:tabular-nums">{{ gOpen }}</span></div>
+          <sc-for list="{{ gIssues }}" as="i" hint-placeholder-count="2">
+            <div onMouseEnter="{{ i.enter }}" onMouseLeave="{{ i.leave }}" style="{{ i.s }}">
+              <div style="display:flex;align-items:center;gap:8px"><span style="{{ i.b.s }}">{{ i.b.g }}{{ i.b.l }}</span><span style="margin-left:auto;font-size:12.5px;color:var(--tx3)">{{ i.src }}</span></div>
+              <div style="font-size:14.5px;font-weight:600;line-height:1.35">{{ i.t }}</div>
+              <sc-if value="{{ i.isOpen }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:13.5px;line-height:1.55;color:var(--tx2);text-wrap:pretty">{{ i.d }}</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap"><button onClick="{{ i.a1 }}" style="height:34px;padding:0 12px;border-radius:10px;border:0;background:var(--acc);color:var(--on-acc);font:600 13.5px var(--sans);cursor:pointer">{{ i.a1L }}</button><button onClick="{{ i.a2 }}" style="height:34px;padding:0 12px;border-radius:10px;border:0;background:var(--sunk);color:var(--tx);font:500 13.5px var(--sans);cursor:pointer">{{ i.a2L }}</button></div>
+              </sc-if>
+              <sc-if value="{{ i.isDone }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx3)"><span>{{ i.doneL }}</span><button onClick="{{ i.undo }}" style="border:0;background:transparent;padding:0;color:var(--acc-tx);font:500 13px var(--sans);cursor:pointer">Annuler</button></div></sc-if>
+            </div>
+          </sc-for>
+          <div style="height:6px"></div>
+          <div style="font-size:16px;font-weight:600">{{ gDetT }}</div>
+          <sc-if value="{{ gIsFact }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ gFact.measD }}" as="k" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:12px;background:var(--sunk)"><div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:14px;font-weight:500">{{ k.l }}</span><span style="margin-left:auto;font-size:13px;color:var(--tx2)">{{ k.a }}</span></div><span style="font:400 12.5px var(--mono);color:var(--tx3)">{{ k.f }}</span></div></sc-for>
+          </sc-if>
+          <sc-if value="{{ gIsDim }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:2px;padding:3px;border-radius:11px;background:var(--sunk)"><sc-for list="{{ gScdOpts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.go }}" style="{{ o.s }}">{{ o.l }}</button></sc-for></div>
+            <div style="font-size:13.5px;line-height:1.55;color:var(--tx2)">{{ gScdD }}</div>
+            <sc-if value="{{ gScdTrack }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:13px;color:var(--tx3)">Colonnes suivies</span><sc-for list="{{ gTracked }}" as="t" hint-placeholder-count="2"><span style="font:400 12.5px var(--mono);background:var(--sunk);border-radius:6px;padding:2px 7px">{{ t }}</span></sc-for></div></sc-if>
+          </sc-if>
+          <sc-if value="{{ gIsDate }}" hint-placeholder-val="{{ false }}"><div style="font-size:13.5px;line-height:1.55;color:var(--tx2)">Générée par Forja à partir des dates de commande. Jours fériés français inclus.</div></sc-if>
+          <div style="height:6px"></div>
+          <div style="font-size:16px;font-weight:600">Origine de la proposition</div>
+          <div style="display:flex;gap:12px;align-items:flex-start"><span style="width:34px;height:34px;border-radius:10px;background:var(--sunk);color:var(--tx2);display:flex;align-items:center;justify-content:center;flex:none"><i class="ph ph-cpu" style="font-size:18px"></i></span><div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:500">IA locale</span><span style="font-size:13px;color:var(--tx3);line-height:1.45">Grain, mesures et historisation. Mistral Small 3 via Ollama, 1 min 48 s.</span></div></div>
+          <div style="display:flex;gap:12px;align-items:flex-start"><span style="width:34px;height:34px;border-radius:10px;background:var(--sunk);color:var(--tx2);display:flex;align-items:center;justify-content:center;flex:none"><i class="ph ph-function" style="font-size:18px"></i></span><div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:500">Heuristique</span><span style="font-size:13px;color:var(--tx3);line-height:1.45">Clés et relations. Noms de colonnes et taux d’inclusion des valeurs.</span></div></div>
+        </div>
+        <div style="padding:14px 20px;background:var(--sunk);font-size:13.5px;color:var(--tx2)">{{ gFoot }}</div>
+      </aside>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isRuns }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ bodyS }}">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:10px 24px 24px 28px;gap:16px">
+        <div style="display:flex;align-items:flex-end;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:4px"><h1 style="margin:0;font-size:28px;font-weight:600;letter-spacing:-0.025em;line-height:1.2">Runs</h1><div style="font-size:14.5px;color:var(--tx2)">30 derniers jours · 1 en cours</div></div>
+          <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+            <div style="display:flex;gap:2px;padding:3px;border-radius:11px;background:var(--sunk)"><sc-for list="{{ rFilters }}" as="f" hint-placeholder-count="3"><button onClick="{{ f.go }}" style="{{ f.s }}">{{ f.l }}</button></sc-for></div>
+            <button onClick="{{ startRun }}" style="height:40px;padding:0 16px;border-radius:11px;border:0;background:var(--acc);color:var(--on-acc);font:600 14.5px var(--sans);cursor:pointer;display:flex;align-items:center;gap:8px"><i class="ph-fill ph-play" style="font-size:14px"></i>Lancer un run</button>
+          </div>
+        </div>
+        <div style="border-radius:20px;background:var(--node);box-shadow:var(--sh-sm);overflow:hidden;display:flex;flex-direction:column">
+          <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 104px 96px 60px;gap:12px;padding:12px 20px 10px;font-size:12.5px;font-weight:600;color:var(--tx3)"><span>Statut</span><span>Run</span><span>Déclencheur</span><span>Début</span><span style="text-align:right">Durée</span></div>
+          <sc-for list="{{ rRows }}" as="r" hint-placeholder-count="8">
+            <button onClick="{{ r.go }}" style="{{ r.s }}">
+              <span style="display:flex"><span style="{{ r.b.s }}">{{ r.b.g }}{{ r.b.l }}</span></span>
+              <span style="display:flex;flex-direction:column;gap:1px;min-width:0;text-align:left"><span style="font-size:14.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.op }}</span><span style="font:400 12.5px var(--mono);color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.id }} · {{ r.scope }}</span></span>
+              <span style="font-size:14px;color:var(--tx2);text-align:left;white-space:nowrap">{{ r.by }}</span>
+              <span style="font-size:14px;color:var(--tx2);text-align:left;font-variant-numeric:tabular-nums;white-space:nowrap">{{ r.at }}</span>
+              <span style="font-size:14px;color:var(--tx2);text-align:right;font-variant-numeric:tabular-nums">{{ r.dur }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+      <aside style="width:452px;flex:none;margin:10px 12px 12px 0;border-radius:20px;background:var(--node);box-shadow:var(--sh-sm);display:flex;flex-direction:column;overflow:hidden">
+        <div style="flex:1;min-height:0;overflow:auto;padding:22px;display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px"><span style="font:400 13px var(--mono);color:var(--tx3)">{{ rd.id }}</span><span style="{{ rd.b.s }}">{{ rd.b.g }}{{ rd.b.l }}</span>
+              <sc-if value="{{ rd.live }}" hint-placeholder-val="{{ false }}"><button onClick="{{ runAct }}" style="margin-left:auto;height:34px;padding:0 12px;border-radius:10px;border:0;background:var(--sunk);color:var(--tx);font:500 13.5px var(--sans);cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:var(--err-bg);color:var(--err-fg)"><i class="ph ph-stop" style="font-size:15px"></i>Annuler</button></sc-if>
+            </div>
+            <div style="font-size:21px;font-weight:600;letter-spacing:-0.018em">{{ rd.op }}</div>
+            <div style="font-size:13.5px;color:var(--tx2)">{{ rd.sub }}</div>
+          </div>
+          <sc-if value="{{ rd.hasErr }}" hint-placeholder-val="{{ false }}">
+            <div style="border-radius:14px;background:var(--err-bg);padding:14px;display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;gap:8px;align-items:center;color:var(--err-fg);font-weight:600;font-size:14px"><i class="ph-fill ph-warning-circle" style="font-size:18px"></i>Colonne introuvable</div>
+              <div style="font-size:13.5px;color:var(--tx2);line-height:1.5"><span style="font-family:var(--mono);font-size:12.5px">prix_ht</span> n’existe pas dans la feuille Catalogue de <span style="font-family:var(--mono);font-size:12.5px">produits.xlsx</span>. La colonne la plus proche est <span style="font-family:var(--mono);font-size:12.5px">prix_unitaire_ht</span>.</div>
+              <button style="align-self:flex-start;height:34px;padding:0 12px;border-radius:10px;border:0;background:var(--node);color:var(--tx);font:500 13.5px var(--sans);cursor:pointer;box-shadow:var(--sh-sm)">Corriger la règle</button>
+            </div>
+          </sc-if>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <div style="font-size:15px;font-weight:600;padding-bottom:6px">Étapes</div>
+            <sc-for list="{{ rd.steps }}" as="t" hint-placeholder-count="5">
+              <div style="display:flex;gap:12px;align-items:flex-start;padding:6px 0">
+                <span style="{{ t.ms }}">{{ t.mk }}</span>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px"><div style="display:flex;gap:8px;align-items:baseline"><span style="{{ t.ts }}">{{ t.t }}</span><span style="margin-left:auto;font-size:13px;color:var(--tx3);font-variant-numeric:tabular-nums">{{ t.d }}</span></div>
+                  <sc-if value="{{ t.bar }}" hint-placeholder-val="{{ false }}"><span style="height:4px;border-radius:2px;background:var(--run-bg);display:flex;overflow:hidden"><span style="{{ t.bs }}"></span></span></sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <sc-for list="{{ rd.metrics }}" as="mt" hint-placeholder-count="4"><div style="border-radius:14px;background:var(--sunk);padding:12px 14px;display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;color:var(--tx3)">{{ mt.k }}</span><span style="{{ mt.vs }}">{{ mt.v }}</span></div></sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:15px;font-weight:600">Tests dbt</span><span style="font-size:13px;color:var(--tx3)">{{ rd.testSum }}</span></div>
+            <sc-for list="{{ rd.tests }}" as="t" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;min-height:28px"><i class="{{ t.ic }}" style="{{ t.is }}"></i><span style="font:400 12.5px var(--mono);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.n }}</span><span style="font-size:13px;color:var(--tx3);white-space:nowrap">{{ t.r }}</span></div></sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button onClick="{{ toggleLogs }}" style="display:flex;align-items:center;gap:8px;border:0;background:transparent;padding:0;color:var(--tx);font:600 15px var(--sans);cursor:pointer;text-align:left"><i class="ph ph-caret-right" style="{{ logChevS }}"></i>Journal<span style="font-size:13px;font-weight:400;color:var(--tx3)">{{ rd.logN }}</span></button>
+            <sc-if value="{{ logs }}" hint-placeholder-val="{{ false }}"><pre style="margin:0;border-radius:14px;background:var(--sunk);padding:14px;font:400 12.5px/1.7 var(--mono);color:var(--tx2);white-space:pre-wrap">{{ rd.log }}</pre></sc-if>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isSem }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ bodyS }}">
+      <div style="flex:1;min-width:0;overflow:auto;padding:10px 24px 28px 28px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;align-items:flex-end;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:4px"><h1 style="margin:0;font-size:28px;font-weight:600;letter-spacing:-0.025em;line-height:1.2">Couche sémantique</h1><div style="font-size:14.5px;color:var(--tx2)">{{ semSub }}</div></div>
+          <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+            <div style="display:flex;gap:2px;padding:3px;border-radius:11px;background:var(--sunk)"><sc-for list="{{ semTabs }}" as="t" hint-placeholder-count="2"><button onClick="{{ t.go }}" style="{{ t.s }}">{{ t.l }}</button></sc-for></div>
+            <button style="height:40px;padding:0 16px;border-radius:11px;border:0;background:var(--acc);color:var(--on-acc);font:600 14.5px var(--sans);cursor:pointer;display:flex;align-items:center;gap:8px"><i class="ph-bold ph-plus" style="font-size:14px"></i>{{ semNew }}</button>
+          </div>
+        </div>
+        <div style="border-radius:20px;background:var(--node);box-shadow:var(--sh-sm);overflow:hidden">
+          <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.5fr) 132px minmax(0,1.1fr) 72px;gap:14px;padding:12px 20px 10px;font-size:12.5px;font-weight:600;color:var(--tx3)"><sc-for list="{{ semHead }}" as="hd" hint-placeholder-count="5"><span>{{ hd }}</span></sc-for></div>
+          <sc-for list="{{ semRows }}" as="r" hint-placeholder-count="4">
+            <button onClick="{{ r.go }}" style="{{ r.s }}">
+              <span style="display:flex;flex-direction:column;gap:1px;min-width:0;text-align:left"><span style="font-size:14.5px;font-weight:600">{{ r.l }}</span><span style="font:400 12.5px var(--mono);color:var(--tx3)">{{ r.id }}</span></span>
+              <span style="font:400 13px var(--mono);color:var(--tx2);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.f }}</span>
+              <span style="display:flex"><span style="height:26px;display:flex;align-items:center;padding:0 10px;border-radius:999px;background:var(--sunk);color:var(--tx2);font-size:12.5px;font-weight:500;white-space:nowrap">{{ r.add }}</span></span>
+              <span style="display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ r.syn }}" as="y" hint-placeholder-count="2"><span style="font-size:13px;color:var(--tx2);background:var(--sunk);border-radius:7px;padding:3px 8px;white-space:nowrap">{{ y }}</span></sc-for></span>
+              <span style="font-size:14px;color:var(--tx2);text-align:right;font-variant-numeric:tabular-nums">{{ r.use }}</span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="border-radius:20px;background:var(--node);box-shadow:var(--sh-sm);padding:18px 20px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:baseline;gap:8px;padding-bottom:6px"><span style="font-size:16px;font-weight:600">Synonymes proposés par les analysts</span><span style="font-size:14px;color:var(--tx3);font-variant-numeric:tabular-nums">{{ synOpen }}</span></div>
+          <sc-for list="{{ synQ }}" as="q" hint-placeholder-count="4">
+            <div style="display:flex;gap:14px;align-items:center;padding:10px 0">
+              <span style="width:34px;height:34px;border-radius:50%;background:var(--sunk);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none">{{ q.ini }}</span>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14.5px"><span style="font-weight:600">« {{ q.term }} »</span> pour {{ q.target }}</span><span style="font-size:13px;color:var(--tx3)">{{ q.meta }}</span><sc-if value="{{ q.hasNote }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:6px;align-items:flex-start;font-size:13px;color:var(--prop-fg);padding-top:2px"><i class="ph-fill ph-warning" style="font-size:15px;flex:none;margin-top:1px"></i>{{ q.note }}</span></sc-if></div>
+              <sc-if value="{{ q.open }}" hint-placeholder-val="{{ true }}"><button onClick="{{ q.rej }}" style="height:34px;padding:0 12px;border-radius:10px;border:0;background:transparent;color:var(--tx2);font:500 13.5px var(--sans);cursor:pointer" style-hover="background:var(--sunk)">Rejeter</button><button onClick="{{ q.val }}" style="height:34px;padding:0 14px;border-radius:10px;border:0;background:var(--acc);color:var(--on-acc);font:600 13.5px var(--sans);cursor:pointer">Valider</button></sc-if>
+              <sc-if value="{{ q.done }}" hint-placeholder-val="{{ false }}"><span style="{{ q.b.s }}">{{ q.b.g }}{{ q.b.l }}</span><button onClick="{{ q.undo }}" style="border:0;background:transparent;color:var(--acc-tx);font:500 13px var(--sans);cursor:pointer">Annuler</button></sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <aside style="width:400px;flex:none;margin:10px 12px 12px 0;border-radius:20px;background:var(--node);box-shadow:var(--sh-sm);display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:20px 20px 8px;display:flex;align-items:center;gap:10px"><span style="width:38px;height:38px;border-radius:11px;background:var(--acc-soft);color:var(--acc-tx);display:flex;align-items:center;justify-content:center;flex:none"><i class="{{ semIc }}" style="font-size:20px"></i></span><div style="flex:1;min-width:0"><div style="font-size:18px;font-weight:600;letter-spacing:-0.015em">{{ semCur.l }}</div><div style="font-size:13px;color:var(--tx3)">{{ semKind }}</div></div></div>
+        <div style="flex:1;min-height:0;overflow:auto;padding:12px 20px 20px;display:flex;flex-direction:column;gap:14px">
+          <sc-for list="{{ semFields }}" as="fd" hint-placeholder-count="5"><label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--tx2)">{{ fd.k }}<span style="{{ fd.s }}">{{ fd.v }}</span></label></sc-for>
+          <sc-if value="{{ semIsM }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:600;color:var(--tx2)">Additivité</span><div style="display:flex;gap:2px;padding:3px;border-radius:11px;background:var(--sunk)"><sc-for list="{{ semAddOpts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="{{ o.s }}">{{ o.l }}</button></sc-for></div><span style="font-size:13px;color:var(--tx3);line-height:1.45">{{ semAddD }}</span></div></sc-if>
+          <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:600;color:var(--tx2)">Synonymes</span><div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ semCur.syn }}" as="y" hint-placeholder-count="3"><span style="height:30px;display:flex;align-items:center;gap:6px;padding:0 6px 0 10px;border-radius:9px;background:var(--sunk);font-size:13.5px">{{ y }}<i class="ph ph-x" style="font-size:13px;color:var(--tx3)"></i></span></sc-for><span style="height:30px;display:flex;align-items:center;gap:5px;padding:0 10px;border-radius:9px;color:var(--acc-tx);font-size:13.5px;font-weight:500"><i class="ph ph-plus" style="font-size:13px"></i>Ajouter</span></div></div>
+        </div>
+        <div style="padding:14px 20px;display:flex;gap:8px;justify-content:flex-end;background:var(--sunk)"><button style="height:38px;padding:0 14px;border-radius:10px;border:0;background:transparent;color:var(--tx2);font:500 14px var(--sans);cursor:pointer">Annuler</button><button onClick="{{ semSave }}" style="height:38px;padding:0 16px;border-radius:10px;border:0;background:var(--acc);color:var(--on-acc);font:600 14px var(--sans);cursor:pointer">Enregistrer</button></div>
+      </aside>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ bodyS }}">
+      <div style="flex:1;min-width:0;overflow:auto">
+        <div style="max-width:1080px;margin:0 auto;padding:44px 36px 40px;display:flex;flex-direction:column;gap:40px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center">
+            <h1 style="margin:0;font-size:34px;font-weight:600;letter-spacing:-0.03em">Bonjour Claire</h1>
+            <div style="font-size:15px;color:var(--tx2)">Ventes, clients et produits · mis à jour ce matin à 06:00</div>
+            <button onClick="{{ goAsk }}" style="width:100%;max-width:780px;height:76px;border-radius:24px;border:0;background:var(--node);box-shadow:var(--sh-float);display:flex;align-items:center;gap:14px;padding:0 12px 0 24px;cursor:text;text-align:left;margin-top:6px"><i class="ph ph-chat-circle-text" style="font-size:24px;color:var(--tx3)"></i><span style="flex:1;font:400 18px var(--sans);color:var(--tx3)">Posez une question sur vos ventes, vos clients, vos produits</span><span style="width:52px;height:52px;border-radius:50%;background:var(--acc);color:var(--on-acc);display:flex;align-items:center;justify-content:center"><i class="ph-bold ph-arrow-up" style="font-size:20px"></i></span></button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><sc-for list="{{ homeSug }}" as="g" hint-placeholder-count="4"><button onClick="{{ goAsk }}" style="height:38px;padding:0 14px;border-radius:999px;border:0;background:var(--sunk);color:var(--tx2);font:500 14px var(--sans);cursor:pointer" style-hover="background:var(--node);box-shadow:var(--sh-sm);color:var(--tx)">{{ g }}</button></sc-for></div>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px">
+            <div style="border-radius:20px;background:var(--node);box-shadow:var(--sh-sm);padding:18px 12px 10px;display:flex;flex-direction:column">
+              <div style="padding:0 10px 8px;font-size:16px;font-weight:600">Questions récentes</div>
+              <sc-for list="{{ homeQ }}" as="q" hint-placeholder-count="4"><button onClick="{{ goAsk }}" style="display:flex;align-items:center;gap:12px;padding:12px 10px;border-radius:12px;border:0;background:transparent;color:var(--tx);text-align:left;cursor:pointer;font-family:var(--sans)" style-hover="background:var(--sunk)"><i class="ph ph-chat-circle" style="font-size:20px;color:var(--tx3);flex:none"></i><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14.5px;font-weight:500">{{ q.t }}</span><span style="font-size:13px;color:var(--tx3)">{{ q.at }}</span></span><span style="{{ q.b.s }}">{{ q.b.g }}{{ q.b.l }}</span></button></sc-for>
+            </div>
+            <div style="border-radius:20px;background:var(--node);box-shadow:var(--sh-sm);padding:18px 12px 10px;display:flex;flex-direction:column">
+              <div style="display:flex;align-items:baseline;padding:0 10px 8px"><span style="font-size:16px;font-weight:600">Mes data marts</span><button onClick="{{ goMarts }}" style="margin-left:auto;border:0;background:transparent;color:var(--acc-tx);font:500 13.5px var(--sans);cursor:pointer">Tout voir</button></div>
+              <sc-for list="{{ homeM }}" as="m" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:12px;padding:12px 10px;border-radius:12px"><span style="width:38px;height:38px;border-radius:11px;background:var(--sunk);color:var(--tx2);display:flex;align-items:center;justify-content:center;flex:none"><i class="{{ m.dic }}" style="font-size:20px"></i></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14.5px;font-weight:500">{{ m.t }}</span><span style="font-size:13px;color:var(--tx3)">{{ m.dest }} · {{ m.at }}</span></span><span style="{{ m.b.s }}">{{ m.b.g }}{{ m.b.l }}</span></div></sc-for>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:16px;font-weight:600">Indicateurs disponibles</div>
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px"><sc-for list="{{ homeK }}" as="k" hint-placeholder-count="4"><div style="border-radius:18px;background:var(--node);box-shadow:var(--sh-sm);padding:16px 18px;display:flex;flex-direction:column;gap:6px"><span style="font-size:15px;font-weight:600">{{ k.l }}</span><span style="font-size:13.5px;color:var(--tx2);line-height:1.45">{{ k.d }}</span></div></sc-for></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isMarts }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ bodyS }}">
+      <div style="flex:1;min-width:0;overflow:auto;padding:10px 28px 28px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;align-items:flex-end;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:4px"><h1 style="margin:0;font-size:28px;font-weight:600;letter-spacing:-0.025em;line-height:1.2">Mes data marts</h1><div style="font-size:14.5px;color:var(--tx2)">5 data marts · 1 en attente d’approbation</div></div>
+          <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+            <div style="display:flex;gap:2px;padding:3px;border-radius:11px;background:var(--sunk)"><sc-for list="{{ martF }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.go }}" style="{{ t.s }}">{{ t.l }}</button></sc-for></div>
+            <button onClick="{{ goAsk }}" style="height:40px;padding:0 16px;border-radius:11px;border:0;background:var(--acc);color:var(--on-acc);font:600 14.5px var(--sans);cursor:pointer;display:flex;align-items:center;gap:8px"><i class="ph ph-chat-circle-text" style="font-size:17px"></i>Nouvelle question</button>
+          </div>
+        </div>
+        <div style="border-radius:20px;background:var(--node);box-shadow:var(--sh-sm)">
+          <div style="display:grid;grid-template-columns:minmax(0,1.6fr) 230px 150px 130px 220px;gap:14px;padding:12px 20px 10px;font-size:12.5px;font-weight:600;color:var(--tx3)"><span>Nom</span><span>Statut</span><span>Destination</span><span>Mise à jour</span><span></span></div>
+          <sc-for list="{{ martRows }}" as="r" hint-placeholder-count="5">
+            <div style="display:grid;grid-template-columns:minmax(0,1.6fr) 230px 150px 130px 220px;gap:14px;align-items:center;padding:0 20px;min-height:68px;border-top:1px solid var(--sunk)">
+              <span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:15px;font-weight:600">{{ r.t }}</span><span style="font-size:13px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.q }}</span></span>
+              <span style="display:flex"><span style="{{ r.b.s }}">{{ r.b.g }}{{ r.b.l }}</span></span>
+              <span style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--tx2)"><i class="{{ r.dic }}" style="font-size:18px"></i>{{ r.dest }}</span>
+              <span style="font-size:14px;color:var(--tx2);font-variant-numeric:tabular-nums">{{ r.at }}</span>
+              <span style="display:flex;gap:6px;justify-content:flex-end;position:relative">
+                <button onClick="{{ r.aff }}" style="height:34px;padding:0 12px;border-radius:10px;border:0;background:var(--sunk);color:var(--tx);font:500 13.5px var(--sans);cursor:pointer">Affiner</button>
+                <button onClick="{{ r.expGo }}" style="height:34px;padding:0 10px 0 12px;border-radius:10px;border:0;background:var(--sunk);color:var(--tx);font:500 13.5px var(--sans);cursor:pointer;display:flex;align-items:center;gap:6px">Exporter<i class="ph ph-caret-down" style="font-size:13px"></i></button>
+                <sc-if value="{{ r.expOpen }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:40px;right:0;width:210px;padding:6px;border-radius:14px;background:var(--glass-hi);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);box-shadow:var(--sh-float);z-index:5;display:flex;flex-direction:column"><sc-for list="{{ r.exps }}" as="x" hint-placeholder-count="3"><button onClick="{{ x.go }}" style="height:38px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:9px;border:0;background:transparent;color:var(--tx);font:400 14px var(--sans);cursor:pointer;text-align:left" style-hover="background:var(--sunk)"><i class="{{ x.ic }}" style="font-size:17px;color:var(--tx2)"></i>{{ x.l }}</button></sc-for></div></sc-if>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isSet }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ bodyS }}">
+      <div style="flex:1;min-width:0;overflow:auto;padding:10px 28px 28px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-direction:column;gap:4px"><h1 style="margin:0;font-size:28px;font-weight:600;letter-spacing:-0.025em;line-height:1.2">Réglages du projet</h1><div style="font-size:14.5px;color:var(--tx2)">Démo e-commerce · poste local</div></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px;align-items:start">
+          <div style="display:flex;flex-direction:column;gap:20px">
+            <div style="border-radius:20px;background:var(--node);box-shadow:var(--sh-sm);padding:18px 20px;display:flex;flex-direction:column;gap:4px">
+              <div style="display:flex;align-items:center;gap:8px;padding-bottom:8px"><span style="font-size:16px;font-weight:600">Membres</span><span style="font-size:14px;color:var(--tx3)">4</span><button style="margin-left:auto;height:34px;padding:0 12px;border-radius:10px;border:0;background:var(--acc);color:var(--on-acc);font:600 13.5px var(--sans);cursor:pointer;display:flex;align-items:center;gap:6px"><i class="ph ph-user-plus" style="font-size:16px"></i>Inviter</button></div>
+              <sc-for list="{{ members }}" as="m" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:12px;padding:10px 0"><span style="width:36px;height:36px;border-radius:50%;background:var(--sunk);display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;flex:none">{{ m.ini }}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14.5px;font-weight:500">{{ m.n }}</span><span style="font-size:13px;color:var(--tx3)">{{ m.e }}</span></span><span style="font-size:13px;color:var(--tx3);white-space:nowrap">{{ m.a }}</span><button style="height:34px;min-width:132px;padding:0 10px 0 12px;border-radius:10px;border:0;background:var(--sunk);color:var(--tx);font:500 13.5px var(--sans);cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px">{{ m.r }}<i class="ph ph-caret-up-down" style="font-size:13px;color:var(--tx3)"></i></button></div></sc-for>
+            </div>
+            <div style="border-radius:20px;background:var(--node);box-shadow:var(--sh-sm);padding:18px 20px;display:flex;flex-direction:column;gap:4px">
+              <div style="font-size:16px;font-weight:600;padding-bottom:8px">Invitations en attente</div>
+              <sc-for list="{{ invites }}" as="m" hint-placeholder-count="2"><div style="display:flex;align-items:center;gap:12px;padding:10px 0"><span style="width:36px;height:36px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--edge);display:flex;align-items:center;justify-content:center;flex:none;color:var(--tx3)"><i class="ph ph-envelope-simple" style="font-size:17px"></i></span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14.5px;font-weight:500">{{ m.e }}</span><span style="font-size:13px;color:var(--tx3)">{{ m.r }} · {{ m.a }}</span></span><button style="height:32px;padding:0 10px;border-radius:9px;border:0;background:transparent;color:var(--tx2);font:500 13.5px var(--sans);cursor:pointer">Renvoyer</button><button style="height:32px;padding:0 10px;border-radius:9px;border:0;background:transparent;color:var(--err-fg);font:500 13.5px var(--sans);cursor:pointer">Révoquer</button></div></sc-for>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:20px">
+            <div style="border-radius:20px;background:var(--node);box-shadow:var(--sh-sm);padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;font-weight:600">Fournisseur IA</span><span style="font-size:13.5px;color:var(--tx2)">Utilisé pour les plans de nettoyage, le modèle et l’agent métier.</span></div>
+              <sc-for list="{{ provs }}" as="p" hint-placeholder-count="4"><button onClick="{{ p.go }}" style="{{ p.s }}"><span style="{{ p.rs }}"></span><span style="width:36px;height:36px;border-radius:10px;background:var(--sunk);color:var(--tx2);display:flex;align-items:center;justify-content:center;flex:none"><i class="{{ p.ic }}" style="font-size:19px"></i></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left"><span style="font-size:14.5px;font-weight:600">{{ p.l }}</span><span style="font-size:13px;color:var(--tx3)">{{ p.d }}</span></span><sc-if value="{{ p.hasB }}" hint-placeholder-val="{{ false }}"><span style="{{ p.b.s }}">{{ p.b.g }}{{ p.b.l }}</span></sc-if></button></sc-for>
+              <div style="border-radius:14px;background:var(--sunk);padding:14px;display:flex;flex-direction:column;gap:10px">
+                <sc-for list="{{ provRows }}" as="r" hint-placeholder-count="3"><div style="display:flex;gap:12px;font-size:13.5px"><span style="width:110px;color:var(--tx3);flex:none">{{ r.k }}</span><span style="{{ r.s }}">{{ r.v }}</span></div></sc-for>
+                <span style="font-size:13px;color:var(--tx2);line-height:1.45">{{ provNote }}</span>
+                <button onClick="{{ provAct }}" style="align-self:flex-start;height:34px;padding:0 12px;border-radius:10px;border:0;background:var(--node);box-shadow:var(--sh-sm);color:var(--tx);font:500 13.5px var(--sans);cursor:pointer">{{ provActL }}</button>
+              </div>
+            </div>
+            <div style="border-radius:20px;background:var(--node);box-shadow:var(--sh-sm);padding:18px 20px;display:flex;flex-direction:column;gap:4px">
+              <div style="display:flex;align-items:center;gap:8px;padding-bottom:6px"><span style="font-size:16px;font-weight:600">Clés API personnelles</span><button style="margin-left:auto;height:34px;padding:0 12px;border-radius:10px;border:0;background:var(--sunk);color:var(--tx);font:500 13.5px var(--sans);cursor:pointer;display:flex;align-items:center;gap:6px"><i class="ph ph-plus" style="font-size:14px"></i>Créer une clé</button></div>
+              <span style="font-size:13.5px;color:var(--tx2);padding-bottom:6px">Pour la CLI, dbt et l’API de Forja. Visible une seule fois à la création.</span>
+              <sc-for list="{{ keys }}" as="k" hint-placeholder-count="2"><div style="display:flex;align-items:center;gap:12px;padding:10px 0"><i class="ph ph-key" style="font-size:20px;color:var(--tx3);flex:none"></i><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14.5px;font-weight:500">{{ k.n }}</span><span style="font:400 12.5px var(--mono);color:var(--tx3)">{{ k.k }} · {{ k.a }}</span></span><button style="height:32px;padding:0 10px;border-radius:9px;border:0;background:transparent;color:var(--err-fg);font:500 13.5px var(--sans);cursor:pointer">Révoquer</button></div></sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isAuth }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:var(--bg)">
+      <div style="display:flex;align-items:center;gap:12px"><span style="width:44px;height:44px;border-radius:12px;background:var(--tx);position:relative;flex:none"><span style="position:absolute;left:12px;top:10px;width:6px;height:24px;border-radius:1.5px;background:var(--inv)"></span><span style="position:absolute;left:12px;top:10px;width:21px;height:6px;border-radius:1.5px;background:var(--inv)"></span><span style="position:absolute;left:12px;top:20px;width:14px;height:6px;border-radius:1.5px;background:var(--acc)"></span></span><span style="font-size:30px;font-weight:600;letter-spacing:-0.04em">Forja</span></div>
+      <div style="width:420px;border-radius:24px;background:var(--node);box-shadow:var(--sh-float);padding:32px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-direction:column;gap:4px"><div style="font-size:22px;font-weight:600;letter-spacing:-0.02em">{{ authT }}</div><div style="font-size:14px;color:var(--tx2);line-height:1.5">{{ authSub }}</div></div>
+        <sc-for list="{{ authFields }}" as="fd" hint-placeholder-count="2"><label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--tx2)">{{ fd.k }}<span style="{{ fd.s }}"><span style="flex:1">{{ fd.v }}</span><sc-if value="{{ fd.pw }}" hint-placeholder-val="{{ false }}"><i class="ph ph-eye" style="font-size:18px;color:var(--tx3)"></i></sc-if></span></label></sc-for>
+        <sc-if value="{{ isPwd }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:4px"><sc-for list="{{ pwdBar }}" as="x" hint-placeholder-count="4"><span style="{{ x }}"></span></sc-for></div>
+          <div style="display:flex;flex-direction:column;gap:6px"><sc-for list="{{ pwdReq }}" as="r" hint-placeholder-count="4"><span style="display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--tx2)"><i class="{{ r.ic }}" style="{{ r.is }}"></i>{{ r.t }}</span></sc-for></div>
+        </sc-if>
+        <button style="{{ authBtnS }}">{{ authBtn }}</button>
+        <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;font-size:13.5px"><span style="display:flex;align-items:center;gap:8px;color:var(--tx2)"><span style="width:18px;height:18px;border-radius:5px;background:var(--acc);color:var(--on-acc);display:flex;align-items:center;justify-content:center"><i class="ph-bold ph-check" style="font-size:11px"></i></span>Rester connecté</span><span style="margin-left:auto;color:var(--acc-tx);font-weight:500">Mot de passe oublié</span></div></sc-if>
+      </div>
+      <div style="font-size:12.5px;color:var(--tx3)">Forja 0.9.2 · poste local · licence Apache 2.0</div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isAgent }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ bodyS }}">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+        <div style="flex:1;min-height:0;overflow:hidden;display:flex;justify-content:center;padding:0 36px">
+          <div style="width:100%;max-width:820px;display:flex;flex-direction:column;justify-content:flex-end;gap:18px;padding-bottom:20px">
+            <div style="align-self:flex-end;max-width:520px;background:var(--sunk);color:var(--tx);padding:12px 18px;border-radius:22px 22px 6px 22px;font-size:16px;line-height:1.45">Quantité vendue par catégorie ce trimestre</div>
+            <div style="display:flex;gap:12px"><span style="width:34px;flex:none"></span><div style="flex:1;border-radius:18px;background:var(--node);box-shadow:var(--sh-sm);padding:14px 16px;display:flex;align-items:center;gap:12px"><i class="ph ph-chart-pie-slice" style="font-size:22px;color:var(--tx2)"></i><span style="flex:1;font-size:15px"><span style="font-weight:600">Quantité par catégorie</span> · publié dans Superset</span><span style="font-size:13px;color:var(--tx3)">hier</span></div></div>
+            <div style="text-align:center;font-size:13px;color:var(--tx3);padding:8px 0">Aujourd’hui 10:41</div>
+            <div style="align-self:flex-end;max-width:560px;background:var(--acc);color:var(--on-acc);padding:12px 18px;border-radius:22px 22px 6px 22px;font-size:16px;line-height:1.45">Chiffre d’affaires par mois et par ville en 2025, clients Pro</div>
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <span style="width:34px;height:34px;border-radius:10px;background:var(--tx);position:relative;flex:none"><span style="position:absolute;left:9px;top:8px;width:4px;height:18px;border-radius:1px;background:var(--inv)"></span><span style="position:absolute;left:9px;top:8px;width:16px;height:4px;border-radius:1px;background:var(--inv)"></span><span style="position:absolute;left:9px;top:15px;width:11px;height:4px;border-radius:1px;background:var(--acc)"></span></span>
+              <div style="flex:1;min-width:0;border-radius:20px;background:var(--node);box-shadow:var(--sh-sm);padding:16px 18px 10px;display:flex;flex-direction:column;gap:2px">
+                <div style="display:flex;align-items:center;gap:10px;padding-bottom:6px;min-height:36px"><span style="font-size:16px;font-weight:600">{{ agHead }}</span><span style="font-size:13.5px;color:var(--tx3);font-variant-numeric:tabular-nums">{{ agMeta }}</span><sc-if value="{{ agBusy }}" hint-placeholder-val="{{ true }}"><span style="margin-left:auto;display:flex;gap:6px"><button style="height:44px;padding:0 14px;border-radius:12px;border:0;background:var(--sunk);color:var(--tx);font:500 14px var(--sans);cursor:pointer">Me prévenir</button><button style="height:44px;padding:0 12px;border-radius:12px;border:0;background:transparent;color:var(--tx2);font:500 14px var(--sans);cursor:pointer">Annuler</button></span></sc-if></div>
+                <sc-for list="{{ agSteps }}" as="t" hint-placeholder-count="6"><div style="{{ t.rs }}"><span style="{{ t.ms }}">{{ t.mk }}</span><div style="flex:1;min-width:0"><div style="{{ t.ts }}">{{ t.t }}</div><div style="font-size:14px;color:var(--tx3);line-height:1.4">{{ t.d }}</div><sc-if value="{{ t.bar }}" hint-placeholder-val="{{ false }}"><div style="height:4px;border-radius:2px;background:var(--run-bg);margin-top:8px;max-width:360px;display:flex;overflow:hidden"><span style="{{ t.bs }}"></span></div></sc-if></div></div></sc-for>
+              </div>
+            </div>
+            <sc-if value="{{ agAsk }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:12px"><span style="width:34px;flex:none"></span><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px">
+                <div style="font-size:16.5px;line-height:1.5"><span style="font-weight:600">Une précision :</span> qui sont vos « clients Pro » ? Deux informations de vos fichiers peuvent répondre.</div>
+                <sc-for list="{{ clarOpts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:16px;padding:14px 18px;min-height:76px;border-radius:16px;border:0;background:var(--node);box-shadow:var(--sh-sm);color:var(--tx);text-align:left;cursor:pointer;font-family:var(--sans);transition:transform .2s cubic-bezier(.32,.72,0,1),box-shadow .2s" style-hover="transform:translateY(-1px);box-shadow:var(--sh-hover)"><span style="width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--edge);flex:none"></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;font-weight:600">{{ o.t }}</span><span style="font-size:14px;color:var(--tx3)">{{ o.d }}</span></span><span style="font-size:14.5px;color:var(--tx2);white-space:nowrap;font-variant-numeric:tabular-nums">{{ o.n }}</span></button></sc-for>
+              </div></div>
+            </sc-if>
+            <sc-if value="{{ agAnswered }}" hint-placeholder-val="{{ false }}"><div style="align-self:flex-end;max-width:560px;background:var(--acc);color:var(--on-acc);padding:12px 18px;border-radius:22px 22px 6px 22px;font-size:16px">{{ agAnswer }}</div></sc-if>
+            <sc-if value="{{ agReady }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:12px"><span style="width:34px;flex:none"></span><div style="flex:1;border-radius:20px;background:var(--node);box-shadow:var(--sh-float);padding:18px 20px;display:flex;align-items:center;gap:16px"><div style="flex:1;min-width:0"><div style="font-size:16.5px;font-weight:600">Prêt à vérifier</div><div style="font-size:14px;color:var(--tx2)">156 lignes · 4 contrôles réussis, 1 à surveiller</div></div><button onClick="{{ agReplay }}" style="height:48px;padding:0 18px;border-radius:14px;border:0;background:var(--acc);color:var(--on-acc);font:600 15px var(--sans);cursor:pointer;white-space:nowrap">Ouvrir l’aperçu</button></div></div></sc-if>
+          </div>
+        </div>
+        <div style="flex:none;display:flex;justify-content:center;padding:6px 36px 28px">
+          <div style="width:100%;max-width:820px;height:64px;border-radius:32px;background:var(--node);box-shadow:var(--sh-sm);display:flex;align-items:center;gap:12px;padding:0 8px 0 24px"><span style="flex:1;color:var(--tx3);font-size:16px">Précisez ou posez une autre question</span><span style="width:48px;height:48px;border-radius:50%;background:var(--sunk);color:var(--tx3);display:flex;align-items:center;justify-content:center"><i class="ph-bold ph-arrow-up" style="font-size:19px"></i></span></div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasShell }}" hint-placeholder-val="{{ true }}">
+  <aside style="{{ sideS }}">
+    <div style="height:56px;flex:none;display:flex;align-items:center;gap:10px;padding:0 17px">
+      <span style="width:30px;height:30px;border-radius:9px;background:var(--tx);position:relative;flex:none"><span style="position:absolute;left:8px;top:7px;width:4px;height:16px;border-radius:1px;background:var(--inv)"></span><span style="position:absolute;left:8px;top:7px;width:14px;height:4px;border-radius:1px;background:var(--inv)"></span><span style="position:absolute;left:8px;top:14px;width:10px;height:4px;border-radius:1px;background:var(--acc)"></span></span>
+      <sc-if value="{{ sideOpen }}" hint-placeholder-val="{{ false }}"><span style="font-size:19px;font-weight:600;letter-spacing:-0.035em">Forja</span></sc-if>
+    </div>
+    <nav style="{{ navS }}">
+      <sc-for list="{{ nav1 }}" as="n" hint-placeholder-count="6">
+        <button onClick="{{ n.go }}" title="{{ n.l }}" style="{{ n.s }}"><i class="{{ n.icc }}" style="{{ n.is }}"></i><sc-if value="{{ n.open }}" hint-placeholder-val="{{ false }}"><span style="flex:1;text-align:left;white-space:nowrap">{{ n.l }}</span><sc-if value="{{ n.hasB }}" hint-placeholder-val="{{ false }}"><span style="{{ n.bs }}">{{ n.bl }}</span></sc-if></sc-if><sc-if value="{{ n.dot }}" hint-placeholder-val="{{ false }}"><span style="{{ n.ds }}"></span></sc-if></button>
+      </sc-for>
+      <span style="height:14px"></span>
+      <sc-for list="{{ nav2 }}" as="n" hint-placeholder-count="2">
+        <button onClick="{{ n.go }}" title="{{ n.l }}" style="{{ n.s }}"><i class="{{ n.icc }}" style="{{ n.is }}"></i><sc-if value="{{ n.open }}" hint-placeholder-val="{{ false }}"><span style="flex:1;text-align:left;white-space:nowrap">{{ n.l }}</span></sc-if></button>
+      </sc-for>
+    </nav>
+    <div style="{{ navFootS }}">
+      <sc-for list="{{ nav3 }}" as="n" hint-placeholder-count="1">
+        <button onClick="{{ n.go }}" title="{{ n.l }}" style="{{ n.s }}"><i class="{{ n.icc }}" style="{{ n.is }}"></i><sc-if value="{{ n.open }}" hint-placeholder-val="{{ false }}"><span style="flex:1;text-align:left">{{ n.l }}</span></sc-if></button>
+      </sc-for>
+      <div style="{{ localS }}"><span style="width:7px;height:7px;border-radius:50%;background:var(--val-fg);flex:none"></span><sc-if value="{{ sideOpen }}" hint-placeholder-val="{{ false }}"><span style="white-space:nowrap">Poste local · v0.9.2</span></sc-if></div>
+    </div>
+  </aside>
+
+  <header style="{{ topS }}">
+    <button onClick="{{ toggleSide }}" title="Barre latérale" style="width:36px;height:36px;border-radius:10px;border:0;background:transparent;color:var(--tx2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none" style-hover="background:var(--sunk);color:var(--tx)"><i class="ph ph-sidebar-simple" style="font-size:20px"></i></button>
+    <button style="height:36px;padding:0 10px;border-radius:10px;border:0;background:transparent;color:var(--tx);font:600 14.5px var(--sans);cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap" style-hover="background:var(--sunk)">{{ project }}<i class="ph ph-caret-up-down" style="font-size:14px;color:var(--tx3)"></i></button>
+    <sc-for list="{{ crumbs }}" as="c" hint-placeholder-count="1"><i class="ph ph-caret-right" style="font-size:13px;color:var(--tx3)"></i><span style="{{ c.s }}">{{ c.l }}</span></sc-for>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <button onClick="{{ openPal }}" title="Rechercher" style="{{ searchS }}" style-hover="color:var(--tx2)"><i class="ph ph-magnifying-glass" style="font-size:17px"></i><sc-if value="{{ notTablet }}" hint-placeholder-val="{{ true }}"><span style="flex:1;text-align:left">Rechercher</span><span style="font-size:12px;color:var(--tx3);background:var(--node);border-radius:6px;padding:2px 6px;box-shadow:var(--sh-sm)">⌘K</span></sc-if></button>
+      <sc-if value="{{ hasRun }}" hint-placeholder-val="{{ true }}">
+        <div style="height:36px;display:flex;align-items:center;gap:10px;padding:0 6px 0 10px;border-radius:10px;background:var(--sunk)">
+          <span style="{{ runIconS }}">{{ runIcon }}</span>
+          <button onClick="{{ goRuns }}" style="border:0;background:transparent;padding:0;cursor:pointer;display:flex;flex-direction:column;gap:3px;text-align:left;color:var(--tx);font-family:var(--sans)"><span style="display:flex;gap:8px;font-size:13px;white-space:nowrap"><span style="font-weight:500">{{ runT }}</span><span style="color:var(--tx3);font-variant-numeric:tabular-nums">{{ runM }}</span></span><span style="width:100%;height:3px;border-radius:2px;background:var(--hair);display:flex;overflow:hidden"><span style="{{ runBar }}"></span></span></button>
+          <sc-if value="{{ runCan }}" hint-placeholder-val="{{ true }}"><button onClick="{{ runAct }}" title="{{ runActL }}" style="width:26px;height:26px;border-radius:8px;border:0;background:transparent;color:var(--tx3);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:var(--node);color:var(--tx)"><i class="{{ runActIc }}" style="font-size:14px"></i></button></sc-if>
+        </div>
+      </sc-if>
+      <button onClick="{{ toggleNotif }}" title="Notifications" style="height:36px;min-width:36px;padding:0 8px;gap:6px;border-radius:10px;border:0;background:transparent;color:var(--tx2);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:var(--sunk);color:var(--tx)"><i class="ph ph-bell" style="font-size:20px"></i><sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}"><span style="min-width:20px;height:20px;border-radius:10px;background:var(--acc);color:var(--on-acc);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 6px;font-variant-numeric:tabular-nums">{{ nUnread }}</span></sc-if></button>
+      <button onClick="{{ toggleMenu }}" title="Compte" style="width:34px;height:34px;border-radius:50%;border:0;background:var(--node);box-shadow:var(--sh-sm);color:var(--tx);font:600 12.5px var(--sans);cursor:pointer">{{ initials }}</button>
+    </div>
+  </header>
+  </sc-if>
+
+  <sc-if value="{{ notif }}" hint-placeholder-val="{{ false }}">
+    <div data-ui="1" style="position:absolute;top:60px;right:14px;width:420px;padding:8px;border-radius:16px;background:var(--glass-hi);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);box-shadow:var(--sh-float);display:flex;flex-direction:column;gap:2px;z-index:20">
+      <div style="display:flex;align-items:center;padding:8px 10px 4px"><span style="font-size:16px;font-weight:600">Notifications</span><button onClick="{{ markRead }}" style="margin-left:auto;border:0;background:transparent;color:var(--acc-tx);font:500 13px var(--sans);cursor:pointer">Tout marquer comme lu</button></div>
+      <sc-for list="{{ notifGroups }}" as="gr" hint-placeholder-count="2">
+        <div style="padding:10px 10px 4px;font-size:12.5px;font-weight:600;color:var(--tx3)">{{ gr.t }}</div>
+        <sc-for list="{{ gr.items }}" as="r" hint-placeholder-count="2">
+          <div style="display:flex;gap:12px;padding:10px;border-radius:12px;color:var(--tx)" style-hover="background:var(--sunk)"><i class="{{ r.ic }}" style="{{ r.is }}"></i><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="display:flex;gap:8px;align-items:baseline"><span style="font-size:14px;font-weight:600;flex:1;min-width:0">{{ r.t }}</span><sc-if value="{{ r.unread }}" hint-placeholder-val="{{ false }}"><span title="Non lue" style="width:8px;height:8px;border-radius:50%;background:var(--acc);flex:none"></span></sc-if></div><span style="font-size:13px;color:var(--tx2)">{{ r.d }}</span><div style="display:flex;align-items:center;gap:10px;margin-top:6px"><button onClick="{{ r.act }}" style="height:30px;padding:0 12px;border-radius:9px;border:0;background:var(--node);box-shadow:var(--sh-sm);color:var(--tx);font:500 13px var(--sans);cursor:pointer">{{ r.al }}</button><span style="font-size:12.5px;color:var(--tx3);white-space:nowrap">{{ r.at }}</span></div></div></div>
+        </sc-for>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ menu }}" hint-placeholder-val="{{ false }}">
+    <div data-ui="1" style="position:absolute;top:60px;right:14px;width:300px;padding:8px;border-radius:16px;background:var(--glass-hi);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);box-shadow:var(--sh-float);display:flex;flex-direction:column;gap:4px;z-index:20">
+      <div style="display:flex;align-items:center;gap:12px;padding:8px 10px 10px"><span style="width:38px;height:38px;border-radius:50%;background:var(--node);box-shadow:var(--sh-sm);display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:600">{{ initials }}</span><span style="display:flex;flex-direction:column"><span style="font-size:14.5px;font-weight:600">{{ userName }}</span><span style="font-size:13px;color:var(--tx3)">{{ userMail }}</span></span></div>
+      <div style="padding:2px 10px 0;font-size:12.5px;font-weight:600;color:var(--tx3)">Vue</div>
+      <div style="display:flex;gap:2px;padding:3px;margin:0 6px;border-radius:11px;background:var(--sunk)"><sc-for list="{{ roles }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.go }}" style="{{ o.s }}">{{ o.l }}</button></sc-for></div>
+      <div style="padding:8px 10px 0;font-size:12.5px;font-weight:600;color:var(--tx3)">Apparence</div>
+      <div style="display:flex;gap:2px;padding:3px;margin:0 6px;border-radius:11px;background:var(--sunk)"><sc-for list="{{ themes }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="{{ o.s }}"><i class="{{ o.ic }}" style="font-size:15px"></i>{{ o.l }}</button></sc-for></div>
+      <div style="height:6px"></div>
+      <sc-for list="{{ menuItems }}" as="m" hint-placeholder-count="3"><button style="height:38px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:10px;border:0;background:transparent;color:var(--tx);font:400 14px var(--sans);cursor:pointer;text-align:left" style-hover="background:var(--sunk)"><i class="{{ m.ic }}" style="font-size:18px;color:var(--tx2)"></i><span style="flex:1">{{ m.l }}</span><span style="font-size:12.5px;color:var(--tx3)">{{ m.k }}</span></button></sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ pal }}" hint-placeholder-val="{{ false }}">
+    <div data-ui="1" onClick="{{ closePal }}" style="position:absolute;inset:0;background:var(--scrim);z-index:30;display:flex;justify-content:center;align-items:flex-start;padding-top:104px">
+      <div onClick="{{ stop }}" style="width:660px;border-radius:20px;background:var(--glass-hi);backdrop-filter:blur(32px) saturate(180%);-webkit-backdrop-filter:blur(32px) saturate(180%);box-shadow:var(--sh-float);overflow:hidden;display:flex;flex-direction:column">
+        <div style="height:62px;display:flex;align-items:center;gap:12px;padding:0 20px">
+          <i class="ph ph-magnifying-glass" style="font-size:22px;color:var(--tx3)"></i>
+          <input ref="{{ palIn }}" value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onPK }}" placeholder="Rechercher un nœud ou une action" style="flex:1;min-width:0;border:0;background:transparent;outline:none;font:400 18px var(--sans);color:var(--tx)">
+          <span style="font-size:12px;color:var(--tx3);background:var(--sunk);border-radius:6px;padding:3px 7px">esc</span>
+        </div>
+        <div style="height:1px;background:var(--hair);margin:0 12px"></div>
+        <div style="max-height:460px;overflow:auto;padding:6px 8px 8px">
+          <sc-for list="{{ palGroups }}" as="g" hint-placeholder-count="2">
+            <div style="padding:12px 12px 6px;font-size:12.5px;font-weight:600;color:var(--tx3)">{{ g.t }}</div>
+            <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+              <button onClick="{{ it.go }}" onMouseEnter="{{ it.hov }}" style="{{ it.s }}">
+                <span style="{{ it.tile }}"><i class="{{ it.ic }}" style="font-size:18px"></i></span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left;gap:1px"><span style="font-size:14.5px;font-weight:500;color:var(--tx)">{{ it.l }}</span><span style="font-size:13px;color:var(--tx3)">{{ it.d }}</span></span>
+                <sc-if value="{{ it.hasB }}" hint-placeholder-val="{{ false }}"><span style="{{ it.b.s }}">{{ it.b.g }}{{ it.b.l }}</span></sc-if>
+                <sc-if value="{{ it.hasK }}" hint-placeholder-val="{{ false }}"><span style="font-size:12.5px;color:var(--tx3);background:var(--sunk);border-radius:6px;padding:2px 7px">{{ it.k }}</span></sc-if>
+              </button>
+            </sc-for>
+          </sc-for>
+          <sc-if value="{{ palNone }}" hint-placeholder-val="{{ false }}"><div style="padding:28px 12px;text-align:center;font-size:14px;color:var(--tx3)">Aucun résultat pour « {{ q }} »</div></sc-if>
+        </div>
+        <div style="display:flex;gap:16px;padding:10px 20px;font-size:12.5px;color:var(--tx3);background:var(--sunk)"><span>↑ ↓ naviguer</span><span>↵ ouvrir</span><span>esc fermer</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div data-ui="1" style="{{ toastS }}">
+      <span style="width:24px;height:24px;border-radius:50%;background:var(--val-bg);color:var(--val-fg);display:flex;align-items:center;justify-content:center"><i class="ph-fill ph-check" style="font-size:13px"></i></span>
+      <div><div style="font-size:14px;font-weight:600">{{ toastT }}</div><div style="font-size:13px;color:var(--tx3)">{{ toastD }}</div></div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;pipeline&quot;,&quot;onboard-empty&quot;,&quot;onboard-profiling&quot;,&quot;gold&quot;,&quot;runs&quot;,&quot;semantic&quot;,&quot;home&quot;,&quot;marts&quot;,&quot;settings&quot;,&quot;agent&quot;,&quot;login&quot;,&quot;password&quot;],&quot;default&quot;:&quot;pipeline&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;system&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;selected&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;&quot;,&quot;g_dimcli&quot;,&quot;sv_clients&quot;,&quot;g_fct&quot;,&quot;m_2025&quot;],&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ov&quot;,&quot;cols&quot;,&quot;rules&quot;,&quot;qual&quot;,&quot;hist&quot;],&quot;default&quot;:&quot;cols&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;palette&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;query&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;menu&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;notif&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { screen: null, theme: null, side: null, role: null, agS: 0, agP: 0, agC: null, semSel: 'ca', semTab: 'm', syn: {}, semAdd: {}, martF: 'all', exp: null, prov: 'ollama', read: {}, z: 0.83, px: 84, py: 72, sel: null, tab: 'cols', filter: 'all', col: {}, anim: false, intro: 0, q: '', pal: false, palI: 0, notif: false, menu: false, run: 'run', runIdx: 0, runPct: 58, toast: null, hov: null, grab: false, obT: 0, drag: false };
+  root = React.createRef(); palIn = React.createRef();
+  vw = 1440; vh = 900;
+  vpRef = el => { if (this._vp === el) return; if (this._vp) this._vp.removeEventListener('wheel', this.onWheel); this._vp = el; if (el) el.addEventListener('wheel', this.onWheel, { passive: false }); };
+  onWheel = e => { if (e.target.closest && e.target.closest('[data-ui]')) return; e.preventDefault(); e.stopPropagation(); this.touched = true; const p = this.local(e); this.zoomAt(p.x, p.y, this.state.z * Math.exp(-e.deltaY * (e.ctrlKey ? 0.012 : 0.0016)), false); };
+  componentDidMount() {
+    const r = this.root.current; if (r) { this.vw = r.offsetWidth || 1440; this.vh = r.offsetHeight || 900; }
+    if (r && window.ResizeObserver) { this.ro = new ResizeObserver(() => { const w = r.offsetWidth, hh = r.offsetHeight; if (w && (Math.abs(w - this.vw) > 2 || Math.abs(hh - this.vh) > 2)) { this.vw = w; this.vh = hh; if (!this.touched) this.initView(); else this.forceUpdate(); } }); this.ro.observe(r); }
+    this.onKey = e => { if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K') && this.hover) { e.preventDefault(); this.openPal(); } };
+    window.addEventListener('keydown', this.onKey);
+    const p = this.props;
+    this.setState({ sel: p.selected || null, tab: p.tab || 'cols', pal: !!p.palette, q: p.query || '', menu: !!p.menu, notif: !!p.notif }, () => this.initView());
+    this.t1 = setTimeout(() => this.setState({ intro: 1 }), 100);
+    this.t2 = setTimeout(() => this.setState({ intro: 2 }), 1200);
+    this.timer = setInterval(() => this.tick(), 140);
+  }
+  componentWillUnmount() { clearInterval(this.timer); clearTimeout(this.t1); clearTimeout(this.t2); window.removeEventListener('keydown', this.onKey); if (this.ro) this.ro.disconnect(); this.vpRef(null); }
+  componentDidUpdate(pp, ps) { if (this.state.pal && !ps.pal && this.palIn.current) this.palIn.current.focus({ preventScroll: true }); }
+  initView() { const s = this.state; if (s.sel) { const { lanes } = this.layout(s); this.fitRange(0, lanes[2].x + lanes[2].w, false); } else this.fit(false); }
+  scr() { return this.state.screen || this.props.screen || 'pipeline'; }
+  isCv(sc) { return sc === 'pipeline' || sc === 'onboard-empty' || sc === 'onboard-profiling'; }
+  sideOpen() { const s = this.state; if (s.side !== null) return s.side; if (this.props.sidebar) return this.props.sidebar === 'open'; return !this.isCv(this.scr()) && this.vw >= 1100; }
+  noShell() { const sc = this.scr(); return sc === 'login' || sc === 'password'; }
+  geo(sel) { const sw = this.vw < 1100 || this.noShell() ? 0 : this.sideOpen() ? 240 : 64; const oL = sw + 20, oT = 72; return { sw, oL, oT, aw: this.vw - oL - 28 - (sel ? 404 : 0), ah: this.vh - oT - 100 }; }
+  D() {
+    if (this._d) return this._d;
+    const o = (id, lane, col, row, kind, ic, name, info, st, lbl, x) => ({ id, lane, col, row, kind, ic, name, info, st, lbl, ...(x || {}) });
+    const N = [
+      o('src_clients', 0, 0, 0, 'src', 'ph-file-csv', 'clients.csv', '4 812 lignes', 'app', 'Profilé', { q: 82.6, near: ['id_client', 'segment', 'ville'] }),
+      o('src_produits', 0, 0, 1, 'src', 'ph-file-xls', 'produits.xlsx', '640 lignes', 'app', 'Profilé', { q: 91.2, near: ['ref_produit', 'categorie'] }),
+      o('src_commandes', 0, 0, 3, 'src', 'ph-file-csv', 'commandes.csv', '6 210 lignes', 'app', 'Profilé', { q: 79.4, near: ['id_commande', 'id_client'] }),
+      o('src_lignes', 0, 0, 4, 'src', 'ph-file-csv', 'lignes_commande.csv', '6 750 lignes', 'app', 'Profilé', { q: 88.0, near: ['id_ligne', 'quantite'] }),
+      o('sv_clients', 1, 0, 0, 'silver', 'ph-broom', 'clients', '3 règles', 'prop', 'À revoir', { review: 1, near: ['R-02 date', 'R-03 villes', 'R-04 PII'] }),
+      o('sv_produits', 1, 0, 1, 'silver', 'ph-broom', 'produits', 'prix_ht absent', 'err', 'Erreur', { near: ['prix_ht ?'] }),
+      o('sv_commandes', 1, 0, 3, 'silver', 'ph-broom', 'commandes', '6 207 lignes', 'app', 'Appliqué', { near: ['id_commande', 'date_commande'] }),
+      o('sv_lignes', 1, 0, 4, 'silver', 'ph-broom', 'lignes_commande', '6 750 lignes', 'app', 'Appliqué', { near: ['montant_ht', 'quantite'] }),
+      o('g_dimcli', 2, 0, 0, 'dim', 'ph-cube', 'dim_clients', '4 809 lignes', 'app', 'Construit', { pii: 1, near: ['cle_client', 'ville', 'segment'] }),
+      o('g_dimprod', 2, 0, 1, 'dim', 'ph-cube', 'dim_produits', '640 lignes', 'app', 'Construit', { near: ['cle_produit', 'categorie'] }),
+      o('g_dimdate', 2, 0, 2, 'dim', 'ph-cube', 'dim_date', '1 096 jours', 'app', 'Générée', { near: ['cle_date', 'mois', 'annee'] }),
+      o('g_fct', 2, 1, 3.5, 'fact', 'ph-star', 'fct_ventes', 'Relation 94 %', 'prop', 'À revoir', { review: 1, near: ['montant_ht', 'quantite', 'nb_commandes'] }),
+      o('m_2024', 3, 0, 2.5, 'mart', 'ph-chart-pie-slice', 'Montant par mois et par ville 2024', '144 lignes', 'app', 'Publié', { near: ['Chiffre d’affaires', 'Mois', 'Ville'] }),
+      o('m_2025', 3, 0, 3.5, 'mart', 'ph-chart-pie-slice', 'CA par mois et par ville 2025, Pro', '156 lignes', 'prop', 'À valider', { review: 1, near: ['Chiffre d’affaires', 'Clients Pro'] }),
+      o('m_cat', 3, 0, 4.5, 'mart', 'ph-chart-pie-slice', 'Quantité par catégorie', '12 lignes', 'app', 'Publié', { near: ['Quantité vendue', 'Catégorie'] }),
+      o('d_exp', 3, 1, 1.5, 'dest', 'ph-export', 'Exports', 'Mensuel', 'app', 'Actif', { near: ['CSV', 'Parquet'] }),
+      o('d_pbi', 3, 1, 2.5, 'dest', 'ph-chart-bar', 'Power BI', '1 publié', 'app', 'Connecté', { near: ['06:00'] }),
+      o('d_sup', 3, 1, 4.5, 'dest', 'ph-chart-line-up', 'Superset', '1 publié', 'app', 'Connecté', { near: ['06:00'] })
+    ];
+    const E = [['src_clients', 'sv_clients'], ['src_produits', 'sv_produits', 'err'], ['src_commandes', 'sv_commandes'], ['src_lignes', 'sv_lignes'], ['sv_clients', 'g_dimcli'], ['sv_produits', 'g_dimprod'], ['sv_commandes', 'g_fct'], ['sv_lignes', 'g_fct'], ['g_dimcli', 'g_fct', 'prop', '94 %'], ['g_dimprod', 'g_fct'], ['g_dimdate', 'g_fct'], ['g_fct', 'm_2024'], ['g_fct', 'm_2025', 'prop'], ['g_fct', 'm_cat'], ['m_2024', 'd_exp'], ['m_2024', 'd_pbi'], ['m_2025', 'd_pbi', 'prop'], ['m_cat', 'd_sup']];
+    const L = [{ t: 'Sources', cols: [232], gap: 0, unit: 'fichiers', sub: '4 fichiers' }, { t: 'Nettoyage', cols: [232], gap: 0, unit: 'tables', sub: 'Silver, 4 tables' }, { t: 'Modèle en étoile', cols: [232, 232], gap: 80, unit: 'tables', sub: 'Gold, 3 dimensions et 1 fait' }, { t: 'Diffusion', cols: [232, 160], gap: 56, unit: 'data marts', sub: '3 data marts, 3 sorties' }];
+    this._d = { N, E, L, byId: Object.fromEntries(N.map(n => [n.id, n])), RUN: ['src_commandes', 'sv_commandes', 'g_fct'], STEPS: ['Profilage de commandes.csv', 'Nettoyage de commandes', 'Construction de fct_ventes'], SRC: ['src_clients', 'src_produits', 'src_commandes', 'src_lignes'] };
+    return this._d;
+  }
+  nodesFor(sc, s) { const { N, SRC } = this.D(); if (sc === 'onboard-empty') return []; if (sc === 'onboard-profiling') return N.filter(n => SRC.includes(n.id) && s.obT >= 0.6 + SRC.indexOf(n.id) * 1.1); return N; }
+  layout(s) {
+    const { L } = this.D(); const sc = this.scr(); const near = s.z >= 1.1, far = s.z < 0.55; let x = 0;
+    const lanes = L.map((l, i) => { const open = !s.col[i]; const full = 40 + l.cols.reduce((a, b) => a + b, 0) + l.gap; const w = open ? full : 76; const r = { ...l, i, x, w, open }; x += w + 14; return r; });
+    const W = x - 14, T = 92, P = 136, H = T + 4.5 * P + 118; const pos = {};
+    this.D().N.forEach(n => { const l = lanes[n.lane]; const tall = n.name.length > 18; const h = (tall ? 94 : 72) + (near ? 52 : 0);
+      pos[n.id] = l.open ? { x: l.x + 20 + (n.col ? l.cols[0] + l.gap : 0), y: T + n.row * P, w: l.cols[n.col], h } : { x: l.x + 18, y: T + n.row * P, w: 40, h, hidden: true, cx: l.x + 38 }; });
+    return { lanes, W, H, T, P: pos, near, far, present: new Set(this.nodesFor(sc, s).map(n => n.id)) };
+  }
+  local(e) { const el = this.root.current; const r = el.getBoundingClientRect(); const k = r.width / el.offsetWidth || 1; return { x: (e.clientX - r.left) / k, y: (e.clientY - r.top) / k, k }; }
+  zoomAt(x, y, nz, anim) { const s = this.state; nz = Math.max(0.3, Math.min(2, nz)); const wx = (x - s.px) / s.z, wy = (y - s.py) / s.z; this.setState({ z: nz, px: x - wx * nz, py: y - wy * nz, anim }); }
+  fit(anim, sel) { const s = this.state; const { W, H } = this.layout(s); const g = this.geo(sel !== undefined ? sel : s.sel); const z = Math.min(g.aw / W, g.ah / H, 1.1); this.setState({ z, px: g.oL + (g.aw - W * z) / 2, py: g.oT, anim: !!anim }); }
+  fitRange(x0, x1, anim) { const { H } = this.layout(this.state); const g = this.geo(true); const z = Math.min(g.aw / (x1 - x0), g.ah / H, 1.1); this.setState({ z, px: g.oL + (g.aw - (x1 - x0) * z) / 2 - x0 * z, py: g.oT, anim: !!anim }); }
+  centerOn(id, z, anim) { const s = this.state; const { P } = this.layout({ ...s, z }); const p = P[id]; if (!p) return; const g = this.geo(true); this.setState({ z, px: g.oL + g.aw / 2 - (p.x + p.w / 2) * z, py: g.oT + g.ah / 2 - (p.y + p.h / 2) * z, anim: !!anim }); }
+  pick(id, tab) {
+    this.setState(p => ({ screen: this.isCv(this.scr()) ? p.screen : 'pipeline', sel: id, tab: tab || p.tab, pal: false, q: '', notif: false, menu: false, filter: 'all' }), () => {
+      const s = this.state; const { P } = this.layout(s); const p = P[id]; const g = this.geo(true); const sx = p.x * s.z + s.px, sy = p.y * s.z + s.py;
+      if (sx < g.oL || sx + p.w * s.z > g.oL + g.aw || sy < g.oT || sy + p.h * s.z > g.oT + g.ah) this.centerOn(id, Math.max(s.z, 0.8), true);
+    });
+  }
+  toast(t, d, ms) { this.setState({ toast: { t, d, until: Date.now() + (ms || 2800) } }); }
+  open(n) { if (n.id === 'g_fct') { this.setState({ screen: 'gold', sel: null }); return; } this.toast('Ouverture de ' + n.name, 'La carte s’agrandit en écran détaillé'); }
+  openPal() { this.setState({ pal: true, palI: 0, notif: false, menu: false }); }
+  tick() {
+    const s = this.state, up = {}, sc = this.scr();
+    if (s.toast && s.toast.until && Date.now() > s.toast.until) up.toast = null;
+    if (sc === 'onboard-profiling') { const t = s.obT + 0.14; if (t > 12) up.obT = 0; else { up.obT = t; if (s.obT < 7.4 && t >= 7.4) up.toast = { t: '4 sources profilées', d: 'Plans de nettoyage en préparation', until: Date.now() + 3000 }; } }
+    if (s.run === 'run') { let p = s.runPct + 1.1, i = s.runIdx; if (p >= 100) { if (i < 2) { i++; p = 0; } else { this.doneAt = Date.now(); Object.assign(up, { run: 'done', runPct: 100, toast: { t: 'run_0418 terminé', d: '3 tables mises à jour en 2 min 06 s', until: Date.now() + 3500 } }); this.setState(up); return; } } up.runPct = p; up.runIdx = i; }
+    else if (s.run === 'done' && Date.now() - this.doneAt > 6000) Object.assign(up, { run: 'run', runIdx: 0, runPct: 2 });
+    if (sc === 'agent' && !(s.agS === 2 && !s.agC) && (s.agS || 0) < 5) { let a = s.agS || 0, p = (s.agP || 0) + (a === 3 ? 2.2 : 5); if (a === 2) { a = 3; p = 0; } if (p >= 100) { a++; p = 0; } up.agS = a; up.agP = p; }
+    if (Object.keys(up).length) this.setState(up);
+  }
+  lineage(id) { const { E } = this.D(); const set = new Set([id]); const walk = (cur, dn) => E.forEach(e => { const a = dn ? e[0] : e[1], b = dn ? e[1] : e[0]; if (a === cur && !set.has(b)) { set.add(b); walk(b, dn); } }); walk(id, true); walk(id, false); return set; }
+  norm(t) { return t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+  spin(sz) { return React.createElement('span', { style: { width: sz || 11, height: sz || 11, borderRadius: '50%', border: '1.5px solid currentColor', borderRightColor: 'transparent', display: 'inline-block', animation: 'fspin .9s linear infinite', flex: 'none', boxSizing: 'border-box' } }); }
+  hatch(sz) { return React.createElement('span', { style: { width: sz || 12, height: sz || 12, borderRadius: 3, border: '1px solid currentColor', background: 'repeating-linear-gradient(135deg,currentColor 0 1px,transparent 1px 3.5px)', display: 'inline-block', flex: 'none', boxSizing: 'border-box' } }); }
+  b(k, l, sz) {
+    sz = sz || 12.5;
+    const M = {
+      err: ['Erreur', 'ph-fill ph-warning-circle', 'var(--on-err)', 'var(--err-solid)', 'none', 600, 1], prop: ['À revoir', 'ph ph-circle-dashed', 'var(--prop-fg)', 'var(--prop-bg)', '1px dashed var(--prop-bd)', 600, 1],
+      warn: ['À surveiller', 'ph-fill ph-warning', 'var(--prop-fg)', 'var(--prop-bg)', 'none', 600, 1], run: ['En cours', 0, 'var(--run-fg)', 'var(--run-bg)', 'none', 500, 1],
+      pii: ['Pseudonymisé', 0, 'var(--pii-fg)', 'var(--pii-bg)', 'none', 500, 1], val: ['Validé', 'ph-fill ph-check-circle', 'var(--val-fg)', '', '', 500, 0],
+      app: ['Appliqué', 'ph ph-check', 'var(--tx3)', '', '', 400, 0], rej: ['Rejeté', 'ph ph-x-circle', 'var(--tx3)', '', '', 400, 0], queue: ['En attente', 'ph ph-circle-dashed', 'var(--tx3)', '', '', 400, 0]
+    }[k];
+    const g = k === 'run' ? this.spin(sz - 1) : k === 'pii' ? this.hatch(sz - 1) : React.createElement('i', { className: M[1], style: { fontSize: sz + 2, flex: 'none' } });
+    const base = { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: sz, fontWeight: M[5], color: M[2], whiteSpace: 'nowrap', lineHeight: 1, boxSizing: 'border-box', fontVariantNumeric: 'tabular-nums', flex: 'none' };
+    return { l: l || M[0], g, s: M[6] ? { ...base, height: Math.round(sz * 1.84), padding: `0 ${Math.round(sz * 0.72)}px 0 ${Math.round(sz * 0.52)}px`, borderRadius: 999, background: M[3], border: M[4] } : base };
+  }
+  LC(k) { return { prop: 'var(--prop-fg)', run: 'var(--run-fg)', queue: 'var(--edge)', err: 'var(--err-solid)', val: 'var(--val-fg)' }[k]; }
+  vars(dark) {
+    return dark ? {
+      '--bg': '#1a1917', '--cv': '#1a1917', '--dot': 'rgba(255,240,225,0.045)', '--lane': 'rgba(255,240,225,0.03)', '--lane-mm': 'rgba(255,240,225,0.08)', '--node': '#272523', '--inv': '#1a1917', '--glass': 'rgba(40,38,35,0.74)', '--glass-hi': 'rgba(44,42,39,0.9)', '--side': 'rgba(34,32,30,0.8)', '--top': 'rgba(26,25,23,0.72)', '--sunk': 'rgba(255,240,225,0.07)', '--hair': 'rgba(255,240,225,0.09)', '--tx': '#f3efe9', '--tx2': '#c4bdb4', '--tx3': '#a29b92', '--acc': 'oklch(0.74 0.11 55)', '--acc-tx': 'oklch(0.8 0.1 58)', '--acc-soft': 'oklch(0.33 0.05 50)', '--on-acc': '#1a1917', '--edge': 'rgba(255,240,225,0.2)', '--scrim': 'rgba(0,0,0,0.4)',
+      '--sh-sm': 'inset 0 0.5px 0 rgba(255,255,255,0.05), 0 1px 3px rgba(0,0,0,0.3)', '--sh-node': 'inset 0 0.5px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.3), 0 8px 22px rgba(0,0,0,0.24)', '--sh-hover': 'inset 0 0.5px 0 rgba(255,255,255,0.08), 0 2px 4px rgba(0,0,0,0.3), 0 16px 36px rgba(0,0,0,0.36)', '--sh-float': 'inset 0 0.5px 0 rgba(255,255,255,0.07), 0 0 0 0.5px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3), 0 28px 64px rgba(0,0,0,0.32)',
+      '--prop-fg': 'oklch(0.85 0.11 82)', '--prop-bg': 'oklch(0.33 0.05 75)', '--prop-bd': 'oklch(0.62 0.1 75)', '--val-fg': 'oklch(0.82 0.12 155)', '--val-bg': 'oklch(0.31 0.05 155)', '--run-fg': 'oklch(0.82 0.1 250)', '--run-bg': 'oklch(0.32 0.05 250)', '--err-fg': 'oklch(0.8 0.12 27)', '--err-bg': 'oklch(0.33 0.07 27)', '--err-solid': 'oklch(0.7 0.15 27)', '--on-err': '#1a1917', '--pii-fg': 'oklch(0.82 0.1 340)', '--pii-bg': 'oklch(0.33 0.05 340)', '--pii-bd': 'oklch(0.56 0.1 340)'
+    } : {
+      '--bg': '#f3f4f6', '--cv': '#f3f4f6', '--dot': 'rgba(30,45,70,0.055)', '--lane': 'rgba(30,45,70,0.035)', '--lane-mm': 'rgba(30,45,70,0.08)', '--node': '#ffffff', '--inv': '#ffffff', '--glass': 'rgba(255,255,255,0.74)', '--glass-hi': 'rgba(255,255,255,0.9)', '--side': 'rgba(249,250,251,0.8)', '--top': 'rgba(243,244,246,0.74)', '--sunk': 'rgba(30,45,70,0.05)', '--hair': 'rgba(30,45,70,0.08)', '--tx': '#15171b', '--tx2': '#454a53', '--tx3': '#626872', '--acc': 'oklch(0.56 0.125 45)', '--acc-tx': 'oklch(0.5 0.12 45)', '--acc-soft': 'oklch(0.955 0.025 50)', '--on-acc': '#ffffff', '--edge': 'rgba(30,45,70,0.2)', '--scrim': 'rgba(20,28,40,0.16)',
+      '--sh-sm': '0 0.5px 1px rgba(20,30,50,0.05), 0 2px 8px rgba(20,30,50,0.04)', '--sh-node': '0 0.5px 1px rgba(20,30,50,0.05), 0 2px 6px rgba(20,30,50,0.04), 0 8px 24px rgba(20,30,50,0.05)', '--sh-hover': '0 1px 2px rgba(20,30,50,0.06), 0 14px 34px rgba(20,30,50,0.11)', '--sh-float': '0 0 0 0.5px rgba(20,30,50,0.07), 0 6px 16px rgba(20,30,50,0.06), 0 24px 56px rgba(20,30,50,0.11)',
+      '--prop-fg': 'oklch(0.52 0.12 68)', '--prop-bg': 'oklch(0.965 0.045 85)', '--prop-bd': 'oklch(0.78 0.11 78)', '--val-fg': 'oklch(0.5 0.12 155)', '--val-bg': 'oklch(0.96 0.04 155)', '--run-fg': 'oklch(0.52 0.13 250)', '--run-bg': 'oklch(0.955 0.03 250)', '--err-fg': 'oklch(0.53 0.17 27)', '--err-bg': 'oklch(0.965 0.03 27)', '--err-solid': 'oklch(0.57 0.18 27)', '--on-err': '#ffffff', '--pii-fg': 'oklch(0.5 0.13 340)', '--pii-bg': 'oklch(0.96 0.035 340)', '--pii-bd': 'oklch(0.8 0.08 340)'
+    };
+  }
+  nodeState(n, s) {
+    const sc = this.scr(), { RUN, SRC } = this.D();
+    if (sc === 'onboard-profiling') return s.obT < 0.6 + SRC.indexOf(n.id) * 1.1 + 2.4 ? ['run', 'Profilage'] : ['app', 'Profilé'];
+    const i = RUN.indexOf(n.id);
+    if (i < 0 || s.run === 'cancel') return [n.st, n.lbl];
+    if (s.run === 'done' || i < s.runIdx) return ['app', 'Réussi'];
+    if (i === s.runIdx) return ['run', Math.floor(s.runPct) + ' %'];
+    return ['queue', 'En attente'];
+  }
+  bodyS() { return { position: 'absolute', left: this.geo(false).sw, top: 56, right: 0, bottom: 0, display: 'flex', transition: 'left .32s cubic-bezier(.32,.72,0,1)' }; }
+  moreVals(b, dark, roleK, tablet) {
+    const s = this.state, sc = this.scr(), h = React.createElement, o = {};
+    const seg = on => ({ flex: 1, height: 34, padding: '0 14px', borderRadius: 9, border: 0, cursor: 'pointer', font: '500 13.5px var(--sans)', whiteSpace: 'nowrap', background: on ? 'var(--node)' : 'transparent', color: on ? 'var(--tx)' : 'var(--tx2)', boxShadow: on ? 'var(--sh-sm)' : 'none' });
+    const rd = s.read || {};
+    const NT = [['today', 'run', 'ph-duotone ph-check-circle', 'var(--val-fg)', 'run_0418 terminé', '3 tables mises à jour en 2 min 06 s', 'il y a 2 min', 'Voir le run', () => this.setState({ screen: 'runs', notif: false, runSel: 'run_0418' })], ['today', 'plan', 'ph-duotone ph-broom', 'var(--prop-fg)', 'Plan de nettoyage de clients à revoir', '3 règles à décider', 'il y a 12 min', 'Revoir', () => this.pick('sv_clients', 'rules')], ['today', 'mart', 'ph-duotone ph-chart-pie-slice', 'var(--prop-fg)', '« CA 2025, Pro » attend votre approbation', 'Demandé par Claire Martin', 'il y a 3 min', 'Approuver', () => this.pick('m_2025', 'ov')], ['yday', 'err', 'ph-duotone ph-warning-circle', 'var(--err-fg)', 'Échec du nettoyage de produits', 'Colonne prix_ht introuvable · run_0414', 'hier 16:58', 'Corriger', () => this.setState({ screen: 'runs', notif: false, runSel: 'run_0414' })]];
+    const mk = n => ({ ic: n[2], is: { fontSize: 22, color: n[3], flex: 'none', marginTop: 1 }, t: n[4], d: n[5], at: n[6], al: n[7], act: () => { this.setState(p => ({ read: { ...p.read, [n[1]]: 1 } })); n[8](); }, unread: !rd[n[1]] });
+    o.notifGroups = [{ t: 'Aujourd’hui', items: NT.filter(n => n[0] === 'today').map(mk) }, { t: 'Hier', items: NT.filter(n => n[0] === 'yday').map(mk) }];
+    o.nUnread = NT.filter(n => !rd[n[1]]).length; o.hasUnread = o.nUnread > 0 && !['onboard-empty', 'onboard-profiling'].includes(sc);
+    o.markRead = () => this.setState({ read: { run: 1, plan: 1, mart: 1, err: 1 } });
+    o.goAsk = () => this.setState({ screen: 'agent', agS: 0, agP: 0, agC: null }); o.goMarts = () => this.setState({ screen: 'marts' });
+    Object.assign(o, { isSem: sc === 'semantic', isHome: sc === 'home', isMarts: sc === 'marts', isSet: sc === 'settings', isAuth: sc === 'login' || sc === 'password', isLogin: sc === 'login', isPwd: sc === 'password', isAgent: sc === 'agent' });
+    if (!['semantic', 'home', 'marts', 'settings', 'agent', 'login', 'password'].includes(sc)) return o;
+    o.bodyS = { ...this.bodyS(), left: tablet ? 0 : this.bodyS().left };
+    const MARTS = [['m25', 'CA par mois et par ville 2025, Pro', 'Chiffre d’affaires par mois et par ville en 2025, clients Pro', 'prop', 'En attente d’approbation', 'Power BI', 'ph ph-chart-bar', 'Il y a 3 min', 'pend'], ['m24', 'Montant par mois et par ville 2024', 'Montant des ventes par mois et par ville en 2024', 'app', 'Publié', 'Power BI', 'ph ph-chart-bar', 'Auj. 06:00', 'pub'], ['cat', 'Quantité par catégorie', 'Quantité vendue par catégorie ce trimestre', 'app', 'Publié', 'Superset', 'ph ph-chart-line-up', 'Auj. 06:00', 'pub'], ['top', 'Top 10 produits T3 2026', 'Les 10 produits les plus vendus au troisième trimestre', 'app', 'Publié', 'Fichier CSV', 'ph ph-file-csv', '02/10', 'pub'], ['pan', 'Panier moyen par segment', 'Montant moyen par commande selon le segment client', 'queue', 'Brouillon', 'Non publié', 'ph ph-circle-dashed', 'Hier 15:12', 'draft']];
+    if (sc === 'semantic') {
+      const M = [['ca', 'Chiffre d’affaires', 'chiffre_affaires', 'sum(fct_ventes.montant_ht)', 'add', ['CA', 'ventes', 'revenu'], 3, 'Somme des montants HT des lignes de commande, annulations exclues.', 'Monétaire, €, 2 décimales', "statut_commande <> 'annulée'"], ['qte', 'Quantité vendue', 'quantite_vendue', 'sum(fct_ventes.quantite)', 'add', ['volume', 'unités'], 2, 'Nombre d’articles vendus.', 'Entier', "statut_commande <> 'annulée'"], ['pm', 'Prix moyen', 'prix_moyen', 'sum(montant_ht) / sum(quantite)', 'non', ['prix unitaire moyen'], 1, 'Chiffre d’affaires divisé par la quantité vendue.', 'Monétaire, €, 2 décimales', 'aucun'], ['nb', 'Nombre de commandes', 'nb_commandes', 'count(distinct id_commande)', 'non', ['commandes'], 3, 'Commandes distinctes, annulations exclues.', 'Entier', "statut_commande <> 'annulée'"]];
+      const DM = [['mois', 'Mois', 'dim_date.mois', 'Date', ['période'], 3], ['annee', 'Année', 'dim_date.annee', 'Date', [], 3], ['ville', 'Ville', 'dim_clients.ville', 'Texte', ['commune', 'localité'], 2], ['seg', 'Segment client', 'dim_clients.segment', 'Texte', ['type de client'], 1], ['cat', 'Catégorie', 'dim_produits.categorie', 'Texte', ['famille', 'rayon'], 1], ['prod', 'Produit', 'dim_produits.libelle', 'Texte', ['article'], 1]];
+      const AL = { add: 'Additive', semi: 'Semi-additive', non: 'Non additive' };
+      const isM = (s.semTab || 'm') === 'm';
+      const list = isM ? M.map(m => ({ k: m[0], l: m[1], id: m[2], f: m[3], add: AL[(s.semAdd || {})[m[0]] || m[4]], syn: m[5], use: m[6], raw: m })) : DM.map(d => ({ k: d[0], l: d[1], id: d[0], f: d[2], add: d[3], syn: d[4], use: d[5], raw: d }));
+      const cur = list.find(x => x.k === s.semSel) || list[0];
+      o.semRows = list.map(r => ({ ...r, go: () => this.setState({ semSel: r.k }), s: { display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) minmax(0,1.5fr) 132px minmax(0,1.1fr) 72px', gap: 14, alignItems: 'center', padding: '0 20px', minHeight: 64, width: '100%', border: 0, cursor: 'pointer', fontFamily: 'var(--sans)', color: 'var(--tx)', background: r.k === cur.k ? 'var(--acc-soft)' : 'transparent', borderTop: '1px solid var(--sunk)' } }));
+      o.semHead = isM ? ['Libellé métier', 'Formule', 'Additivité', 'Synonymes', 'Data marts'] : ['Libellé métier', 'Colonne', 'Type', 'Synonymes', 'Data marts'];
+      o.semTabs = [['m', 'Métriques'], ['d', 'Dimensions']].map(([k, l]) => ({ l, s: seg((s.semTab || 'm') === k), go: () => this.setState({ semTab: k, semSel: k === 'm' ? 'ca' : 'mois' }) }));
+      o.semNew = isM ? 'Nouvelle métrique' : 'Nouvelle dimension';
+      const SQ = [['pm', 'panier moyen', 'Prix moyen', 'Claire Martin, contrôle de gestion · il y a 2 h', 'Le panier moyen se calcule par commande, pas par article. Mieux vaut créer une métrique dédiée.', 'CM'], ['ca', 'CA TTC', 'Chiffre d’affaires', 'Claire Martin · hier', 'Le chiffre d’affaires est HT : ce synonyme serait trompeur.', 'CM'], ['seg', 'clients Pro', 'Segment client = Professionnel', 'Claire Martin · hier', '', 'CM'], ['ville', 'agglomération', 'Ville', 'Julien Robert, audit · 22/10', '', 'JR']];
+      const sy = s.syn || {};
+      o.synQ = SQ.map(q => ({ term: q[1], target: q[2], meta: q[3], note: q[4], hasNote: !!q[4] && !sy[q[0]], ini: q[5], open: !sy[q[0]], done: !!sy[q[0]], b: sy[q[0]] === 'val' ? b('val', 'Validé', 13) : b('rej', 'Rejeté', 13), val: () => this.setState(p => ({ syn: { ...p.syn, [q[0]]: 'val' } })), rej: () => this.setState(p => ({ syn: { ...p.syn, [q[0]]: 'rej' } })), undo: () => this.setState(p => { const n = { ...p.syn }; delete n[q[0]]; return { syn: n }; }) }));
+      o.synOpen = SQ.filter(q => !sy[q[0]]).length;
+      o.semSub = `4 métriques · 6 dimensions · ${o.synOpen} synonyme${o.synOpen > 1 ? 's' : ''} à valider`;
+      const fs = mono => ({ minHeight: 42, borderRadius: 11, background: 'var(--node)', boxShadow: 'inset 0 0 0 1px var(--edge)', display: 'flex', alignItems: 'center', padding: '9px 12px', font: mono ? '400 13px var(--mono)' : '400 14.5px var(--sans)', color: 'var(--tx)', fontWeight: 400, lineHeight: 1.45 });
+      o.semCur = cur; o.semIsM = isM; o.semIc = isM ? 'ph-duotone ph-function' : 'ph-duotone ph-tag'; o.semKind = isM ? 'Métrique · ' + cur.id : 'Dimension · ' + cur.f;
+      o.semFields = isM ? [['Libellé métier', cur.l], ['Identifiant', cur.id, 1], ['Description', cur.raw[7]], ['Formule', cur.f, 1], ['Format', cur.raw[8]], ['Filtre par défaut', cur.raw[9], 1]].map(x => ({ k: x[0], v: x[1], s: fs(x[2]) })) : [['Libellé métier', cur.l], ['Colonne', cur.f, 1], ['Type', cur.add]].map(x => ({ k: x[0], v: x[1], s: fs(x[2]) }));
+      const ca = (s.semAdd || {})[cur.k] || (isM ? cur.raw[4] : 'add');
+      o.semAddOpts = [['add', 'Additive'], ['semi', 'Semi-additive'], ['non', 'Non additive']].map(([k, l]) => ({ l, s: { ...seg(ca === k), padding: '0 8px', fontSize: 13 }, go: () => this.setState(p => ({ semAdd: { ...p.semAdd, [cur.k]: k } })) }));
+      o.semAddD = { add: 'Se somme sur toutes les dimensions : mois, villes, produits.', semi: 'Se somme sur certaines dimensions seulement, pas dans le temps (exemple : un stock).', non: 'Ne se somme jamais : recalculée à partir de ses composantes à chaque niveau.' }[ca];
+      o.semSave = () => this.toast('Métrique enregistrée', cur.l + ' · version 4');
+    }
+    if (sc === 'home') {
+      o.homeSug = ['CA par mois en 2025', 'Top 10 produits ce trimestre', 'Panier moyen par segment', 'Clients sans commande depuis 6 mois'];
+      o.homeQ = [['CA par mois et par ville 2025, clients Pro', 'Il y a 3 min', 'prop', 'À approuver'], ['Quantité par catégorie ce trimestre', 'Hier', 'app', 'Publié'], ['Panier moyen par segment', 'Hier', 'queue', 'Brouillon'], ['Montant par mois et par ville 2024', '14 oct.', 'app', 'Publié']].map(q => ({ t: q[0], at: q[1], b: b(q[2], q[3], 13) }));
+      o.homeM = MARTS.slice(0, 3).map(m => ({ t: m[1], dest: m[5], dic: m[6], at: m[7], b: b(m[3], m[3] === 'prop' ? 'À approuver' : m[4], 13) }));
+      o.homeK = [['Chiffre d’affaires', 'Montants HT des ventes, annulations exclues.'], ['Quantité vendue', 'Nombre d’articles vendus.'], ['Prix moyen', 'Chiffre d’affaires divisé par la quantité.'], ['Nombre de commandes', 'Commandes distinctes.']].map(k => ({ l: k[0], d: k[1] }));
+    }
+    if (sc === 'marts') {
+      const F = s.martF || 'all';
+      o.martF = [['all', 'Tous'], ['draft', 'Brouillons'], ['pend', 'En attente'], ['pub', 'Publiés']].map(([k, l]) => ({ l, s: seg(F === k), go: () => this.setState({ martF: k, exp: null }) }));
+      o.martRows = MARTS.filter(m => F === 'all' || m[8] === F).map(m => ({ t: m[1], q: m[2], b: b(m[3], m[4], 13), dest: m[5], dic: m[6], at: m[7], expOpen: s.exp === m[0], expGo: () => this.setState(p => ({ exp: p.exp === m[0] ? null : m[0] })), aff: () => this.setState({ screen: 'agent', agS: 0, agP: 0, agC: null }),
+        exps: [['CSV', 'ph ph-file-csv'], ['Parquet', 'ph ph-database'], ['Excel', 'ph ph-file-xls']].map(([l, ic]) => ({ l: 'Exporter en ' + l, ic, go: () => this.setState({ exp: null, toast: { t: 'Export ' + l + ' prêt', d: m[1], until: Date.now() + 2600 } }) })) }));
+    }
+    if (sc === 'settings') {
+      o.members = [['TL', 'Thomas Lefèvre', 'thomas.lefevre@exemple.fr', 'Propriétaire', 'En ligne'], ['SB', 'Sofia Benali', 'sofia.benali@exemple.fr', 'Engineer', 'Hier'], ['CM', 'Claire Martin', 'claire.martin@exemple.fr', 'Analyst', 'Il y a 3 min'], ['JR', 'Julien Robert', 'julien.robert@exemple.fr', 'Analyst', '22/10']].map(m => ({ ini: m[0], n: m[1], e: m[2], r: m[3], a: m[4] }));
+      o.invites = [['marc.dupuis@exemple.fr', 'Analyst', 'envoyée il y a 2 jours'], ['data@cabinet-audit.fr', 'Lecteur', 'expire dans 5 jours']].map(m => ({ e: m[0], r: m[1], a: m[2] }));
+      const P = s.prov || 'ollama';
+      o.provs = [['ollama', 'IA locale, Ollama', 'Sur ce poste, aucune donnée ne sort', 'ph ph-cpu', 'val', 'Connecté'], ['anthropic', 'Anthropic', 'Claude, via votre clé API', 'ph ph-cloud', 'queue', 'Non configuré'], ['openai', 'OpenAI', 'GPT, via votre clé API', 'ph ph-cloud', 'queue', 'Non configuré'], ['none', 'Aucun', 'Heuristiques seules, sans IA', 'ph ph-prohibit', '', '']].map(p => { const on = P === p[0]; return { l: p[1], d: p[2], ic: p[3], hasB: !!p[4], b: b(p[4] || 'app', p[5], 12.5), go: () => this.setState({ prov: p[0] }),
+        s: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', minHeight: 60, borderRadius: 14, border: 0, cursor: 'pointer', fontFamily: 'var(--sans)', color: 'var(--tx)', background: on ? 'var(--acc-soft)' : 'transparent', boxShadow: on ? 'inset 0 0 0 1.5px var(--acc)' : 'inset 0 0 0 1px var(--hair)' },
+        rs: { width: 18, height: 18, borderRadius: '50%', flex: 'none', background: 'var(--node)', boxShadow: on ? 'inset 0 0 0 5px var(--acc)' : 'inset 0 0 0 1.5px var(--edge)' } }; });
+      const vs = { color: 'var(--tx)', fontWeight: 500 }, ms = { color: 'var(--tx)', font: '400 13px var(--mono)' };
+      const PD = { ollama: [[['Modèle', 'mistral-small3:24b', ms], ['Adresse', 'http://localhost:11434', ms], ['Dernier test', 'Il y a 5 min, 1,8 s', vs]], 'Les fichiers et leurs valeurs restent sur ce poste.', 'Tester la connexion'], anthropic: [[['Clé API', 'Non renseignée', { color: 'var(--tx3)' }], ['Modèle', 'claude-sonnet', ms]], 'Envoyés : schémas et échantillons pseudonymisés, jamais les fichiers complets.', 'Ajouter une clé'], openai: [[['Clé API', 'Non renseignée', { color: 'var(--tx3)' }], ['Modèle', 'gpt-4.1', ms]], 'Envoyés : schémas et échantillons pseudonymisés, jamais les fichiers complets.', 'Ajouter une clé'], none: [[['Plans', 'Heuristiques', vs], ['Agent métier', 'Désactivé', vs]], 'Les règles de nettoyage et les relations seront proposées sans IA.', 'Confirmer'] }[P];
+      o.provRows = PD[0].map(r => ({ k: r[0], v: r[1], s: r[2] })); o.provNote = PD[1]; o.provActL = PD[2]; o.provAct = () => this.toast(P === 'ollama' ? 'Connexion réussie' : 'Réglage enregistré', P === 'ollama' ? 'mistral-small3 répond en 1,6 s' : 'Fournisseur IA mis à jour');
+      o.keys = [['Poste de Thomas', 'forja_sk_…a91f', 'utilisée il y a 2 h'], ['CI GitHub', 'forja_sk_…07be', 'utilisée hier']].map(k => ({ n: k[0], k: k[1], a: k[2] }));
+    }
+    if (sc === 'login' || sc === 'password') {
+      const fs = (focus, empty) => ({ height: 46, borderRadius: 12, background: 'var(--sunk)', display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px', font: '400 15px var(--sans)', color: empty ? 'var(--tx3)' : 'var(--tx)', boxShadow: focus ? '0 0 0 2px var(--acc)' : 'none', letterSpacing: empty ? 0 : '0.02em' });
+      if (sc === 'login') { o.authT = 'Connexion'; o.authSub = 'Démo e-commerce · poste local'; o.authFields = [['Adresse e-mail', 'thomas.lefevre@exemple.fr'], ['Mot de passe', '••••••••••••', 1, 1]].map(x => ({ k: x[0], v: x[1], pw: !!x[3], s: fs(x[2]) })); o.authBtn = 'Se connecter'; }
+      else { o.authT = 'Nouveau mot de passe'; o.authSub = 'Remplacez le mot de passe initial fourni par votre administrateur.'; o.authFields = [['Mot de passe initial', '••••••••', 0, 1], ['Nouveau mot de passe', '••••••••••••••', 1, 1], ['Confirmation', 'Saisissez-le à nouveau', 0, 1, 1]].map(x => ({ k: x[0], v: x[1], pw: !!x[3], s: fs(x[2], x[4]) })); o.authBtn = 'Enregistrer et continuer';
+        o.pwdBar = [1, 1, 1, 0].map(v => ({ flex: 1, height: 4, borderRadius: 2, background: v ? 'var(--val-fg)' : 'var(--sunk)' }));
+        o.pwdReq = [[1, '12 caractères minimum'], [1, 'Une majuscule et un chiffre'], [1, 'Différent du mot de passe initial'], [0, 'Confirmation identique']].map(r => ({ t: r[1], ic: r[0] ? 'ph-fill ph-check-circle' : 'ph ph-circle', is: { fontSize: 17, color: r[0] ? 'var(--val-fg)' : 'var(--tx3)' } })); }
+      const ok = sc === 'login';
+      o.authBtnS = { height: 48, borderRadius: 13, border: 0, font: '600 15.5px var(--sans)', cursor: ok ? 'pointer' : 'not-allowed', background: ok ? 'var(--acc)' : 'var(--sunk)', color: ok ? 'var(--on-acc)' : 'var(--tx3)', marginTop: 4 };
+    }
+    if (sc === 'agent') {
+      const ag = s.agS || 0, pct = s.agP || 0, cm = { seg: 'Clients du segment « Professionnel »', siret: 'Clients ayant un numéro SIRET', both: 'L’un ou l’autre' };
+      const AS = [['Compréhension de la question', 'Chiffre d’affaires, par mois, par ville, année 2025'], ['Recherche des données utiles', 'Ventes, clients et calendrier'], [s.agC ? 'Précision reçue' : 'Une précision est nécessaire', s.agC ? cm[s.agC] : '« Clients Pro » peut désigner deux populations'], ['Construction du data mart', '12 mois × 13 villes'], ['Contrôles de cohérence', 'Totaux, doublons, valeurs manquantes'], ['Aperçu prêt à vérifier', 'Vous validez avant toute publication']];
+      o.agSteps = AS.map(([t, d], i) => { const k = i < ag || (i === 2 && s.agC) || (i === 5 && ag >= 5) ? 'done' : i === ag ? (i === 2 ? 'wait' : 'run') : 'idle'; const base = { width: 26, height: 26, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, marginTop: 1, transition: 'all .3s cubic-bezier(.32,.72,0,1)' };
+        return { t, d, bar: k === 'run' && (i === 3 || i === 4), bs: { width: pct + '%', background: 'var(--run-fg)', borderRadius: 2, transition: 'width .14s linear' }, mk: k === 'done' ? h('i', { className: 'ph-bold ph-check' }) : k === 'wait' ? h('i', { className: 'ph-bold ph-question' }) : k === 'run' ? this.spin(12) : '',
+          ms: { ...base, ...(k === 'done' ? { background: 'var(--val-bg)', color: 'var(--val-fg)' } : k === 'wait' ? { background: 'var(--prop-bg)', color: 'var(--prop-fg)', boxShadow: 'inset 0 0 0 1px var(--prop-bd)' } : k === 'run' ? { background: 'var(--run-bg)', color: 'var(--run-fg)' } : { boxShadow: 'inset 0 0 0 1.5px var(--edge)' }) },
+          ts: { fontSize: 16, fontWeight: k === 'idle' ? 400 : 600, color: k === 'idle' ? 'var(--tx3)' : 'var(--tx)' }, rs: { display: 'flex', gap: 14, alignItems: 'flex-start', padding: '7px 0', opacity: i <= ag ? 1 : 0.55, transition: 'opacity .3s' } }; });
+      o.clarOpts = [['seg', 'Clients du segment « Professionnel »', 'Champ segment du fichier clients', '1 284 clients'], ['siret', 'Clients ayant un numéro SIRET', 'SIRET renseigné, quel que soit le segment', '1 102 clients'], ['both', 'L’un ou l’autre', 'Segment Professionnel ou SIRET renseigné', '1 391 clients']].map(x => ({ t: x[1], d: x[2], n: x[3], pick: () => this.setState({ agC: x[0] }) }));
+      const secs = Math.round(12 + ag * 9 + pct / 10);
+      Object.assign(o, { agHead: ag >= 5 ? 'Data mart préparé' : ag === 2 && !s.agC ? 'En pause, une question pour vous' : 'Je prépare votre data mart', agMeta: ag >= 5 ? 'en 1 min 34 s' : '0:' + String(Math.min(59, secs)).padStart(2, '0'), agBusy: ag < 5, agAsk: ag === 2 && !s.agC, agAnswered: !!s.agC, agAnswer: s.agC ? cm[s.agC] : '', agReady: ag >= 5, agReplay: () => this.setState({ agS: 0, agP: 0, agC: null }) });
+    }
+    return o;
+  }
+  goldVals(b) {
+    const s = this.state, h = React.createElement; if (this.scr() !== 'gold') return { isGold: false };
+    const rel = !!s.gRel, fan = s.gFan || null, valid = !!s.gValid, sel = s.gSel || 'fct', hl = s.gHl, hov = s.gHov; const nOpen = (rel ? 0 : 1) + (fan ? 0 : 1);
+    const card = (id, x, y, w) => ({ position: 'absolute', left: x, top: y, width: w, boxSizing: 'border-box', borderRadius: 16, background: 'var(--node)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, cursor: 'pointer', boxShadow: (sel === id ? '0 0 0 2px var(--acc), ' : '') + (hov === id ? 'var(--sh-hover)' : 'var(--sh-node)'), transform: hov === id ? 'translateY(-2px)' : 'none', transition: 'box-shadow .2s, transform .3s cubic-bezier(.32,.72,0,1)' });
+    const en = id => () => this.setState({ gHov: id }), lv = () => this.setState({ gHov: null });
+    const scdC = s.gScdC ?? 2, scdP = s.gScdP ?? 1;
+    const scdL = v => v === 2 ? ['SCD2, historisée', 'ph ph-clock-counter-clockwise'] : v === 1 ? ['SCD1, écrasée', 'ph ph-arrows-clockwise'] : ['Statique', 'ph ph-calendar-blank'];
+    const gDims = [['cli', 'dim_clients', scdC, 'cle_client ← id_client', '4 809 lignes · 9 colonnes', 24, 40, 1], ['prod', 'dim_produits', scdP, 'cle_produit ← ref_produit', '640 lignes · 7 colonnes', 552, 40], ['date', 'dim_date', 0, 'cle_date ← date_jour', '1 096 jours · 2023 à 2025', 288, 566]]
+      .map(d => ({ id: d[0], name: d[1], scdL: scdL(d[2])[0], scdIc: scdL(d[2])[1], key: d[3], rows: d[4], pii: !!d[7], s: card(d[0], d[5], d[6], 196), go: () => this.setState({ gSel: d[0] }), enter: en(d[0]), leave: lv }));
+    const pth = (d, k, st, hi) => h('path', { key: k, d, fill: 'none', style: { stroke: st === 'prop' ? 'var(--prop-fg)' : st === 'err' ? 'var(--err-solid)' : 'var(--edge)', strokeWidth: hi ? 3 : 1.8, strokeDasharray: st === 'prop' ? '6 6' : st === 'err' ? '2 5' : 'none', strokeLinecap: 'round', transition: 'stroke-width .2s' } });
+    const gSvg = h('svg', { width: 772, height: 700, style: { position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' } }, [
+      pth('M122,190 C122,270 180,262 250,262', 'c', rel ? 'app' : 'prop', hl === 'rel'), pth('M650,190 C650,270 592,262 522,262', 'p', fan ? 'app' : 'err', hl === 'fan'), pth('M386,566 L386,494', 'd', 'app')]);
+    const pin = (k, l, x, y, id) => { const m = b(k, l, 13); return { l: m.l, b: m, go: () => this.setState({ gHl: id, gSel: id === 'rel' ? 'cli' : 'prod' }), s: { ...m.s, position: 'absolute', left: x, top: y, height: 30, padding: '0 12px 0 9px', cursor: 'pointer', boxShadow: hl === id ? '0 0 0 2px var(--node), 0 0 0 3.5px currentColor' : 'var(--sh-sm)' } }; };
+    const gPins = [rel ? null : pin('prop', 'Relation à confirmer · 94 %', 24, 300, 'rel'), fan ? null : pin('err', 'Fan-out · 14 lignes doublées', 540, 300, 'fan')].filter(Boolean);
+    const gCard = [['N:1', 214, 238], ['N:1', 530, 238], ['N:1', 396, 520]].map(([l, x, y]) => ({ l, s: { position: 'absolute', left: x, top: y, fontSize: 12.5, fontWeight: 600, color: 'var(--tx3)' } }));
+    const kIc = (ok, k) => ok ? ['ph ph-check-circle', 'var(--tx3)'] : k === 'err' ? ['ph-fill ph-warning-circle', 'var(--err-fg)'] : ['ph ph-circle-dashed', 'var(--prop-fg)'];
+    const keys = [['cle_client', 'dim_clients', rel, 'prop'], ['cle_produit', 'dim_produits', !!fan, 'err'], ['cle_date', 'dim_date', true], ['id_commande', 'dégénérée', true]].map(k => ({ c: k[0], t: k[1], ic: kIc(k[2], k[3])[0], is: { fontSize: 16, color: kIc(k[2], k[3])[1], flex: 'none' } }));
+    const MS = [['Chiffre d’affaires', 'Somme', 'sum(montant_ht)'], ['Quantité vendue', 'Somme', 'sum(quantite)'], ['Prix moyen', 'Ratio', 'sum(montant_ht) / sum(quantite)'], ['Nombre de commandes', 'Distinct', 'count(distinct id_commande)']];
+    const gFact = { s: { ...card('fct', 250, 110, 272), gap: 14 }, b: valid ? b('val', 'Validé', 12.5) : nOpen ? b('prop', 'À revoir', 12.5) : b('val', 'Prêt', 12.5), keys, meas: MS.map(m => ({ l: m[0], a: m[1] })), measD: MS.map(m => ({ l: m[0], a: m[1], f: m[2] })), go: () => this.setState({ gSel: 'fct' }), enter: en('fct'), leave: lv };
+    const iss = [
+      { id: 'rel', done: rel, k: rel ? 'val' : 'warn', bl: rel ? 'Confirmée' : 'À confirmer', src: 'Heuristique', t: 'Relation commandes.id_client vers clients.id_client', d: '94 % des valeurs de commandes.id_client existent dans clients.id_client. 372 lignes de ventes resteraient sans client.', a1L: 'Confirmer la relation', a1: () => this.setState({ gRel: true, gHl: null }), a2L: 'Voir les 372 lignes', a2: () => this.toast('372 lignes sans client', 'Ouvertes dans un nouvel onglet'), doneL: 'Confirmée à l’instant', undo: () => this.setState({ gRel: false, gValid: false }) },
+      { id: 'fan', done: !!fan, k: fan ? 'val' : 'err', bl: fan === 'ign' ? 'Ignoré' : fan ? 'Corrigé' : 'Fan-out', src: 'Contrôle automatique', t: 'Doublons de ref_produit dans produits', d: '2 références apparaissent deux fois. La jointure doublerait 14 lignes de ventes et gonflerait le chiffre d’affaires de 1 862,40 €.', a1L: 'Dédoublonner ref_produit', a1: () => this.setState({ gFan: 'dedup', gHl: null, toast: { t: 'Règle ajoutée au nettoyage de produits', d: 'R-08 : garder la ligne la plus récente', until: Date.now() + 2800 } }), a2L: 'Ignorer', a2: () => this.setState({ gFan: 'ign', gHl: null }), doneL: fan === 'ign' ? 'Ignoré, signalé dans le journal' : 'Règle R-08 ajoutée, à valider', undo: () => this.setState({ gFan: null, gValid: false }) }
+    ];
+    const gIssues = iss.map(i => ({ ...i, isOpen: !i.done, isDone: i.done, b: b(i.k, i.bl, 12.5), enter: () => this.setState({ gHl: i.id }), leave: () => this.setState({ gHl: null }),
+      s: { borderRadius: 16, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, background: i.done ? 'var(--sunk)' : 'var(--node)', boxShadow: i.done ? 'none' : (hl === i.id ? '0 0 0 1.5px ' + (i.id === 'fan' ? 'var(--err-solid)' : 'var(--prop-fg)') + ', var(--sh-node)' : 'var(--sh-node)'), transition: 'box-shadow .2s, background .3s' } }));
+    const ready = nOpen === 0 && !valid;
+    const curScd = sel === 'cli' ? scdC : scdP;
+    const gScdOpts = [[1, 'SCD1, écrasée'], [2, 'SCD2, historisée']].map(([v, l]) => ({ l, go: () => this.setState(sel === 'cli' ? { gScdC: v } : { gScdP: v }), s: { flex: 1, height: 32, borderRadius: 9, border: 0, cursor: 'pointer', font: '500 13px var(--sans)', background: curScd === v ? 'var(--node)' : 'transparent', color: curScd === v ? 'var(--tx)' : 'var(--tx2)', boxShadow: curScd === v ? 'var(--sh-sm)' : 'none' } }));
+    return {
+      isGold: true, bodyS: this.bodyS(), gSvg, gDims, gPins, gCard, gFact, gIssues, gOpen: nOpen, gIsFact: sel === 'fct', gIsDim: sel === 'cli' || sel === 'prod', gIsDate: sel === 'date',
+      gDetT: sel === 'fct' ? 'Mesures de fct_ventes' : sel === 'date' ? 'dim_date' : 'Historisation de ' + (sel === 'cli' ? 'dim_clients' : 'dim_produits'),
+      gScdOpts, gScdD: curScd === 2 ? 'Une nouvelle version est créée à chaque changement. Les ventes passées gardent la valeur de l’époque.' : 'La valeur est remplacée. Aucun historique conservé.', gScdTrack: curScd === 2, gTracked: sel === 'cli' ? ['ville', 'segment'] : ['prix_ht', 'categorie'],
+      gFoot: valid ? 'Modèle validé. Construction de fct_ventes planifiée.' : nOpen ? `${nOpen} point${nOpen > 1 ? 's' : ''} à résoudre avant validation.` : 'Prêt. La construction démarre après validation.',
+      gValL: valid ? 'Validé' : 'Valider le modèle', gValidate: () => { if (ready) this.setState({ gValid: true, toast: { t: 'Modèle validé', d: 'Construction de fct_ventes planifiée', until: Date.now() + 3000 } }); },
+      gValS: { height: 40, padding: '0 16px', borderRadius: 11, border: 0, font: '600 14.5px var(--sans)', display: 'flex', alignItems: 'center', gap: 8, background: ready ? 'var(--acc)' : valid ? 'var(--val-bg)' : 'var(--sunk)', color: ready ? 'var(--on-acc)' : valid ? 'var(--val-fg)' : 'var(--tx3)', cursor: ready ? 'pointer' : 'not-allowed', transition: 'background .3s, color .3s' },
+      gEdit: () => this.toast('Mode édition', 'Glissez une colonne pour créer une clé ou une mesure')
+    };
+  }
+  runsVals(b) {
+    const s = this.state; if (this.scr() !== 'runs') return { isRuns: false };
+    const fmt = x => Math.floor(x / 60) + ':' + String(Math.floor(x % 60)).padStart(2, '0');
+    const live = s.run === 'run', liveSec = live ? 40 + s.runIdx * 42 + s.runPct * 0.42 : 126;
+    const liveSt = live ? ['run', 'En cours'] : s.run === 'done' ? ['app', 'Réussi'] : ['rej', 'Annulé'];
+    const R = [
+      ['run_0418', 'Run complet', 'commandes vers fct_ventes', 'Thomas L.', 'Auj. 10:42', null, liveSt],
+      ['run_0417', 'Construction Gold', 'fct_ventes', 'Planifié', 'Auj. 06:00', '0:48', ['app', 'Réussi']],
+      ['run_0415', 'Publication', 'Quantité par catégorie', 'Planifié', 'Auj. 06:00', '0:09', ['app', 'Réussi']],
+      ['run_0416', 'Nettoyage', 'lignes_commande', 'Thomas L.', 'Hier 17:20', '1:03', ['app', 'Réussi']],
+      ['run_0414', 'Nettoyage', 'produits', 'Thomas L.', 'Hier 16:58', '0:14', ['err', 'Échec']],
+      ['run_0413', 'Publication', 'Montant par mois et par ville 2024', 'Planifié', 'Hier 06:00', '0:21', ['app', 'Réussi']],
+      ['run_0412', 'Profilage', 'clients.csv', 'Thomas L.', '22/10 14:05', '1:48', ['app', 'Réussi']],
+      ['run_0411', 'Run complet', 'Démo e-commerce', 'Thomas L.', '22/10 11:30', '4:12', ['rej', 'Annulé']]
+    ].map(r => ({ id: r[0], op: r[1], scope: r[2], by: r[3], at: r[4], dur: r[5] || fmt(liveSec), st: r[6] }));
+    const f = s.runF || 'all';
+    const sel = s.runSel || 'run_0418';
+    const rRows = R.filter(r => f === 'all' || (f === 'run' && r.st[0] === 'run') || (f === 'err' && r.st[0] === 'err')).map(r => ({ ...r, b: b(r.st[0], r.st[1], 13), go: () => this.setState({ runSel: r.id, logs: false }),
+      s: { display: 'grid', gridTemplateColumns: '120px minmax(0,1fr) 104px 96px 60px', gap: 12, alignItems: 'center', padding: '0 20px', minHeight: 60, border: 0, width: '100%', cursor: 'pointer', fontFamily: 'var(--sans)', color: 'var(--tx)', background: r.id === sel ? 'var(--acc-soft)' : 'transparent', transition: 'background .15s' } }));
+    const rFilters = [['all', 'Tous'], ['run', 'En cours'], ['err', 'Échecs']].map(([k, l]) => ({ l, go: () => this.setState({ runF: k }), s: { height: 34, padding: '0 14px', borderRadius: 9, border: 0, cursor: 'pointer', font: '500 13.5px var(--sans)', background: f === k ? 'var(--node)' : 'transparent', color: f === k ? 'var(--tx)' : 'var(--tx2)', boxShadow: f === k ? 'var(--sh-sm)' : 'none' } }));
+    const r = R.find(x => x.id === sel) || R[0];
+    const mk = (k, i) => { const base = { width: 24, height: 24, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }; return k === 'done' ? [React.createElement('i', { className: 'ph-bold ph-check' }), { ...base, background: 'var(--val-bg)', color: 'var(--val-fg)' }] : k === 'run' ? [this.spin(11), { ...base, background: 'var(--run-bg)', color: 'var(--run-fg)' }] : k === 'err' ? [React.createElement('i', { className: 'ph-bold ph-x' }), { ...base, background: 'var(--err-solid)', color: 'var(--on-err)' }] : k === 'rej' ? [React.createElement('i', { className: 'ph-bold ph-minus' }), { ...base, background: 'var(--sunk)', color: 'var(--tx3)' }] : ['', { ...base, boxShadow: 'inset 0 0 0 1.5px var(--edge)' }]; };
+    let steps, metrics, tests, testSum, log, sub;
+    const M = (a, b2, c, d) => [['Lignes lues', a], ['Valides', b2], ['Rejetées', c, c !== '0' && c !== '…'], ['Doublons', d, d !== '0' && d !== '…']];
+    if (r.id === 'run_0418') {
+      const SN = ['Profilage de commandes.csv', 'Nettoyage de commandes', 'Construction de fct_ventes', 'Tests dbt', 'Mise à jour des data marts'], SD = ['0:41', '0:43', '0:42', '0:12', '0:08'];
+      steps = SN.map((t, i) => { const k = s.run === 'done' ? 'done' : s.run === 'cancel' ? (i < s.runIdx ? 'done' : i === s.runIdx ? 'rej' : 'idle') : (i < s.runIdx ? 'done' : i === s.runIdx ? 'run' : 'idle'); return { t, k, d: k === 'done' ? SD[i] : k === 'run' ? Math.floor(s.runPct) + ' %' : k === 'rej' ? 'Annulée' : '' }; });
+      metrics = M('6 210', live && s.runIdx < 1 ? '…' : '6 188', live && s.runIdx < 1 ? '…' : '19', live && s.runIdx < 1 ? '…' : '3');
+      tests = s.run === 'done' ? [['pass', 'unique_fct_ventes_id_ligne', 'Réussi'], ['pass', 'not_null_fct_ventes_cle_date', 'Réussi'], ['warn', 'relationships_fct_ventes_cle_client', '372 sans client'], ['pass', 'relationships_fct_ventes_cle_produit', 'Réussi']] : [['wait', 'Exécutés après la construction', '12 tests']];
+      testSum = s.run === 'done' ? '11 réussis, 1 avertissement' : 'En attente'; sub = 'commandes vers fct_ventes · démarré à 10:42 par Thomas L.';
+      log = "10:42:03  INFO  Lecture de commandes.csv (6 210 lignes)\n10:42:24  INFO  Types détectés : 7 colonnes\n10:42:44  INFO  Profil enregistré, qualité 79,4\n10:42:45  INFO  Plan commandes v3 : 5 règles validées\n10:43:12  WARN  19 lignes rejetées (date_commande invalide)\n10:43:28  INFO  3 doublons supprimés";
+    } else if (r.id === 'run_0414') {
+      steps = [['Lecture de produits.xlsx', 'done', '0:03'], ['Application du plan produits v2', 'err', '0:11'], ['Écriture de la table', 'idle', '']].map(x => ({ t: x[0], k: x[1], d: x[2] }));
+      metrics = M('640', '0', '0', '0'); tests = [['wait', 'Non exécutés', '']]; testSum = 'Interrompus'; sub = 'produits · hier à 16:58 par Thomas L.';
+      log = "16:58:02  INFO  Lecture de produits.xlsx, feuille Catalogue\n16:58:05  INFO  640 lignes, 8 colonnes\n16:58:09  INFO  Règle R-03 : conversion de prix_ht en décimal\n16:58:16  ERROR Colonne prix_ht introuvable\n16:58:16  INFO  Run interrompu, aucune table modifiée";
+    } else {
+      steps = [['Préparation', 'done', '0:02'], [r.op + ' de ' + r.scope, r.st[0] === 'rej' ? 'rej' : 'done', r.dur], ['Tests dbt', r.st[0] === 'rej' ? 'idle' : 'done', '0:06']].map(x => ({ t: x[0], k: x[1], d: x[2] }));
+      metrics = M('6 750', '6 750', '0', '0'); tests = [['pass', 'unique_fct_ventes_id_ligne', 'Réussi'], ['pass', 'not_null_fct_ventes_cle_date', 'Réussi'], ['warn', 'relationships_fct_ventes_cle_client', '372 sans client'], ['pass', 'accepted_values_dim_clients_segment', 'Réussi']];
+      testSum = '11 réussis, 1 avertissement'; sub = r.scope + ' · ' + r.at.toLowerCase() + ' · ' + r.by;
+      log = "06:00:00  INFO  Déclenché par la planification quotidienne\n06:00:02  INFO  Préparation terminée\n06:00:46  INFO  6 750 lignes écrites\n06:00:48  INFO  12 tests dbt exécutés, 1 avertissement";
+    }
+    const TI = { pass: ['ph-fill ph-check-circle', 'var(--val-fg)'], warn: ['ph-fill ph-warning', 'var(--prop-fg)'], fail: ['ph-fill ph-x-circle', 'var(--err-fg)'], wait: ['ph ph-circle-dashed', 'var(--tx3)'] };
+    const rd = { id: r.id, op: r.op, sub, b: b(r.st[0], r.st[1], 13), live: r.id === 'run_0418' && live, hasErr: r.id === 'run_0414',
+      steps: steps.map(t => { const m = mk(t.k); return { ...t, mk: m[0], ms: m[1], bar: t.k === 'run', bs: { width: s.runPct + '%', background: 'var(--run-fg)', borderRadius: 2, transition: 'width .14s linear' }, ts: { fontSize: 14.5, fontWeight: t.k === 'idle' ? 400 : 500, color: t.k === 'idle' ? 'var(--tx3)' : 'var(--tx)' } }; }),
+      metrics: metrics.map(x => ({ k: x[0], v: x[1], vs: { fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: x[2] ? 'var(--prop-fg)' : 'var(--tx)' } })),
+      tests: tests.map(t => ({ n: t[1], r: t[2], ic: TI[t[0]][0], is: { fontSize: 17, color: TI[t[0]][1], flex: 'none' } })), testSum, log, logN: log.split('\n').length + ' lignes' };
+    return { isRuns: true, bodyS: this.bodyS(), rRows, rFilters, rd, logs: !!s.logs, toggleLogs: () => this.setState(p => ({ logs: !p.logs })), logChevS: { fontSize: 15, color: 'var(--tx3)', transform: s.logs ? 'rotate(90deg)' : 'none', transition: 'transform .25s cubic-bezier(.32,.72,0,1)' } };
+  }
+  renderVals() {
+    const s = this.state, b = this.b.bind(this), h = React.createElement, sc = this.scr(), cv = this.isCv(sc), ease = 'cubic-bezier(.32,.72,0,1)';
+    const themeK = s.theme || this.props.theme || 'light';
+    const dark = themeK === 'dark' || (themeK === 'system' && typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const so = this.sideOpen(), selOn = !!s.sel && sc === 'pipeline', g = this.geo(selOn);
+    const { N, E, L, byId, RUN, STEPS } = this.D(); const Lo = this.layout(s); const prof = sc === 'onboard-profiling', empty = sc === 'onboard-empty';
+    const rootS = { ...this.vars(dark), '--sans': "'Instrument Sans', system-ui, sans-serif", '--mono': "'Commit Mono', ui-monospace, monospace", position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: 'var(--bg)', fontFamily: 'var(--sans)', color: 'var(--tx)', outline: 'none', WebkitFontSmoothing: 'antialiased', fontSize: 14 };
+    // ---------- canvas
+    const lin = selOn ? this.lineage(s.sel) : null; const st = {}; N.forEach(n => { st[n.id] = this.nodeState(n, s); });
+    const match = n => s.filter === 'all' || (s.filter === 'review' && n.review) || (s.filter === 'run' && RUN.includes(n.id) && s.run === 'run') || (s.filter === 'err' && st[n.id][0] === 'err');
+    const fm = new Set(N.filter(match).map(n => n.id));
+    const cvS = { position: 'absolute', inset: 0, background: 'var(--cv)', backgroundImage: 'radial-gradient(var(--dot) 1px, transparent 1.3px)', backgroundSize: `${24 * s.z}px ${24 * s.z}px`, backgroundPosition: `${s.px}px ${s.py}px`, touchAction: 'none', cursor: s.grab ? 'grabbing' : 'grab', userSelect: 'none', overflow: 'hidden' };
+    const LH = Math.max(Lo.H, (this.vh - s.py - 86) / s.z);
+    const worldS = { position: 'absolute', left: 0, top: 0, width: Lo.W, height: LH, transformOrigin: '0 0', transform: `translate(${s.px}px, ${s.py}px) scale(${s.z})`, transition: s.anim ? `transform .44s ${ease}` : 'none' };
+    const chip = (k, l) => { const m = b(k, l, 14.5); return { l: m.l, g: m.g, s: m.s }; };
+    const chips = prof ? [[], [], [], []] : empty ? [[], [], [], []] : [s.run === 'run' && s.runIdx === 0 ? [chip('run', '1')] : [], [chip('prop', '1'), chip('err', '1')], [chip('prop', '1')], [chip('prop', '1')]];
+    const subs = empty ? ['Vos fichiers', 'Après le profilage', 'Après le nettoyage', 'Vos data marts'] : prof ? [Math.min(4, Lo.present.size) + ' sur 4 fichiers', 'Proposé après le profilage', 'Proposé après le nettoyage', 'Vos data marts'] : L.map(l => l.sub);
+    const counts = [4, 4, 4, 3];
+    const lanes = Lo.lanes.map((l, i) => ({ ...l, closed: !l.open, count: counts[i], chips: chips[i], sub: subs[i], toggle: () => this.setState(p => ({ col: { ...p.col, [i]: !p.col[i] } })),
+      s: { position: 'absolute', left: l.x, top: 0, width: l.w, height: LH, borderRadius: 24, background: 'var(--lane)', transition: `left .34s ${ease}, width .34s ${ease}`, overflow: 'hidden', opacity: empty && i > 0 ? 0.7 : 1 } }));
+    const farSum = ['1 fichier en cours', '1 plan à revoir, 1 erreur', '1 relation à confirmer', '1 aperçu à valider'];
+    const farL = cv && !empty && !prof ? Lo.lanes.map((l, i) => ({ count: counts[i], unit: l.unit, sum: farSum[i], s: { position: 'absolute', left: l.x + 28, top: 150, width: l.w - 56, display: l.open ? 'flex' : 'none', flexDirection: 'column', gap: 16, opacity: Lo.far ? 1 : 0, transition: 'opacity .25s ease', pointerEvents: 'none' } })) : [];
+    const shim = { background: 'linear-gradient(90deg, var(--sunk) 0%, var(--hair) 50%, var(--sunk) 100%)', backgroundSize: '840px 100%', animation: 'fshim 1.6s ease-in-out infinite' };
+    const ghosts = prof ? N.filter(n => n.lane > 0 && n.kind !== 'dest').map(n => { const p = Lo.P[n.id]; return { position: 'absolute', left: p.x, top: p.y, width: p.w, height: p.h, borderRadius: 12, ...shim, opacity: 0.8 }; }) : [];
+    const tile = (n, k, active) => ({ width: 38, height: 38, borderRadius: 10, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: active ? 'var(--acc-soft)' : 'var(--sunk)', color: active ? 'var(--acc-tx)' : k === 'err' ? 'var(--err-fg)' : k === 'run' ? 'var(--run-fg)' : k === 'prop' ? 'var(--prop-fg)' : 'var(--tx2)', transition: 'background .2s, color .2s' });
+    const nodes = cv ? N.filter(n => Lo.present.has(n.id)).map((n, idx) => {
+      const p = Lo.P[n.id]; const [k, lbl] = st[n.id]; const dim = (lin && !lin.has(n.id)) || !fm.has(n.id); const sel = s.sel === n.id && selOn; const hov = s.hov === n.id && !Lo.far;
+      const loud = k !== 'app'; const active = sel || (lin && lin.has(n.id));
+      const appear = prof ? 1 : s.intro;
+      return { ...n, show: !Lo.far, isNear: Lo.near, loud, calm: !loud, b: b(k, lbl, 14.5), info: k === 'run' ? (prof ? '' : 'En cours') : k === 'queue' ? '' : n.info, pii: !!n.pii, hasQ: n.kind === 'src' && k === 'app', q: String(n.q).replace('.', ','),
+        qs: { width: n.q + '%', background: n.q >= 85 ? 'var(--val-fg)' : 'var(--prop-fg)', borderRadius: 3 }, near: n.near || [],
+        icc: (active || loud ? 'ph-duotone ' : 'ph ') + n.ic, tile: tile(n, k, active),
+        nameS: { fontSize: 16.5, fontWeight: 600, letterSpacing: '-0.012em', lineHeight: 1.25, overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
+        isRun: k === 'run' && !prof, ps: { width: s.runPct + '%', background: 'var(--run-fg)', borderRadius: 2, transition: 'width .14s linear' },
+        click: () => this.pick(n.id), dbl: () => this.open(n), enter: () => this.setState({ hov: n.id }), leave: () => this.setState(q => q.hov === n.id ? { hov: null } : null),
+        s: { position: 'absolute', left: p.x, top: p.y, width: p.w, height: p.h, boxSizing: 'border-box', borderRadius: 12, background: 'var(--node)', padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 10, cursor: 'pointer',
+          boxShadow: [loud ? `inset 3px 0 0 ${this.LC(k)}` : '', sel ? '0 0 0 2px var(--acc)' : '', hov ? 'var(--sh-hover)' : 'var(--sh-node)'].filter(Boolean).join(', '),
+          opacity: p.hidden ? 0 : appear ? (dim ? 0.26 : Lo.far ? 0.5 : 1) : 0, transform: appear ? (hov ? 'translateY(-2px)' : 'none') : 'scale(0.96) translateY(8px)', pointerEvents: p.hidden ? 'none' : 'auto',
+          transition: `left .34s ${ease}, top .34s ${ease}, width .34s ${ease}, height .34s ${ease}, opacity .3s ease, transform .34s ${ease}, box-shadow .2s ease`, transitionDelay: s.intro === 1 && !prof ? idx * 24 + 'ms' : '0ms' } };
+    }) : [];
+    const kids = [], elabels = [];
+    if (cv) E.forEach((e, i) => {
+      if (!Lo.present.has(e[0]) || !Lo.present.has(e[1])) return;
+      const a = Lo.P[e[0]], c = Lo.P[e[1]]; const x1 = a.hidden ? a.cx : a.x + a.w, y1 = a.y + a.h / 2, x2 = c.hidden ? c.cx : c.x, y2 = c.y + c.h / 2; const dx = Math.max(24, (x2 - x1) * 0.5);
+      const d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`; const k = e[2] || 'app';
+      const onLin = lin && lin.has(e[0]) && lin.has(e[1]); const dim = (lin && !onLin) || (s.filter !== 'all' && !(fm.has(e[0]) || fm.has(e[1])));
+      const running = s.run === 'run' && (e[1] === RUN[s.runIdx] || (s.runIdx === 0 && e[0] === RUN[0])) && sc === 'pipeline';
+      const stroke = onLin ? 'var(--acc)' : k === 'prop' ? 'var(--prop-fg)' : k === 'err' ? 'var(--err-solid)' : 'var(--edge)';
+      kids.push(h('path', { key: 'e' + i, d, fill: 'none', style: { stroke, strokeWidth: onLin ? 2.5 : 1.6, strokeDasharray: k === 'prop' ? '6 6' : k === 'err' ? '2 5' : 'none', strokeLinecap: 'round', opacity: dim ? 0.12 : 1, transition: `d .34s ${ease}, opacity .26s ease, stroke .2s ease` } }));
+      if (running && !dim) kids.push(h('path', { key: 'r' + i, d, fill: 'none', style: { stroke: 'var(--run-fg)', strokeWidth: 2.5, strokeLinecap: 'round', strokeDasharray: '2 10', animation: 'fflow .8s linear infinite' } }));
+      if (e[3] && !Lo.far) elabels.push({ l: e[3], s: { position: 'absolute', left: (x1 + x2) / 2, top: (y1 + y2) / 2, transform: 'translate(-50%,-50%)', height: 26, padding: '0 10px 0 8px', borderRadius: 999, background: 'var(--prop-bg)', color: 'var(--prop-fg)', border: '1px dashed var(--prop-bd)', fontSize: 14.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', opacity: lin && !onLin ? 0.2 : 1, transition: `left .34s ${ease}, top .34s ${ease}, opacity .26s` } });
+    });
+    const edgesEl = h('svg', { width: Lo.W, height: LH, style: { position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' } }, kids);
+    const nRev = N.filter(n => n.review).length;
+    const filters = [['all', 'Tout', 0], ['review', 'À revoir', nRev], ['run', 'En cours', s.run === 'run' ? 3 : 0], ['err', 'Erreurs', 1]].map(([k, l, n]) => ({ l, n, hasN: n > 0, go: () => this.setState({ filter: k }),
+      s: { height: 32, padding: '0 11px', borderRadius: 9, border: 0, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', font: '500 13.5px var(--sans)', color: s.filter === k ? 'var(--tx)' : 'var(--tx2)', background: s.filter === k ? 'var(--node)' : 'transparent', boxShadow: s.filter === k ? 'var(--sh-sm)' : 'none', transition: 'background .2s, box-shadow .2s', whiteSpace: 'nowrap' },
+      ns: { fontSize: 12.5, fontWeight: 600, color: k === 'review' ? 'var(--prop-fg)' : k === 'err' ? 'var(--err-fg)' : 'var(--tx3)', fontVariantNumeric: 'tabular-nums' } }));
+    const tbS = { position: 'absolute', left: selOn ? g.oL + g.aw / 2 : (g.oL + this.vw - 236) / 2, bottom: 18, transform: 'translateX(-50%)', height: 52, display: 'flex', alignItems: 'center', gap: 4, padding: '0 8px', borderRadius: 16, background: 'var(--glass)', backdropFilter: 'blur(24px) saturate(180%)', WebkitBackdropFilter: 'blur(24px) saturate(180%)', boxShadow: 'var(--sh-float)', transition: `left .36s ${ease}`, zIndex: 3 };
+    const m = 184 / Lo.W;
+    const mm = { s: { position: 'absolute', right: 20, bottom: 18, opacity: selOn ? 0 : 1, pointerEvents: selOn ? 'none' : 'auto', width: 200, height: Lo.H * m + 16, borderRadius: 14, background: 'var(--glass)', backdropFilter: 'blur(24px) saturate(180%)', WebkitBackdropFilter: 'blur(24px) saturate(180%)', boxShadow: 'var(--sh-float)', transition: 'opacity .25s ease', cursor: 'pointer', overflow: 'hidden', zIndex: 3 },
+      lanes: Lo.lanes.map(l => ({ position: 'absolute', left: 8 + l.x * m, top: 8, width: l.w * m, height: Lo.H * m, borderRadius: 4, background: 'var(--lane-mm)' })),
+      nodes: N.filter(n => Lo.present.has(n.id) && !Lo.P[n.id].hidden).map(n => { const p = Lo.P[n.id]; const k = st[n.id][0]; return { position: 'absolute', left: 8 + p.x * m, top: 8 + p.y * m, width: p.w * m, height: Math.max(4, p.h * m), borderRadius: 2, background: k === 'app' ? 'var(--tx3)' : this.LC(k), opacity: k === 'app' ? 0.4 : 1 }; }),
+      view: { position: 'absolute', left: 8 + ((g.oL - 20 - s.px) / s.z) * m, top: 8 + ((g.oT - s.py) / s.z) * m, width: (g.aw + 40) / s.z * m, height: (g.ah + 20) / s.z * m, border: '1.5px solid var(--acc)', borderRadius: 4, boxSizing: 'border-box', transition: s.anim ? `all .44s ${ease}` : 'none' } };
+    const mmClick = e => { const t = e.currentTarget; const r = t.getBoundingClientRect(); const k = r.width / t.offsetWidth || 1; const wx = ((e.clientX - r.left) / k - 8) / m, wy = ((e.clientY - r.top) / k - 8) / m; this.setState({ px: g.oL + g.aw / 2 - wx * s.z, py: g.oT + g.ah / 2 - wy * s.z, anim: true }); };
+    // inspector
+    const n = byId[s.sel] || byId.g_dimcli; const [nk, nl] = st[n.id]; const isCli = n.id === 'g_dimcli';
+    const item = x => ({ name: x.name, ic: 'ph ' + x.ic, b: b(...st[x.id], 12.5), go: () => this.pick(x.id) });
+    const up = E.filter(e => e[1] === n.id).map(e => item(byId[e[0]])), down = E.filter(e => e[0] === n.id).map(e => item(byId[e[1]]));
+    const KN = { src: 'Source', silver: 'Table nettoyée', dim: 'Dimension', fact: 'Table de faits', mart: 'Data mart', dest: 'Destination' };
+    const KD = { src: 'Fichier importé et profilé.', silver: 'Table nettoyée selon un plan relu règle par règle.', dim: 'Dimension du modèle en étoile.', fact: 'Une ligne par ligne de commande.', mart: 'Construit à partir d’une question en français.', dest: 'Destination de publication.' };
+    const tab = s.tab; const pb = b('pii', 'Pseudonymisé', 12);
+    const cols = [['cle_client', 'entier', 'Clé du modèle', '1 à 4 809', 0, 1], ['id_client', 'texte', 'Identifiant client', 'cli_8f2c41a0', 1], ['nom_affiche', 'texte', 'Nom du client', 'Client 8F2C', 1], ['ville', 'texte', 'Harmonisée par R-03', 'Lyon'], ['code_postal', 'texte', 'Zéros initiaux conservés', '06000'], ['segment', 'texte', 'Particulier ou Professionnel', 'Professionnel'], ['a_siret', 'booléen', 'SIRET renseigné', 'vrai'], ['date_inscription', 'date', 'Convertie par R-02', '2024-01-03'], ['anciennete_mois', 'entier', 'Calculée', '21']]
+      .map(c => ({ n: c[0], t: c[1], d: c[2], ex: c[3], pii: !!c[4], key: !!c[5], pb, exS: { font: '400 12.5px var(--mono)', color: c[4] ? 'var(--pii-fg)' : 'var(--tx3)', background: c[4] ? 'repeating-linear-gradient(135deg,var(--pii-bg) 0 4px,transparent 4px 8px)' : 'transparent', borderRadius: 5, padding: c[4] ? '1px 6px' : 0 },
+        s: { display: 'flex', gap: 12, padding: '11px 12px', borderRadius: 12, background: 'var(--node)', boxShadow: c[4] ? 'inset 3px 0 0 var(--pii-fg), var(--sh-sm)' : 'var(--sh-sm)' } }));
+    const ins = {
+      icc: 'ph-duotone ' + n.ic, tile: { ...tile(n, nk, true), width: 42, height: 42, borderRadius: 12 }, name: n.name, sub: KN[n.kind] + ' · ' + n.info, b: b(nk, nl, 13), hasPii: !!n.pii, pb: b('pii', '2 colonnes pseudonymisées', 13),
+      openL: n.review ? 'Revoir' : 'Ouvrir', open: () => this.open(n),
+      openS: { marginLeft: 'auto', height: 32, padding: '0 14px', borderRadius: 10, border: 0, cursor: 'pointer', font: '600 13.5px var(--sans)', background: n.review ? 'var(--acc)' : 'var(--sunk)', color: n.review ? 'var(--on-acc)' : 'var(--tx)' },
+      tabs: [['ov', 'Aperçu'], ['cols', 'Colonnes'], ['rules', 'Règles'], ['qual', 'Qualité'], ['hist', 'Historique']].map(([k, l]) => ({ l, go: () => this.setState({ tab: k }), s: { flex: 1, height: 32, borderRadius: 9, border: 0, cursor: 'pointer', font: '500 13px var(--sans)', background: tab === k ? 'var(--node)' : 'transparent', color: tab === k ? 'var(--tx)' : 'var(--tx2)', boxShadow: tab === k ? 'var(--sh-sm)' : 'none', transition: 'background .2s, box-shadow .2s' } })),
+      isOv: tab === 'ov', desc: isCli ? 'Une ligne par client, construite depuis la table nettoyée clients (plan v2, appliqué le 22/10/2026). Axe d’analyse pour la ville et le segment.' : KD[n.kind],
+      stats: isCli ? [{ k: 'Lignes', v: '4 809' }, { k: 'Colonnes', v: '9' }, { k: 'Construite', v: 'il y a 2 h' }, { k: 'Utilisée par', v: '3 data marts' }] : [{ k: 'Type', v: KN[n.kind] }, { k: 'Volume', v: n.info }],
+      up, down, noUp: !up.length, noDown: !down.length,
+      isCols: isCli && tab === 'cols', colSum: '9 colonnes, dont 1 clé et 2 pseudonymisées', cols,
+      isRules: isCli && tab === 'rules', rulesIntro: 'Hérite du plan de nettoyage de clients. Version 2 appliquée, version 3 en attente de revue.',
+      rules: [['R-01', 'Espaces superflus', 'app'], ['R-04', 'Pseudonymisation', 'app'], ['R-05', 'Doublons exacts', 'app'], ['R-02', 'Conversion en date', 'prop'], ['R-03', 'Écriture des villes', 'prop']].map(r => ({ id: r[0], t: r[1], b: b(r[2], r[2] === 'app' ? 'Appliqué' : 'À revoir', 12.5) })),
+      isQual: isCli && tab === 'qual', score: '96,4', bars: [['Complétude', 99], ['Validité', 97], ['Unicité', 100], ['Cohérence', 90]].map(([k, v]) => ({ k, v, s: { width: v + '%', background: 'var(--val-fg)', borderRadius: 3 } })),
+      checks: [{ b: b('val', 'Réussi', 13), t: 'cle_client unique' }, { b: b('val', 'Réussi', 13), t: 'Aucune ville vide' }, { b: b('warn', '27', 13), t: 'Segments non renseignés' }],
+      isHist: isCli && tab === 'hist', hist: [['run_0417', 'Construction', 'Aujourd’hui 06:00 · 0:48', 'app', 'Réussi'], ['run_0409', 'Construction', 'Hier 06:00 · 0:51', 'app', 'Réussi'], ['run_0398', 'Plan v2 appliqué', 'Thomas L. · 22/10/2026', 'val', 'Validé']].map(r => ({ id: r[0], t: r[1], d: r[2], b: b(r[3], r[4], 12.5) })),
+      generic: !isCli && tab !== 'ov', genMsg: 'Éléments clés de ' + n.name + '. Double-cliquez sur le nœud pour ouvrir son écran.', near: n.near || []
+    };
+    const inspS = { position: 'absolute', top: 68, right: 12, bottom: 12, width: 388, borderRadius: 20, background: 'var(--glass)', backdropFilter: 'blur(30px) saturate(180%)', WebkitBackdropFilter: 'blur(30px) saturate(180%)', boxShadow: 'var(--sh-float)', display: 'flex', flexDirection: 'column', transform: selOn ? 'translateX(0)' : 'translateX(calc(100% + 24px))', opacity: selOn ? 1 : 0, transition: `transform .38s ${ease}, opacity .25s ease`, cursor: 'default', userSelect: 'text', zIndex: 4 };
+    const dropS = { position: 'absolute', left: g.oL + g.aw / 2, top: g.oT + g.ah / 2, transform: 'translate(-50%,-50%)', width: 640, display: 'flex', flexDirection: 'column', gap: 16, zIndex: 3 };
+    const dropInS = { borderRadius: 24, background: 'var(--glass)', backdropFilter: 'blur(24px) saturate(180%)', WebkitBackdropFilter: 'blur(24px) saturate(180%)', boxShadow: s.drag ? '0 0 0 2px var(--acc), var(--sh-float)' : 'var(--sh-float)', padding: '44px 40px 36px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, textAlign: 'center', outline: '1.5px dashed var(--edge)', outlineOffset: -14, transform: s.drag ? 'scale(1.015)' : 'none', transition: `transform .3s ${ease}, box-shadow .2s` };
+    // ---------- shell
+    const anaScr = ['home', 'agent', 'marts'].includes(sc); const roleK = s.role || (anaScr ? 'ana' : 'eng'); const tablet = this.vw < 1100; const actK = cv ? 'pipeline' : ({ semantic: 'sem', settings: 'set' })[sc] || sc;
+    const navDef = roleK === 'ana' ? [['home', 'Accueil', 'ph-house'], ['agent', 'Poser une question', 'ph-chat-circle-text'], ['marts', 'Mes data marts', 'ph-chart-pie-slice', '1', 'prop'], ['metrics', 'Indicateurs', 'ph-book-open-text']] : [['pipeline', 'Pipeline', 'ph-graph'], ['sources', 'Sources', 'ph-files'], ['silver', 'Nettoyage', 'ph-broom', '1', 'prop'], ['gold', 'Modèle', 'ph-cube', '1', 'prop'], ['serve', 'Diffusion', 'ph-broadcast', '1', 'prop'], ['runs', 'Runs', 'ph-clock-counter-clockwise', '1', 'run']];
+    const navGo = k => () => { if (k === 'pipeline') this.setState({ screen: 'pipeline', sel: null }, () => this.fit(true)); else if (['gold', 'runs', 'home', 'agent', 'marts'].includes(k)) this.setState({ screen: k, sel: null }); else if (k === 'sem') this.setState({ screen: 'semantic', sel: null }); else if (k === 'set') this.setState({ screen: 'settings', sel: null }); else if (k === 'silver') this.pick('sv_clients', 'rules'); else this.toast('Section ' + k, 'Non maquettée dans cette version'); };
+    const navItem = ([k, l, ic, bl, bk]) => { const act = k === actK; const showB = !!bl && !empty && !prof; return { l, open: so, hasB: showB, bl, dot: showB && !so, go: navGo(k), icc: (act ? 'ph-duotone ' : 'ph ') + ic,
+      is: { fontSize: 20, flex: 'none', color: act ? 'var(--acc-tx)' : 'var(--tx2)' },
+      s: { display: 'flex', alignItems: 'center', gap: 11, height: 40, width: so ? '100%' : 40, padding: so ? '0 10px' : 0, justifyContent: so ? 'flex-start' : 'center', borderRadius: 11, border: 0, cursor: 'pointer', font: `${act ? 600 : 500} 14.5px var(--sans)`, color: act ? 'var(--tx)' : 'var(--tx2)', background: act ? 'var(--sunk)' : 'transparent', position: 'relative', flex: 'none' },
+      bs: { minWidth: 22, height: 22, borderRadius: 11, padding: '0 7px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, fontWeight: 600, background: bk === 'run' ? 'var(--run-bg)' : 'var(--prop-bg)', color: bk === 'run' ? 'var(--run-fg)' : 'var(--prop-fg)' },
+      ds: { position: 'absolute', top: 8, right: 8, width: 7, height: 7, borderRadius: '50%', background: bk === 'run' ? 'var(--run-fg)' : 'var(--prop-fg)' } }; };
+    const nav1 = navDef.map(navItem), nav2 = (roleK === 'ana' ? [] : [['sem', 'Couche sémantique', 'ph-book-open-text'], ['gov', 'Gouvernance', 'ph-shield-check']]).map(navItem), nav3 = [['set', 'Réglages', 'ph-gear-six']].map(navItem);
+    const sideS = { position: 'absolute', left: 0, top: 0, bottom: 0, width: tablet ? (so ? 280 : 0) : g.sw, background: 'var(--side)', backdropFilter: 'blur(28px) saturate(180%)', WebkitBackdropFilter: 'blur(28px) saturate(180%)', boxShadow: cv ? 'var(--sh-float)' : '0.5px 0 0 var(--hair)', display: 'flex', flexDirection: 'column', zIndex: 10, transition: `width .32s ${ease}`, overflow: 'hidden' };
+    const navS = { display: 'flex', flexDirection: 'column', gap: 2, padding: so ? '8px 12px' : '8px 12px', alignItems: so ? 'stretch' : 'center' };
+    const navFootS = { marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: '12px', alignItems: so ? 'stretch' : 'center' };
+    const localS = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--tx3)', padding: so ? '6px 10px' : '6px 0', justifyContent: so ? 'flex-start' : 'center' };
+    const topS = { position: 'absolute', left: g.sw, right: 0, top: 0, height: 56, display: 'flex', alignItems: 'center', gap: 6, padding: '0 14px 0 12px', background: cv ? 'transparent' : 'var(--bg)', zIndex: 9, transition: `left .32s ${ease}` };
+    const crumbMap = { pipeline: ['Pipeline'], 'onboard-empty': ['Pipeline'], 'onboard-profiling': ['Pipeline'], gold: ['Modèle', 'Revue du modèle en étoile'], runs: ['Runs'], semantic: ['Couche sémantique'], home: ['Accueil'], marts: ['Mes data marts'], settings: ['Réglages du projet'], agent: ['Poser une question'] };
+    const crumbs = (crumbMap[sc] || []).map((l, i, a) => ({ l, s: { fontSize: 14.5, fontWeight: i === a.length - 1 ? 500 : 400, color: i === a.length - 1 ? 'var(--tx)' : 'var(--tx3)', whiteSpace: 'nowrap', padding: '0 4px' } }));
+    // run pill
+    const ico = (bg, fg) => ({ width: 24, height: 24, borderRadius: '50%', background: bg, color: fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' });
+    let runT, runM, runIcon, runIconS, runAct = () => {}, runActL = '', runActIc = 'ph ph-x', runCan = false, runW = 0;
+    if (prof) { const done = this.D().SRC.filter((id, i) => s.obT >= 0.6 + i * 1.1 + 2.4).length; runT = done < 4 ? 'Profilage' : 'Profilage terminé'; runM = `${done} sur 4`; runIcon = done < 4 ? this.spin(11) : h('i', { className: 'ph-bold ph-check', style: { fontSize: 12 } }); runIconS = done < 4 ? ico('var(--run-bg)', 'var(--run-fg)') : ico('var(--val-bg)', 'var(--val-fg)'); runW = done * 25 + (done < 4 ? 10 : 0); }
+    else if (s.run === 'run') { runT = STEPS[s.runIdx]; runM = `${s.runIdx + 1}/3 · ${Math.floor(s.runPct)} %`; runIcon = this.spin(11); runIconS = ico('var(--run-bg)', 'var(--run-fg)'); runCan = true; runActL = 'Annuler le run'; runAct = () => this.setState({ run: 'cancel', toast: { t: 'Run annulé', d: 'Les tables gardent leur dernière version validée', until: Date.now() + 2800 } }); runW = (s.runIdx * 100 + s.runPct) / 3; }
+    else if (s.run === 'done') { runT = 'run_0418 terminé'; runM = '2 min 06 s'; runIcon = h('i', { className: 'ph-bold ph-check', style: { fontSize: 12 } }); runIconS = ico('var(--val-bg)', 'var(--val-fg)'); runW = 100; }
+    else { runT = 'Run annulé'; runM = 'aucune table modifiée'; runIcon = h('i', { className: 'ph-bold ph-x', style: { fontSize: 12 } }); runIconS = ico('var(--sunk)', 'var(--tx3)'); runCan = true; runActL = 'Relancer'; runActIc = 'ph ph-arrow-clockwise'; runAct = () => this.setState({ run: 'run', runIdx: 0, runPct: 0 }); runW = 0; }
+    const runBar = { width: runW + '%', background: s.run === 'done' && !prof ? 'var(--val-fg)' : 'var(--run-fg)', borderRadius: 2, transition: 'width .14s linear' };
+    // palette
+    const qn = this.norm(s.q.trim());
+    const laneName = i => L[i].t;
+    const nodeItems = (qn ? N.filter(x => this.norm(x.name).includes(qn)).slice(0, 5) : ['sv_clients', 'g_dimcli', 'm_2025'].map(id => byId[id])).map(x => ({ l: x.name, d: laneName(x.lane), ic: 'ph ' + x.ic, b: b(...st[x.id], 12.5), hasB: st[x.id][0] !== 'app', run: () => this.pick(x.id) }));
+    const actions = [['Revoir le plan de nettoyage de clients', '3 règles à décider', 'ph-broom', '', () => this.pick('sv_clients', 'rules')], ['Valider l’aperçu « CA 2025, Pro »', 'Demandé par Claire Martin', 'ph-chart-pie-slice', '', () => this.pick('m_2025', 'ov')], ['Lancer un run complet', 'Sources, nettoyage, modèle', 'ph-play', '⌘R', () => this.setState({ pal: false, run: 'run', runIdx: 0, runPct: 0 })], ['Ajouter des fichiers', 'CSV, Excel, Parquet, JSON', 'ph-upload-simple', '⌘U', () => this.setState({ pal: false })], ['Afficher ce qui est à revoir', 'Filtre du canvas', 'ph-funnel', '', () => this.setState({ pal: false, filter: 'review', screen: 'pipeline' })], [dark ? 'Passer en thème clair' : 'Passer en thème sombre', 'Apparence', dark ? 'ph-sun' : 'ph-moon', '⇧⌘L', () => this.setState({ pal: false, theme: dark ? 'light' : 'dark' })], ['Ouvrir le modèle en étoile', 'Modèle', 'ph-cube', '', () => this.setState({ pal: false, screen: 'gold', sel: null })], ['Ouvrir les runs', 'Historique et détail', 'ph-clock-counter-clockwise', '', () => this.setState({ pal: false, screen: 'runs', sel: null })]]
+      .filter(a => !qn || this.norm(a[0] + ' ' + a[1]).includes(qn)).slice(0, qn ? 4 : 5).map(a => ({ l: a[0], d: a[1], ic: 'ph ' + a[2], k: a[3], hasK: !!a[3], hasB: false, b: b('app'), run: a[4] }));
+    const flat = [...nodeItems, ...actions]; const pi = Math.min(s.palI, Math.max(0, flat.length - 1));
+    const decorate = (it, i) => ({ ...it, go: it.run, hov: () => this.setState({ palI: i }),
+      s: { width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '8px 10px', minHeight: 52, borderRadius: 12, border: 0, cursor: 'pointer', fontFamily: 'var(--sans)', background: i === pi ? 'var(--acc-soft)' : 'transparent', transition: 'background .12s' },
+      tile: { width: 34, height: 34, borderRadius: 10, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: i === pi ? 'var(--node)' : 'var(--sunk)', color: i === pi ? 'var(--acc-tx)' : 'var(--tx2)' } });
+    const palGroups = [{ t: qn ? 'Nœuds' : 'Récents', items: nodeItems.map((it, i) => decorate(it, i)) }, { t: 'Actions', items: actions.map((it, i) => decorate(it, i + nodeItems.length)) }].filter(gr => gr.items.length);
+    const notifs = [['Plan de nettoyage de clients prêt', '3 règles à décider · il y a 12 min', 'sv_clients', 'ph-duotone ph-broom', 'var(--prop-fg)'], ['Aperçu « CA 2025, Pro » à valider', 'Claire Martin · il y a 3 min', 'm_2025', 'ph-duotone ph-chart-pie-slice', 'var(--prop-fg)'], ['Échec du nettoyage de produits', 'Colonne prix_ht introuvable · run_0414', 'sv_produits', 'ph-duotone ph-warning-circle', 'var(--err-fg)']].map(([t, d, id, ic, c]) => ({ t, d, ic, is: { fontSize: 22, color: c, flex: 'none', marginTop: 1 }, go: () => this.pick(id) }));
+    const seg = on => ({ flex: 1, height: 32, borderRadius: 9, border: 0, cursor: 'pointer', font: '500 13px var(--sans)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: on ? 'var(--node)' : 'transparent', color: on ? 'var(--tx)' : 'var(--tx2)', boxShadow: on ? 'var(--sh-sm)' : 'none' });
+    const roles = [['eng', 'Engineer'], ['ana', 'Analyst']].map(([k, l]) => ({ l, s: seg(roleK === k), go: () => this.setState({ role: k, screen: k === 'ana' ? 'home' : 'pipeline', sel: null, menu: false, toast: { t: k === 'ana' ? 'Vue Analyst' : 'Vue Engineer', d: k === 'ana' ? 'Couches techniques et SQL masqués' : 'Pipeline complet et SQL visibles', until: Date.now() + 2600 } }) }));
+    const themes = [['light', 'Clair', 'ph-sun'], ['dark', 'Sombre', 'ph-moon'], ['system', 'Système', 'ph-desktop']].map(([k, l, ic]) => ({ l, ic: 'ph ' + ic, s: seg(themeK === k), go: () => this.setState({ theme: k }) }));
+    const toastS = { position: 'absolute', left: g.oL + g.aw / 2, top: 68, transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px 12px 14px', borderRadius: 16, background: 'var(--glass-hi)', backdropFilter: 'blur(28px) saturate(180%)', WebkitBackdropFilter: 'blur(28px) saturate(180%)', boxShadow: 'var(--sh-float)', zIndex: 25, whiteSpace: 'nowrap' };
+    const closeAll = { notif: false, menu: false };
+    return {
+      root: this.root, vpRef: this.vpRef, palIn: this.palIn, rootS, isCanvas: cv, cvS, worldS, lanes, farL, ghosts, nodes, edgesEl, elabels, hatch: this.hatch(13),
+      isEmpty: empty, hasTools: cv && !empty, dropS, dropInS, filters, tbS, mm, mmClick, ins, inspS, closeSel: () => this.setState({ sel: null }),
+      zPct: Math.round(s.z * 100) + ' %', zoomIn: () => this.zoomAt(g.oL + g.aw / 2, g.oT + g.ah / 2, s.z * 1.25, true), zoomOut: () => this.zoomAt(g.oL + g.aw / 2, g.oT + g.ah / 2, s.z / 1.25, true),
+      fitB: () => this.fit(true), autoL: () => this.setState({ col: {}, toast: { t: 'Mise en page recalculée', d: 'Compartiments dépliés, graphe ajusté', until: Date.now() + 2400 } }, () => this.fit(true)),
+      startRun: () => this.setState({ run: 'run', runIdx: 0, runPct: 0 }),
+      down: e => { if (e.button !== 0 || (e.target.closest && e.target.closest('[data-ui],[data-node]'))) return; this.touched = true; this.drag = { cx: e.clientX, cy: e.clientY, px: s.px, py: s.py, k: this.local(e).k, moved: false }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} this.setState({ grab: true }); },
+      move: e => { const d = this.drag; if (!d) return; const dx = (e.clientX - d.cx) / d.k, dy = (e.clientY - d.cy) / d.k; if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true; if (d.moved) this.setState({ px: d.px + dx, py: d.py + dy, anim: false }); },
+      up: () => { const d = this.drag; this.drag = null; if (!d) return; this.setState(d.moved ? { grab: false } : { grab: false, sel: null, ...closeAll }); },
+      dragOver: e => { if (!empty) return; e.preventDefault(); if (!s.drag) this.setState({ drag: true }); }, dragLeave: () => s.drag && this.setState({ drag: false }),
+      drop: e => { if (e && e.preventDefault) e.preventDefault(); if (!empty) return; this.setState({ screen: 'onboard-profiling', drag: false, obT: 0 }); },
+      key: e => { if (e.target.tagName === 'INPUT') return; if (e.key === 'Escape') this.setState({ sel: null, pal: false, ...closeAll }); if (cv && (e.key === '+' || e.key === '=')) this.zoomAt(g.oL + g.aw / 2, g.oT + g.ah / 2, s.z * 1.2, true); if (cv && e.key === '-') this.zoomAt(g.oL + g.aw / 2, g.oT + g.ah / 2, s.z / 1.2, true); },
+      hin: () => { this.hover = true; }, hout: () => { this.hover = false; },
+      sideS, sideOpen: so, navS, navFootS, localS, nav1, nav2, nav3, topS, crumbs, project: empty || prof ? 'Nouveau projet' : 'Démo e-commerce',
+      toggleSide: () => this.setState({ side: !so }, () => cv && this.fit(true)),
+      openPal: () => this.openPal(), hasRun: !empty && roleK !== 'ana' && !tablet, hasShell: !this.noShell(), searchS: { height: 36, width: tablet ? 36 : 240, padding: tablet ? 0 : '0 8px 0 12px', justifyContent: tablet ? 'center' : 'flex-start', borderRadius: 10, border: 0, background: 'var(--sunk)', color: 'var(--tx3)', font: '400 14px var(--sans)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }, notTablet: !tablet, runT, runM, runIcon, runIconS, runBar, runAct, runActL, runActIc, runCan, goRuns: () => this.setState({ screen: 'runs', sel: null }),
+      hasNotif: !empty && !prof, notif: s.notif, notifs, toggleNotif: () => this.setState(p => ({ notif: !p.notif, menu: false })),
+      menu: s.menu, toggleMenu: () => this.setState(p => ({ menu: !p.menu, notif: false })), initials: roleK === 'ana' ? 'CM' : 'TL', userName: roleK === 'ana' ? 'Claire Martin' : 'Thomas Lefèvre', userMail: roleK === 'ana' ? 'claire.martin@exemple.fr' : 'thomas.lefevre@exemple.fr',
+      roles, themes, menuItems: [{ l: 'Préférences', ic: 'ph ph-sliders-horizontal', k: '⌘,' }, { l: 'Raccourcis clavier', ic: 'ph ph-keyboard', k: '?' }, { l: 'Se déconnecter', ic: 'ph ph-sign-out', k: '' }],
+      pal: s.pal, q: s.q, palGroups, palNone: !flat.length, closePal: () => this.setState({ pal: false }), stop: e => e.stopPropagation(),
+      onQ: e => this.setState({ q: e.target.value, palI: 0 }),
+      onPK: e => { if (e.key === 'ArrowDown') { e.preventDefault(); this.setState({ palI: Math.min(flat.length - 1, pi + 1) }); } if (e.key === 'ArrowUp') { e.preventDefault(); this.setState({ palI: Math.max(0, pi - 1) }); } if (e.key === 'Enter' && flat[pi]) flat[pi].run(); if (e.key === 'Escape') this.setState({ pal: false }); },
+      hasToast: !!s.toast, toastT: s.toast ? s.toast.t : '', toastD: s.toast ? s.toast.d : '', toastS,
+      ...this.goldVals(b, dark), ...this.runsVals(b), ...this.moreVals(b, dark, roleK, tablet)
+    };
+  }
+}
+</script>
+</body>
+</html>

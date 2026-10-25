@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#e6e3dd;font-family:'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased}*{box-sizing:border-box}a{color:inherit;text-decoration:underline;text-underline-offset:2px}a:hover{color:inherit;opacity:.75}button{font:inherit;cursor:pointer}button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}@keyframes fspin{to{transform:rotate(360deg)}}.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08)}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}.dv-tid{font:600 10px 'Geist Mono',monospace;padding:3px 7px;background:#1b1915;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:600 15px/1.2 'Geist',sans-serif;color:#1b1915}.dv-opts{display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;margin-top:28px}.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px}.dv-oid{font:600 10.5px 'Geist Mono',monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1b1915;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 12px/1.3 'Geist',sans-serif;color:rgba(0,0,0,.6)}.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:12px;overflow:hidden}.dv-opt:target .dv-oid{background:#2d5d73;color:#fff}.dv-next{margin:28px 0 0;font:12px/1.5 'Geist',sans-serif;color:rgba(0,0,0,.55)}</style>
+</helmet>
+<section class="dv-turn" id="t1">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">B</a><span class="dv-tname">Direction B — Atelier</span><a href="Forja A — Acier.dc.html" style="margin-left:auto;font-size:12px;color:#444">← Voir la direction A — Acier</a></div>
+  <p style="margin:0;max-width:760px;font-size:13.5px;line-height:1.55;color:#4f4a42;text-wrap:pretty">L’atelier plutôt que la salle des machines : papier chaud, encre presque noire, plus d’air et de hiérarchie éditoriale, navigation en haut. Les étapes de fabrication sont numérotées comme sur une fiche d’atelier ; un bleu d’acier trempé marque la sélection.</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="B0"><div class="dv-olabel"><a class="dv-oid" href="#B0">B0</a>Planche de tokens</div>
+      <div class="dv-card" style="width:1440px">
+        <div style="padding:44px 48px 48px;background:#fcfbf9;color:#1b1915;display:flex;flex-direction:column;gap:40px">
+          <div style="display:flex;align-items:flex-end;gap:28px">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="width:36px;height:36px;border-radius:9px;background:#1b1915;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:0 8px"><div style="height:3px;width:100%;background:#8d877c;border-radius:2px"></div><div style="height:3px;width:72%;background:#c9c3b8;border-radius:2px"></div><div style="height:3px;width:44%;background:#fcfbf9;border-radius:2px"></div></div>
+              <div style="font-size:30px;font-weight:600;letter-spacing:-0.03em">Forja</div>
+            </div>
+            <div style="font-size:13.5px;color:#6a645a;max-width:560px;line-height:1.5">La marque : trois passes d’affinage — la matière se resserre et s’éclaircit à chaque étape. Brut, nettoyé, modélisé.</div>
+            <div style="margin-left:auto;font:500 11px 'Geist Mono',monospace;color:#6a645a">tokens · atelier · v0.1</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+            <div style="border-radius:12px;border:1px solid #e3dfd7;padding:20px;display:flex;flex-direction:column;gap:14px;background:#f4f2ee">
+              <div style="font-size:13px;font-weight:600">Thème clair</div>
+              <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">
+                <sc-for list="{{ tokL }}" as="t" hint-placeholder-count="8">
+                  <div style="display:flex;flex-direction:column;gap:6px"><div style="{{ t.s }}"></div><div style="font:500 11.5px 'Geist Mono',monospace">{{ t.n }}</div><div style="font:11px 'Geist Mono',monospace;color:#6a645a">{{ t.v }}</div><div style="font-size:11.5px;color:#4f4a42">{{ t.u }}</div></div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="border-radius:12px;border:1px solid #2e2b26;padding:20px;display:flex;flex-direction:column;gap:14px;background:#151412;color:#ece8e1">
+              <div style="font-size:13px;font-weight:600">Thème sombre</div>
+              <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">
+                <sc-for list="{{ tokD }}" as="t" hint-placeholder-count="8">
+                  <div style="display:flex;flex-direction:column;gap:6px"><div style="{{ t.s }}"></div><div style="font:500 11.5px 'Geist Mono',monospace">{{ t.n }}</div><div style="font:11px 'Geist Mono',monospace;color:#958f85">{{ t.v }}</div><div style="font-size:11.5px;color:#b3ada3">{{ t.u }}</div></div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:40px">
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div style="font-size:13px;font-weight:600">États</div>
+              <div style="border-radius:12px;overflow:hidden;border:1px solid #e3dfd7">
+                <div style="display:flex;flex-wrap:wrap;gap:8px;padding:16px;background:#fcfbf9;--line2:#d2ccc1;--tx3:#6a645a;--prop-fg:oklch(0.47 0.11 68);--prop-bg:oklch(0.96 0.04 82);--prop-bd:oklch(0.72 0.11 75);--val-fg:oklch(0.44 0.11 148);--val-bg:oklch(0.955 0.035 145);--val-bd:oklch(0.78 0.08 148);--app-fg:#fcfbf9;--app-bg:#1b1915;--rej-fg:#5f594f;--rej-bg:#ece8e1;--run-fg:oklch(0.46 0.11 240);--run-bg:oklch(0.955 0.025 240);--run-bd:oklch(0.78 0.07 240);--err-fg:oklch(0.49 0.16 28);--err-bg:oklch(0.955 0.03 28);--err-bd:oklch(0.78 0.08 28);--pii-fg:oklch(0.46 0.13 340);--pii-bg:oklch(0.955 0.03 340);--pii-bd:oklch(0.78 0.08 340)">
+                  <sc-for list="{{ states }}" as="s" hint-placeholder-count="8"><span style="{{ s.b.s }}"><span style="display:inline-flex;width:10px;justify-content:center;font-size:10.5px">{{ s.b.g }}</span>{{ s.b.l }}</span></sc-for>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;padding:16px;background:#1c1a17;--line2:#3d3932;--tx3:#958f85;--prop-fg:oklch(0.85 0.11 82);--prop-bg:oklch(0.3 0.05 75);--prop-bd:oklch(0.6 0.1 75);--val-fg:oklch(0.83 0.12 148);--val-bg:oklch(0.28 0.05 148);--val-bd:oklch(0.5 0.08 148);--app-fg:#151412;--app-bg:#ece8e1;--rej-fg:#a39d93;--rej-bg:#23211d;--run-fg:oklch(0.82 0.1 240);--run-bg:oklch(0.29 0.05 240);--run-bd:oklch(0.52 0.09 240);--err-fg:oklch(0.8 0.12 28);--err-bg:oklch(0.3 0.07 28);--err-bd:oklch(0.54 0.12 28);--pii-fg:oklch(0.82 0.11 340);--pii-bg:oklch(0.3 0.06 340);--pii-bd:oklch(0.54 0.1 340)">
+                  <sc-for list="{{ states }}" as="s" hint-placeholder-count="8"><span style="{{ s.b.s }}"><span style="display:inline-flex;width:10px;justify-content:center;font-size:10.5px">{{ s.b.g }}</span>{{ s.b.l }}</span></sc-for>
+                </div>
+              </div>
+              <div style="font-size:12px;color:#6a645a;line-height:1.55">Chaque état combine une forme (anneau vide, coche, disque plein, croix, rotation, point d’exclamation, hachures), un libellé et une couleur. Les données pseudonymisées sont hachurées partout où elles apparaissent : badge, en-tête de colonne, cellule.</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div style="font-size:13px;font-weight:600">Typographie — Geist / Geist Mono</div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:baseline;gap:16px"><span style="width:110px;flex:none;font:11px 'Geist Mono',monospace;color:#6a645a">display 28/34</span><span style="font-size:28px;font-weight:600;letter-spacing:-0.025em">Démo e-commerce</span></div>
+                <div style="display:flex;align-items:baseline;gap:16px"><span style="width:110px;flex:none;font:11px 'Geist Mono',monospace;color:#6a645a">titre 18/24</span><span style="font-size:18px;font-weight:600;letter-spacing:-0.015em">Ce que Forja a compris</span></div>
+                <div style="display:flex;align-items:baseline;gap:16px"><span style="width:110px;flex:none;font:11px 'Geist Mono',monospace;color:#6a645a">corps 14/21</span><span style="font-size:14px">94 % des valeurs de commandes.id_client existent dans clients.id_client.</span></div>
+                <div style="display:flex;align-items:baseline;gap:16px"><span style="width:110px;flex:none;font:11px 'Geist Mono',monospace;color:#6a645a">méta 12/17</span><span style="font-size:12px;color:#6a645a">Proposé par Forja · il y a 12 min</span></div>
+                <div style="display:flex;align-items:baseline;gap:16px"><span style="width:110px;flex:none;font:11px 'Geist Mono',monospace;color:#6a645a">mono 12.5/19</span><span style="font:12.5px 'Geist Mono',monospace">fct_ventes · dim_clients.cle_client</span></div>
+              </div>
+              <div style="display:flex;gap:16px;align-items:flex-end;margin-top:8px">
+                <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:44px;height:44px;border:1px solid #d2ccc1;border-radius:6px"></div><span style="font:11px 'Geist Mono',monospace;color:#6a645a">sm 6</span></div>
+                <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:44px;height:44px;border:1px solid #d2ccc1;border-radius:8px"></div><span style="font:11px 'Geist Mono',monospace;color:#6a645a">md 8</span></div>
+                <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:44px;height:44px;border:1px solid #d2ccc1;border-radius:12px"></div><span style="font:11px 'Geist Mono',monospace;color:#6a645a">lg 12</span></div>
+                <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:64px;height:24px;border:1px solid #d2ccc1;border-radius:999px"></div><span style="font:11px 'Geist Mono',monospace;color:#6a645a">pill</span></div>
+                <div style="margin-left:auto;display:flex;gap:8px">
+                  <button style="height:36px;padding:0 16px;border-radius:8px;border:0;background:#1b1915;color:#fcfbf9;font-size:13px;font-weight:500">Valider</button>
+                  <button style="height:36px;padding:0 16px;border-radius:8px;border:1px solid #d2ccc1;background:#fcfbf9;color:#1b1915;font-size:13px;font-weight:500">Affiner</button>
+                  <button style="height:36px;padding:0 16px;border-radius:8px;border:1px solid #d2ccc1;background:#fcfbf9;color:#1b1915;font-size:13px;font-weight:500;outline:2px solid oklch(0.5 0.1 230);outline-offset:2px">Focus</button>
+                </div>
+              </div>
+              <div style="font-size:12px;color:#6a645a;line-height:1.55">Espacements 4 · 8 · 12 · 16 · 24 · 32 · 48. Contrôles 36 px (44 px sur les écrans analyst en tablette). Bouton principal encre, accent acier réservé au focus et à la sélection.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="B1"><div class="dv-olabel"><a class="dv-oid" href="#B1">B1</a>Vue projet · engineer · thème clair</div>
+      <div class="dv-card" style="width:1440px">
+        <div style="width:1440px;height:900px;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-size:13.5px;line-height:1.5;--bg:#f4f2ee;--panel:#fcfbf9;--sunk:#efece6;--line:#e3dfd7;--line2:#d2ccc1;--tx:#1b1915;--tx2:#4f4a42;--tx3:#6a645a;--acc:oklch(0.5 0.1 230);--acc-bg:oklch(0.95 0.02 230);--inv:#fcfbf9;--prop-fg:oklch(0.47 0.11 68);--prop-bg:oklch(0.96 0.04 82);--prop-bd:oklch(0.72 0.11 75);--val-fg:oklch(0.44 0.11 148);--val-bg:oklch(0.955 0.035 145);--val-bd:oklch(0.78 0.08 148);--app-fg:#fcfbf9;--app-bg:#1b1915;--rej-fg:#5f594f;--rej-bg:#ece8e1;--run-fg:oklch(0.46 0.11 240);--run-bg:oklch(0.955 0.025 240);--run-bd:oklch(0.78 0.07 240);--err-fg:oklch(0.49 0.16 28);--err-bg:oklch(0.955 0.03 28);--err-bd:oklch(0.78 0.08 28);--pii-fg:oklch(0.46 0.13 340);--pii-bg:oklch(0.955 0.03 340);--pii-bd:oklch(0.78 0.08 340)">
+          <header style="height:56px;flex:none;display:flex;align-items:center;gap:22px;padding:0 28px;border-bottom:1px solid var(--line);background:var(--panel)">
+            <div style="display:flex;align-items:center;gap:10px"><div style="width:22px;height:22px;border-radius:6px;background:var(--tx);display:flex;flex-direction:column;justify-content:center;gap:2.5px;padding:0 5px"><div style="height:2px;width:100%;background:#8d877c"></div><div style="height:2px;width:72%;background:#c9c3b8"></div><div style="height:2px;width:44%;background:var(--inv)"></div></div><span style="font-weight:600;font-size:15px;letter-spacing:-0.02em">Forja</span></div>
+            <span style="color:var(--line2)">/</span>
+            <span style="font-weight:500">Démo e-commerce</span>
+            <nav style="display:flex;gap:2px;margin-left:12px">
+              <span style="height:32px;display:flex;align-items:center;padding:0 12px;border-radius:8px;background:var(--sunk);font-weight:500">Vue d’ensemble</span>
+              <span style="height:32px;display:flex;align-items:center;padding:0 12px;border-radius:8px;color:var(--tx2)">Sources</span>
+              <span style="height:32px;display:flex;align-items:center;gap:6px;padding:0 12px;border-radius:8px;color:var(--tx2)">Nettoyage<span style="width:6px;height:6px;border-radius:50%;border:1.5px solid var(--prop-fg)"></span></span>
+              <span style="height:32px;display:flex;align-items:center;padding:0 12px;border-radius:8px;color:var(--tx2)">Modèle</span>
+              <span style="height:32px;display:flex;align-items:center;padding:0 12px;border-radius:8px;color:var(--tx2)">Diffusion</span>
+              <span style="height:32px;display:flex;align-items:center;padding:0 12px;border-radius:8px;color:var(--tx2)">Runs</span>
+              <span style="height:32px;display:flex;align-items:center;padding:0 12px;border-radius:8px;color:var(--tx2)">Journal</span>
+            </nav>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+              <span style="height:30px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:999px;border:1px solid var(--run-bd);background:var(--run-bg);color:var(--run-fg);font-size:12.5px;font-weight:500">{{ spin }}1 opération en cours</span>
+              <span style="height:30px;display:flex;align-items:center;padding:0 12px;border-radius:8px;border:1px solid var(--line2);color:var(--tx3);font-size:12.5px;width:200px">Rechercher…</span>
+              <span style="width:30px;height:30px;border-radius:50%;background:var(--sunk);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">TL</span>
+            </div>
+          </header>
+          <div style="flex:1;min-height:0;display:flex">
+            <div style="flex:1;min-width:0;padding:28px 32px;display:flex;flex-direction:column;gap:24px">
+              <div style="display:flex;align-items:flex-end;gap:16px">
+                <div><h1 style="margin:0;font-size:28px;font-weight:600;letter-spacing:-0.025em;line-height:1.2">Démo e-commerce</h1><div style="color:var(--tx3);margin-top:4px">De 4 fichiers bruts à 2 data marts publiés · poste local · dernier run réussi il y a 2 h</div></div>
+                <div style="margin-left:auto;display:flex;gap:8px"><button style="height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--tx);font-size:13px;font-weight:500">Ajouter des fichiers</button><button style="height:36px;padding:0 14px;border-radius:8px;border:0;background:var(--tx);color:var(--inv);font-size:13px;font-weight:500">Lancer un run</button></div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;position:relative">
+                <div style="position:absolute;left:24px;right:24px;top:15px;height:1px;background:var(--line2)"></div>
+                <sc-for list="{{ stages }}" as="s" hint-placeholder-count="4">
+                  <div style="display:flex;flex-direction:column;gap:12px;padding-right:16px;position:relative">
+                    <div style="display:flex;align-items:center;gap:10px"><span style="width:30px;height:30px;border-radius:50%;background:var(--bg);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font:500 12px 'Geist Mono',monospace;position:relative">{{ s.n }}</span><span style="font-weight:600;font-size:15px;letter-spacing:-0.01em">{{ s.t }}</span><span style="font:11.5px 'Geist Mono',monospace;color:var(--tx3)">{{ s.layer }}</span></div>
+                    <div style="display:flex;gap:3px">
+                      <sc-for list="{{ s.bar }}" as="x" hint-placeholder-count="4"><span style="{{ x }}"></span></sc-for>
+                    </div>
+                    <div style="font-size:12.5px;color:var(--tx2)">{{ s.sum }}</div>
+                    <div style="display:flex;flex-direction:column;gap:6px">
+                      <sc-for list="{{ s.items }}" as="it" hint-placeholder-count="4">
+                        <div style="{{ it.cs }}">
+                          <div style="display:flex;align-items:center;gap:8px"><span style="{{ it.ns }}">{{ it.name }}</span><span style="margin-left:auto;display:flex"><span style="{{ it.b.s }}"><span style="display:inline-flex;width:10px;justify-content:center;font-size:10.5px">{{ it.b.g }}</span>{{ it.b.l }}</span></span></div>
+                          <div style="font-size:12px;color:var(--tx3)">{{ it.meta }}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="flex:1;min-height:0;border-top:1px solid var(--line);padding-top:18px;display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:baseline;gap:10px"><span style="font-weight:600;font-size:15px">Derniers runs</span><span style="font-size:12.5px;color:var(--tx3)">aujourd’hui</span><span style="margin-left:auto;font-size:12.5px;color:var(--tx2);text-decoration:underline;text-underline-offset:2px">Historique complet</span></div>
+                <sc-for list="{{ runs }}" as="r" hint-placeholder-count="5">
+                  <div style="display:grid;grid-template-columns:54px 14px 110px minmax(0,1fr) 80px 110px;align-items:center;gap:10px;height:32px;font-size:13px">
+                    <span style="font:12px 'Geist Mono',monospace;color:var(--tx3)">{{ r.at }}</span>
+                    <span style="{{ r.dot }}"></span>
+                    <span style="font:12px 'Geist Mono',monospace;color:var(--tx2)">{{ r.id }}</span>
+                    <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.op }}<span style="{{ r.ns }}"> — {{ r.note }}</span></span>
+                    <span style="font:12px 'Geist Mono',monospace;color:var(--tx3);text-align:right">{{ r.dur }}</span>
+                    <span style="display:flex;justify-content:flex-end"><span style="{{ r.b.s }}"><span style="display:inline-flex;width:10px;justify-content:center;font-size:10.5px">{{ r.b.g }}</span>{{ r.b.l }}</span></span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <aside style="width:372px;flex:none;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column">
+              <div style="padding:20px 22px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;gap:8px"><span style="font-weight:600;font-size:14px">En cours</span><span style="font:12px 'Geist Mono',monospace;color:var(--tx3)">run_0418</span></div>
+                <div style="font-size:13px">Profilage de <span style="font-family:'Geist Mono',monospace;font-size:12.5px">commandes.csv</span></div>
+                <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px">
+                  <div style="display:flex;align-items:center;gap:8px;color:var(--tx2)"><span style="width:16px;color:var(--val-fg);font-weight:600">✓</span>Lecture du fichier<span style="margin-left:auto;font-family:'Geist Mono',monospace;color:var(--tx3)">0:04</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;color:var(--tx2)"><span style="width:16px;color:var(--val-fg);font-weight:600">✓</span>Détection des types<span style="margin-left:auto;font-family:'Geist Mono',monospace;color:var(--tx3)">0:21</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;font-weight:500"><span style="width:16px;color:var(--run-fg);display:flex">{{ spin }}</span>Statistiques par colonne<span style="margin-left:auto;font-family:'Geist Mono',monospace;color:var(--run-fg)">62 %</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;color:var(--tx3)"><span style="width:16px">4</span>Recherche de données personnelles</div>
+                  <div style="display:flex;align-items:center;gap:8px;color:var(--tx3)"><span style="width:16px">5</span>Proposition des règles de nettoyage</div>
+                </div>
+                <div style="font-size:12px;color:var(--tx3)">Environ 50 s restantes. Vous pouvez quitter cette page : une notification vous préviendra.</div>
+                <div style="display:flex;gap:8px"><button style="height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--tx);font-size:12.5px">Voir le journal</button><button style="height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--tx);font-size:12.5px">Annuler</button></div>
+              </div>
+              <div style="padding:20px 22px 8px;display:flex;align-items:baseline;gap:8px"><span style="font-weight:600;font-size:14px">À revoir</span><span style="font:12px 'Geist Mono',monospace;color:var(--tx3)">5</span><span style="margin-left:auto;font-size:12px;color:var(--tx3)">rien n’est appliqué sans vous</span></div>
+              <div style="padding:0 12px;display:flex;flex-direction:column">
+                <sc-for list="{{ queue }}" as="q" hint-placeholder-count="5">
+                  <div style="padding:10px;border-radius:8px;display:flex;flex-direction:column;gap:4px;border-bottom:1px solid var(--line)">
+                    <div style="display:flex;align-items:center;gap:8px"><span style="{{ q.b.s }}"><span style="display:inline-flex;width:10px;justify-content:center;font-size:10.5px">{{ q.b.g }}</span>{{ q.b.l }}</span><span style="margin-left:auto;font-size:12px;color:var(--tx3)">{{ q.age }}</span></div>
+                    <div style="font-weight:500;font-size:13px">{{ q.t }}</div>
+                    <div style="font-size:12.5px;color:var(--tx2)">{{ q.d }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="B2"><div class="dv-olabel"><a class="dv-oid" href="#B2">B2</a>Revue du plan Silver · clients · thème sombre — cliquez une ligne, décidez dans le panneau</div>
+      <div class="dv-card" style="width:1440px;border-color:#000">
+        <div style="width:1440px;height:900px;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-size:13.5px;line-height:1.5;--bg:#151412;--panel:#1c1a17;--sunk:#23211d;--line:#2e2b26;--line2:#3d3932;--tx:#ece8e1;--tx2:#b3ada3;--tx3:#958f85;--acc:oklch(0.75 0.09 225);--acc-bg:oklch(0.3 0.04 225);--inv:#151412;--prop-fg:oklch(0.85 0.11 82);--prop-bg:oklch(0.3 0.05 75);--prop-bd:oklch(0.6 0.1 75);--val-fg:oklch(0.83 0.12 148);--val-bg:oklch(0.28 0.05 148);--val-bd:oklch(0.5 0.08 148);--app-fg:#151412;--app-bg:#ece8e1;--rej-fg:#a39d93;--rej-bg:#23211d;--run-fg:oklch(0.82 0.1 240);--run-bg:oklch(0.29 0.05 240);--run-bd:oklch(0.52 0.09 240);--err-fg:oklch(0.8 0.12 28);--err-bg:oklch(0.3 0.07 28);--err-bd:oklch(0.54 0.12 28);--pii-fg:oklch(0.82 0.11 340);--pii-bg:oklch(0.3 0.06 340);--pii-bd:oklch(0.54 0.1 340)">
+          <header style="height:56px;flex:none;display:flex;align-items:center;gap:22px;padding:0 28px;border-bottom:1px solid var(--line);background:var(--panel)">
+            <div style="display:flex;align-items:center;gap:10px"><div style="width:22px;height:22px;border-radius:6px;background:var(--tx);display:flex;flex-direction:column;justify-content:center;gap:2.5px;padding:0 5px"><div style="height:2px;width:100%;background:#8d877c"></div><div style="height:2px;width:72%;background:#5f594f"></div><div style="height:2px;width:44%;background:var(--inv)"></div></div><span style="font-weight:600;font-size:15px;letter-spacing:-0.02em">Forja</span></div>
+            <span style="color:var(--line2)">/</span><span style="font-weight:500">Démo e-commerce</span>
+            <nav style="display:flex;gap:2px;margin-left:12px">
+              <span style="height:32px;display:flex;align-items:center;padding:0 12px;border-radius:8px;color:var(--tx2)">Vue d’ensemble</span>
+              <span style="height:32px;display:flex;align-items:center;padding:0 12px;border-radius:8px;color:var(--tx2)">Sources</span>
+              <span style="height:32px;display:flex;align-items:center;padding:0 12px;border-radius:8px;background:var(--sunk);font-weight:500">Nettoyage</span>
+              <span style="height:32px;display:flex;align-items:center;padding:0 12px;border-radius:8px;color:var(--tx2)">Modèle</span>
+              <span style="height:32px;display:flex;align-items:center;padding:0 12px;border-radius:8px;color:var(--tx2)">Diffusion</span>
+              <span style="height:32px;display:flex;align-items:center;padding:0 12px;border-radius:8px;color:var(--tx2)">Runs</span>
+            </nav>
+            <span style="margin-left:auto;width:30px;height:30px;border-radius:50%;background:var(--sunk);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">TL</span>
+          </header>
+          <div style="flex:1;min-height:0;display:flex">
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+              <div style="padding:22px 28px 18px;display:flex;flex-direction:column;gap:18px;border-bottom:1px solid var(--line)">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div><div style="font-size:12.5px;color:var(--tx3)">Nettoyage · étape 02</div><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em;line-height:1.25">Plan de nettoyage de <span style="font-family:'Geist Mono',monospace;font-weight:500;font-size:22px">clients.csv</span></h1></div>
+                  <div style="margin-left:auto;display:flex;gap:8px"><button style="height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--tx);font-size:12.5px">Versions du plan</button><button style="height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--tx);font-size:12.5px">Régénérer</button></div>
+                </div>
+                <div style="display:grid;grid-template-columns:200px 1fr 300px;gap:24px;align-items:stretch">
+                  <div style="display:flex;align-items:center;gap:14px">
+                    <div style="width:68px;height:68px;border-radius:50%;background:conic-gradient(var(--tx) 0 82.6%,var(--line2) 82.6% 100%);display:flex;align-items:center;justify-content:center"><div style="width:56px;height:56px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:16px;letter-spacing:-0.02em">82,6</div></div>
+                    <div style="font-size:12.5px;color:var(--tx2);line-height:1.45">Score qualité<br><span style="color:var(--tx3)">4 812 lignes<br>10 colonnes</span></div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:6px">
+                    <div style="font-size:12px;color:var(--tx3)">Colonnes · taux de remplissage</div>
+                    <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px">
+                      <sc-for list="{{ cols }}" as="c" hint-placeholder-count="10">
+                        <div style="{{ c.cs }}">
+                          <div style="display:flex;align-items:center;gap:5px"><span style="font:12px 'Geist Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.n }}</span><sc-if value="{{ c.pii }}" hint-placeholder-val="{{ false }}"><span style="color:var(--pii-fg);display:flex;margin-left:auto">{{ hatch }}</span></sc-if></div>
+                          <div style="height:3px;background:var(--line2);border-radius:2px;overflow:hidden"><div style="{{ c.fs }}"></div></div>
+                          <div style="font:11px 'Geist Mono',monospace;color:var(--tx3)">{{ c.t }} · {{ c.f }}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <div style="border-radius:10px;background:repeating-linear-gradient(135deg,var(--pii-bg) 0 6px,var(--panel) 6px 12px);border:1px solid var(--pii-bd);padding:12px 14px;display:flex;flex-direction:column;gap:4px">
+                    <div style="font-weight:600;color:var(--pii-fg);font-size:13px;display:flex;align-items:center;gap:8px"><span style="display:flex">{{ hatch }}</span>Données personnelles</div>
+                    <div style="font-size:12.5px;color:var(--tx);background:var(--panel);border-radius:6px;padding:6px 8px">nom, prenom, email, telephone seront remplacés par des identifiants stables. Les valeurs réelles ne quittent pas ce poste.</div>
+                  </div>
+                </div>
+              </div>
+              <div style="padding:12px 28px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)">
+                <span style="font-weight:600;font-size:14px">7 règles proposées</span>
+                <span style="font-size:12.5px;color:var(--tx3)">{{ summary }}</span>
+                <span style="margin-left:auto;font-size:12.5px;color:var(--tx3)">Trier : impact décroissant</span>
+              </div>
+              <div style="display:grid;grid-template-columns:112px 52px minmax(0,1.1fr) 150px minmax(0,1.5fr) 72px;gap:12px;padding:8px 28px;font-size:11.5px;color:var(--tx3);border-bottom:1px solid var(--line)"><span>État</span><span>Id</span><span>Règle</span><span>Colonne</span><span>Explication</span><span style="text-align:right">Lignes</span></div>
+              <div style="flex:1;min-height:0;overflow:auto">
+                <sc-for list="{{ rules }}" as="r" hint-placeholder-count="7">
+                  <div onClick="{{ r.sel }}" style="{{ r.rs }}">
+                    <span style="display:flex"><span style="{{ r.b.s }}"><span style="display:inline-flex;width:10px;justify-content:center;font-size:10.5px">{{ r.b.g }}</span>{{ r.b.l }}</span></span>
+                    <span style="font:12px 'Geist Mono',monospace;color:var(--tx3)">{{ r.id }}</span>
+                    <span style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.t }}</span>
+                    <span style="font:12px 'Geist Mono',monospace;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.col }}</span>
+                    <span style="color:var(--tx2);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.why }}</span>
+                    <span style="font:12px 'Geist Mono',monospace;color:var(--tx2);text-align:right">{{ r.n }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="height:64px;flex:none;border-top:1px solid var(--line);background:var(--panel);display:flex;align-items:center;gap:14px;padding:0 28px">
+                <div style="display:flex;gap:3px"><sc-for list="{{ meter }}" as="m" hint-placeholder-count="7"><span style="{{ m }}"></span></sc-for></div>
+                <span style="font-size:13px;color:var(--tx2)">{{ footMsg }}</span>
+                <button style="{{ applyS }}">{{ applyL }}</button>
+              </div>
+            </div>
+            <aside style="width:440px;flex:none;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column">
+              <div style="padding:20px 24px 16px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:center;gap:8px"><span style="font:12px 'Geist Mono',monospace;color:var(--tx3)">{{ cur.id }}</span><span style="{{ cur.b.s }}"><span style="display:inline-flex;width:10px;justify-content:center;font-size:10.5px">{{ cur.b.g }}</span>{{ cur.b.l }}</span><span style="margin-left:auto;font-size:12px;color:var(--tx3)">{{ curPos }}</span></div>
+                <div style="font-size:18px;font-weight:600;letter-spacing:-0.015em;line-height:1.3">{{ cur.t }}</div>
+                <div style="font:12.5px 'Geist Mono',monospace;color:var(--tx2)">{{ cur.col }}</div>
+              </div>
+              <div style="flex:1;min-height:0;overflow:auto;padding:18px 24px;display:flex;flex-direction:column;gap:18px">
+                <div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;color:var(--tx3)">Pourquoi Forja propose cette règle</div><div style="font-size:14px;text-wrap:pretty">{{ cur.why }}</div><div style="font-size:12.5px;color:var(--tx3)">{{ cur.meta }}</div></div>
+                <div style="display:flex;flex-direction:column;gap:8px"><div style="font-size:12px;color:var(--tx3)">Réglages</div>
+                  <sc-for list="{{ cur.params }}" as="p" hint-placeholder-count="2">
+                    <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12.5px;color:var(--tx2)">{{ p.k }}</span><span style="height:36px;border:1px solid var(--line2);border-radius:8px;display:flex;align-items:center;padding:0 12px;background:var(--bg)">{{ p.v }}<span style="margin-left:auto;color:var(--tx3);font-size:10px">▾</span></span></div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px"><div style="font-size:12px;color:var(--tx3)">Avant → après</div>
+                  <div style="border:1px solid var(--line);border-radius:8px;overflow:hidden">
+                    <sc-for list="{{ cur.ex }}" as="e" hint-placeholder-count="4">
+                      <div style="display:grid;grid-template-columns:1fr 24px 1fr;align-items:center;height:34px;padding:0 12px;border-bottom:1px solid var(--line);font:12.5px 'Geist Mono',monospace"><span style="color:var(--tx2)">{{ e.a }}</span><span style="color:var(--tx3)">→</span><span style="{{ e.bs }}">{{ e.b }}</span></div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;color:var(--tx3)">Expression générée</div><div style="font:12px 'Geist Mono',monospace;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--tx2)">{{ cur.expr }}</div></div>
+              </div>
+              <div style="padding:14px 24px;border-top:1px solid var(--line);display:flex;gap:8px">
+                <button onClick="{{ cur.reject }}" style="height:38px;padding:0 14px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--tx);font-size:13px">Rejeter</button>
+                <button onClick="{{ cur.undo }}" style="height:38px;padding:0 14px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);font-size:13px">Remettre en revue</button>
+                <button onClick="{{ cur.approve }}" style="margin-left:auto;height:38px;padding:0 16px;border-radius:8px;border:0;background:var(--tx);color:var(--inv);font-size:13px;font-weight:500">Valider et suivante</button>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="B3"><div class="dv-olabel"><a class="dv-oid" href="#B3">B3</a>Agent métier · analyst · thème sombre — le brouillon se remplit à droite ; cliquez une option</div>
+      <div class="dv-card" style="width:1440px;border-color:#000">
+        <div style="width:1440px;height:900px;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-size:15px;line-height:1.55;--bg:#151412;--panel:#1c1a17;--sunk:#23211d;--line:#2e2b26;--line2:#3d3932;--tx:#ece8e1;--tx2:#b3ada3;--tx3:#958f85;--acc:oklch(0.75 0.09 225);--acc-bg:oklch(0.3 0.04 225);--inv:#151412;--prop-fg:oklch(0.85 0.11 82);--prop-bg:oklch(0.3 0.05 75);--prop-bd:oklch(0.6 0.1 75);--val-fg:oklch(0.83 0.12 148);--val-bg:oklch(0.28 0.05 148);--val-bd:oklch(0.5 0.08 148);--app-fg:#151412;--app-bg:#ece8e1;--rej-fg:#a39d93;--rej-bg:#23211d;--run-fg:oklch(0.82 0.1 240);--run-bg:oklch(0.29 0.05 240);--run-bd:oklch(0.52 0.09 240);--err-fg:oklch(0.8 0.12 28);--err-bg:oklch(0.3 0.07 28);--err-bd:oklch(0.54 0.12 28);--pii-fg:oklch(0.82 0.11 340);--pii-bg:oklch(0.3 0.06 340);--pii-bd:oklch(0.54 0.1 340)">
+          <header style="height:60px;flex:none;display:flex;align-items:center;gap:22px;padding:0 28px;border-bottom:1px solid var(--line)">
+            <div style="display:flex;align-items:center;gap:10px"><div style="width:22px;height:22px;border-radius:6px;background:var(--tx);display:flex;flex-direction:column;justify-content:center;gap:2.5px;padding:0 5px"><div style="height:2px;width:100%;background:#8d877c"></div><div style="height:2px;width:72%;background:#5f594f"></div><div style="height:2px;width:44%;background:var(--inv)"></div></div><span style="font-weight:600;font-size:15px;letter-spacing:-0.02em">Forja</span></div>
+            <nav style="display:flex;gap:4px;margin-left:8px;font-size:14px">
+              <span style="height:44px;display:flex;align-items:center;padding:0 14px;border-radius:8px;background:var(--sunk);font-weight:500">Poser une question</span>
+              <span style="height:44px;display:flex;align-items:center;padding:0 14px;border-radius:8px;color:var(--tx2)">Mes data marts</span>
+              <span style="height:44px;display:flex;align-items:center;padding:0 14px;border-radius:8px;color:var(--tx2)">Indicateurs</span>
+            </nav>
+            <span style="margin-left:auto;font-size:13px;color:var(--tx3)">Démo e-commerce · données du jour</span>
+            <span style="width:32px;height:32px;border-radius:50%;background:var(--sunk);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600">CM</span>
+          </header>
+          <div style="flex:1;min-height:0;display:flex">
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:32px 48px 24px;gap:22px">
+              <div style="display:flex;flex-direction:column;gap:4px"><div style="font-size:13px;color:var(--tx3)">Vous · il y a 1 min</div><div style="font-size:22px;font-weight:500;letter-spacing:-0.015em;line-height:1.35;max-width:720px">Chiffre d’affaires par mois et par ville en 2025, clients Pro</div></div>
+              <div style="display:flex;gap:16px;align-items:center;padding:14px 16px;border-radius:12px;background:var(--panel);border:1px solid var(--line)">
+                <span style="{{ prog.b.s }}"><span style="display:inline-flex;width:10px;justify-content:center;font-size:10.5px">{{ prog.b.g }}</span>{{ prog.b.l }}</span>
+                <div style="flex:1;min-width:0"><div style="font-weight:500;font-size:14.5px">{{ prog.t }}</div><div style="font-size:13px;color:var(--tx3)">{{ prog.d }}</div></div>
+                <div style="display:flex;gap:3px"><sc-for list="{{ prog.bar }}" as="x" hint-placeholder-count="5"><span style="{{ x }}"></span></sc-for></div>
+                <button style="height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--tx);font-size:13.5px">Me prévenir</button>
+                <button style="height:44px;padding:0 14px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);font-size:13.5px">Annuler</button>
+              </div>
+              <sc-if value="{{ clarPending }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;flex-direction:column;gap:14px">
+                  <div><div style="font-size:13px;color:var(--tx3)">Forja · une précision avant de continuer</div><div style="font-size:18px;font-weight:600;letter-spacing:-0.01em">Qui sont vos « clients Pro » ?</div><div style="font-size:14px;color:var(--tx2);max-width:680px">Deux informations de vos fichiers peuvent répondre. Le résultat change de 107 clients selon votre choix.</div></div>
+                  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+                    <sc-for list="{{ clarOpts }}" as="o" hint-placeholder-count="3">
+                      <button onClick="{{ o.pick }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:16px;border-radius:12px;border:1px solid var(--line2);background:var(--panel);color:var(--tx);text-align:left;min-height:132px">
+                        <span style="font:500 12px 'Geist Mono',monospace;color:var(--tx3)">{{ o.key }}</span>
+                        <span style="font-weight:600;font-size:15px;line-height:1.3">{{ o.t }}</span>
+                        <span style="font-size:13px;color:var(--tx2)">{{ o.d }}</span>
+                        <span style="margin-top:auto;font-size:13px;font-weight:500">{{ o.n }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                  <div style="font-size:13px;color:var(--tx3)">Votre choix sera mémorisé pour ce projet. Vous pourrez le modifier à tout moment.</div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ clarDone }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:4px"><div style="font-size:13px;color:var(--tx3)">Vous · à l’instant</div><div style="font-size:17px;font-weight:500">{{ clarLabel }}</div><button onClick="{{ resetClar }}" style="align-self:flex-start;background:transparent;border:0;padding:0;color:var(--tx2);font-size:13px;text-decoration:underline;text-underline-offset:2px">Changer ma réponse</button></div>
+              </sc-if>
+              <div style="margin-top:auto;border:1px solid var(--line2);border-radius:12px;background:var(--panel);padding:14px 16px;display:flex;align-items:center;gap:12px">
+                <span style="flex:1;color:var(--tx3)">Posez une autre question ou précisez la demande…</span>
+                <button style="height:44px;padding:0 18px;border-radius:8px;border:0;background:var(--sunk);color:var(--tx3);font-size:14px">Envoyer</button>
+              </div>
+            </div>
+            <aside style="width:420px;flex:none;border-left:1px solid var(--line);background:var(--panel);padding:28px 28px;display:flex;flex-direction:column;gap:18px">
+              <div><div style="font-size:13px;color:var(--tx3)">Brouillon en cours</div><div style="font-size:18px;font-weight:600;letter-spacing:-0.01em">Votre data mart</div></div>
+              <div style="display:flex;flex-direction:column;border-top:1px solid var(--line)">
+                <sc-for list="{{ spec }}" as="s" hint-placeholder-count="5">
+                  <div style="display:grid;grid-template-columns:112px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:baseline">
+                    <span style="font-size:13px;color:var(--tx3)">{{ s.k }}</span>
+                    <span style="{{ s.vs }}">{{ s.v }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="font-size:13px;color:var(--tx3);line-height:1.55">Le brouillon se complète au fil de la conversation. Vous verrez ensuite un aperçu chiffré et des contrôles avant de décider de publier.</div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="B4"><div class="dv-olabel"><a class="dv-oid" href="#B4">B4</a>Aperçu de vérification · analyst · thème clair — SQL repliable, Affiner, choix de destination</div>
+      <div class="dv-card" style="width:1440px">
+        <div style="width:1440px;height:900px;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-size:14px;line-height:1.55;--bg:#f4f2ee;--panel:#fcfbf9;--sunk:#efece6;--line:#e3dfd7;--line2:#d2ccc1;--tx:#1b1915;--tx2:#4f4a42;--tx3:#6a645a;--acc:oklch(0.5 0.1 230);--acc-bg:oklch(0.95 0.02 230);--inv:#fcfbf9;--prop-fg:oklch(0.47 0.11 68);--prop-bg:oklch(0.96 0.04 82);--prop-bd:oklch(0.72 0.11 75);--val-fg:oklch(0.44 0.11 148);--val-bg:oklch(0.955 0.035 145);--val-bd:oklch(0.78 0.08 148);--app-fg:#fcfbf9;--app-bg:#1b1915;--rej-fg:#5f594f;--rej-bg:#ece8e1;--run-fg:oklch(0.46 0.11 240);--run-bg:oklch(0.955 0.025 240);--run-bd:oklch(0.78 0.07 240);--err-fg:oklch(0.49 0.16 28);--err-bg:oklch(0.955 0.03 28);--err-bd:oklch(0.78 0.08 28);--pii-fg:oklch(0.46 0.13 340);--pii-bg:oklch(0.955 0.03 340);--pii-bd:oklch(0.78 0.08 340)">
+          <header style="height:60px;flex:none;display:flex;align-items:center;gap:22px;padding:0 28px;border-bottom:1px solid var(--line);background:var(--panel)">
+            <div style="display:flex;align-items:center;gap:10px"><div style="width:22px;height:22px;border-radius:6px;background:var(--tx);display:flex;flex-direction:column;justify-content:center;gap:2.5px;padding:0 5px"><div style="height:2px;width:100%;background:#8d877c"></div><div style="height:2px;width:72%;background:#c9c3b8"></div><div style="height:2px;width:44%;background:var(--inv)"></div></div><span style="font-weight:600;font-size:15px;letter-spacing:-0.02em">Forja</span></div>
+            <nav style="display:flex;gap:4px;margin-left:8px;font-size:14px">
+              <span style="height:44px;display:flex;align-items:center;padding:0 14px;border-radius:8px;color:var(--tx2)">Poser une question</span>
+              <span style="height:44px;display:flex;align-items:center;padding:0 14px;border-radius:8px;background:var(--sunk);font-weight:500">Mes data marts</span>
+              <span style="height:44px;display:flex;align-items:center;padding:0 14px;border-radius:8px;color:var(--tx2)">Indicateurs</span>
+            </nav>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12.5px">
+              <sc-for list="{{ stepper }}" as="s" hint-placeholder-count="5"><span style="{{ s.s }}"><span style="{{ s.ds }}">{{ s.mk }}</span>{{ s.l }}</span></sc-for>
+            </div>
+          </header>
+          <div style="flex:1;min-height:0;overflow:hidden;display:flex;justify-content:center;padding:28px 40px 0">
+            <div style="width:100%;max-width:1120px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:28px;align-content:start">
+              <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <span style="display:flex"><span style="{{ draftB.s }}"><span style="display:inline-flex;width:10px;justify-content:center;font-size:10.5px">{{ draftB.g }}</span>{{ draftB.l }}</span></span>
+                  <h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-0.025em;line-height:1.25">CA par mois et par ville — 2025, clients Pro</h1>
+                </div>
+                <sc-if value="{{ refine }}" hint-placeholder-val="{{ false }}">
+                  <div style="border:1px solid var(--acc);background:var(--acc-bg);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+                    <div style="font-weight:500">Que souhaitez-vous changer ?</div>
+                    <div style="height:44px;border:1px solid var(--line2);border-radius:8px;background:var(--panel);display:flex;align-items:center;padding:0 12px;color:var(--tx3)">Par exemple : ajouter 2024 pour comparer</div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap"><button style="height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--panel);color:var(--tx2);font-size:13px">Comparer avec 2024</button><button style="height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--panel);color:var(--tx2);font-size:13px">Montants TTC</button><button style="height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--panel);color:var(--tx2);font-size:13px">10 premières villes</button></div>
+                  </div>
+                </sc-if>
+                <div style="border-radius:12px;background:var(--panel);border:1px solid var(--line)">
+                  <div style="padding:14px 18px 4px;font-size:13px;color:var(--tx3)">Ce que Forja a compris</div>
+                  <sc-for list="{{ understood }}" as="u" hint-placeholder-count="4">
+                    <div style="display:grid;grid-template-columns:130px 1fr auto;gap:12px;padding:10px 18px;border-top:1px solid var(--line);align-items:baseline"><span style="color:var(--tx3);font-size:13px">{{ u.k }}</span><span style="font-weight:500">{{ u.v }}</span><span style="font-size:12.5px;color:var(--tx2);text-decoration:underline;text-underline-offset:2px">Modifier</span></div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:baseline;gap:10px"><span style="font-weight:600;font-size:15px">Contrôles de cohérence</span><span style="font-size:13px;color:var(--tx3)">survolez un badge pour le détail</span></div>
+                  <div style="display:flex;flex-wrap:wrap;gap:8px">
+                    <sc-for list="{{ checks }}" as="c" hint-placeholder-count="5"><span title="{{ c.d }}" style="{{ c.b.s }}"><span style="display:inline-flex;width:10px;justify-content:center;font-size:10.5px">{{ c.b.g }}</span>{{ c.t }}</span></sc-for>
+                  </div>
+                </div>
+                <div style="border-radius:12px;background:var(--panel);border:1px solid var(--line);overflow:hidden">
+                  <div style="display:flex;align-items:center;gap:10px;padding:12px 18px"><span style="font-weight:600;font-size:15px">Échantillon</span><span style="font-size:13px;color:var(--tx3)">5 commandes sur 2 948 · regroupées ensuite par mois et ville</span></div>
+                  <div style="display:grid;grid-template-columns:0.9fr 1.1fr 1fr 0.8fr 0.9fr;padding:8px 18px;font:12px 'Geist Mono',monospace;color:var(--tx3);border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--sunk)"><span>mois</span><span style="display:flex;align-items:center;gap:6px;color:var(--pii-fg)"><span style="display:flex">{{ hatch }}</span>client</span><span style="display:flex;align-items:center;gap:6px;color:var(--pii-fg)"><span style="display:flex">{{ hatch }}</span>email</span><span>ville</span><span style="text-align:right">montant HT</span></div>
+                  <sc-for list="{{ detail }}" as="d" hint-placeholder-count="5">
+                    <div style="display:grid;grid-template-columns:0.9fr 1.1fr 1fr 0.8fr 0.9fr;padding:0 18px;height:36px;align-items:center;border-bottom:1px solid var(--line)"><span>{{ d.m }}</span><span style="font:12.5px 'Geist Mono',monospace;color:var(--pii-fg);background:repeating-linear-gradient(135deg,var(--pii-bg) 0 5px,transparent 5px 9px);padding:0 6px;margin-right:10px;border-radius:4px">{{ d.id }}</span><span style="font:12.5px 'Geist Mono',monospace;color:var(--pii-fg);background:repeating-linear-gradient(135deg,var(--pii-bg) 0 5px,transparent 5px 9px);padding:0 6px;margin-right:10px;border-radius:4px">{{ d.em }}</span><span>{{ d.v }}</span><span style="text-align:right;font:13px 'Geist Mono',monospace">{{ d.mt }}</span></div>
+                  </sc-for>
+                  <button onClick="{{ toggleSql }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:12px 18px;border:0;background:transparent;color:var(--tx);text-align:left;font-size:13.5px"><span style="font:11px 'Geist Mono',monospace;color:var(--tx3);width:10px">{{ sqlChev }}</span><span style="font-weight:500">Voir la requête SQL</span><span style="color:var(--tx3);font-size:13px">pour les équipes data</span></button>
+                  <sc-if value="{{ sql }}" hint-placeholder-val="{{ false }}"><pre style="margin:0;border-top:1px solid var(--line);background:var(--sunk);padding:14px 18px;font:12.5px/1.6 'Geist Mono',monospace;color:var(--tx2);white-space:pre-wrap">{{ sqlText }}</pre></sc-if>
+                </div>
+              </div>
+              <aside style="display:flex;flex-direction:column;gap:14px">
+                <div style="border-radius:12px;background:var(--panel);border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:12px">
+                  <div style="font-size:13px;color:var(--tx3)">Total 2025 · clients Pro</div>
+                  <div style="font-size:26px;font-weight:600;letter-spacing:-0.025em;line-height:1.1">2 418 650 €</div>
+                  <div style="font-size:13px;color:var(--tx2)">156 lignes · 12 mois × 13 villes</div>
+                </div>
+                <div style="border-radius:12px;background:var(--panel);border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:10px">
+                  <div style="font-weight:600;font-size:14px">Publier vers</div>
+                  <sc-for list="{{ dests }}" as="d" hint-placeholder-count="4">
+                    <button onClick="{{ d.pick }}" style="{{ d.s }}"><span style="{{ d.rs }}"></span><span style="display:flex;flex-direction:column;text-align:left"><span style="font-weight:500;font-size:13.5px">{{ d.l }}</span><span style="font-size:12px;color:var(--tx3)">{{ d.d }}</span></span></button>
+                  </sc-for>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <button style="height:44px;border-radius:8px;border:0;background:var(--tx);color:var(--inv);font-size:14px;font-weight:500">{{ publishL }}</button>
+                  <button onClick="{{ toggleRefine }}" style="height:44px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--tx);font-size:14px;font-weight:500">Affiner la demande</button>
+                  <div style="font-size:12.5px;color:var(--tx3);line-height:1.5">Une fois validé, le data mart est actualisé chaque matin. Vous pourrez le retirer à tout moment.</div>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="dv-next">Pistes : « la navigation haute de <a class="dv-oid" href="#B1">B1</a> avec la densité de A » · « version tablette de <a class="dv-oid" href="#B3">B3</a> » · « le panneau de revue de <a class="dv-oid" href="#B2">B2</a> dans la direction A »</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { rules: { 'R-01': 'val', 'R-02': 'prop', 'R-03': 'prop', 'R-04': 'prop', 'R-05': 'val', 'R-06': 'rej', 'R-07': 'val' }, cur: 'R-02', clar: null, sql: false, refine: false, dest: 'Power BI' };
+  spin() { return React.createElement('span', { style: { width: 10, height: 10, borderRadius: '50%', border: '1.5px solid currentColor', borderRightColor: 'transparent', display: 'inline-block', animation: 'fspin .9s linear infinite', flex: 'none' } }); }
+  hatch() { return React.createElement('span', { style: { width: 11, height: 11, borderRadius: 3, border: '1px solid currentColor', background: 'repeating-linear-gradient(135deg,currentColor 0 1px,transparent 1px 3.5px)', display: 'inline-block', flex: 'none' } }); }
+  b(k, l) {
+    const M = {
+      prop: ['Proposé', '○', { color: 'var(--prop-fg)', background: 'var(--prop-bg)', border: '1px dashed var(--prop-bd)' }],
+      warn: ['À surveiller', '!', { color: 'var(--prop-fg)', background: 'var(--prop-bg)', border: '1px solid var(--prop-bd)' }],
+      val: ['Validé', '✓', { color: 'var(--val-fg)', background: 'var(--val-bg)', border: '1px solid var(--val-bd)' }],
+      app: ['Appliqué', '●', { color: 'var(--app-fg)', background: 'var(--app-bg)', border: '1px solid var(--app-bg)' }],
+      rej: ['Rejeté', '×', { color: 'var(--rej-fg)', background: 'var(--rej-bg)', border: '1px solid var(--line2)' }],
+      run: ['En cours', null, { color: 'var(--run-fg)', background: 'var(--run-bg)', border: '1px solid var(--run-bd)' }],
+      err: ['Erreur', '!', { color: 'var(--err-fg)', background: 'var(--err-bg)', border: '1px solid var(--err-bd)' }],
+      pii: ['Pseudonymisé', null, { color: 'var(--pii-fg)', background: 'var(--pii-bg)', border: '1px solid var(--pii-bd)' }],
+      idle: ['À venir', '–', { color: 'var(--tx3)', background: 'transparent', border: '1px solid var(--line2)' }]
+    };
+    const m = M[k];
+    return { l: l || m[0], g: k === 'run' ? this.spin() : k === 'pii' ? this.hatch() : m[1], s: { display: 'inline-flex', alignItems: 'center', gap: 6, height: 24, padding: '0 10px 0 8px', borderRadius: 999, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', lineHeight: 1, ...m[2] } };
+  }
+  seg(k) { const c = { app: 'var(--tx)', val: 'var(--val-fg)', prop: 'var(--prop-fg)', run: 'var(--run-fg)', err: 'var(--err-fg)', idle: 'var(--line2)', rej: 'var(--line2)' }[k]; return { flex: 1, height: 4, borderRadius: 2, background: c, opacity: k === 'rej' ? 0.5 : 1 }; }
+  clarMap() { return { seg: 'Le segment « Professionnel »', siret: 'Les clients ayant un SIRET', both: 'L’un ou l’autre' }; }
+  renderVals() {
+    const S = this.state, b = this.b.bind(this);
+    const mono = { fontFamily: "'Geist Mono',monospace", fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+    const sans = { fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+    const stages = [
+      { n: '01', t: 'Sources', layer: 'bronze', sum: '4 fichiers importés, 1 en cours d’analyse', items: [
+        ['clients.csv', '4 812 lignes · qualité 82,6', 'app', 'Profilé'], ['produits.xlsx', '640 lignes · qualité 91,2', 'app', 'Profilé'], ['commandes.csv', 'analyse en cours · étape 3/5', 'run', '62 %'], ['lignes_commande.csv', '6 750 lignes · qualité 88,0', 'app', 'Profilé']] },
+      { n: '02', t: 'Nettoyage', layer: 'silver', sum: '2 plans appliqués, 1 à revoir, 1 en échec', items: [
+        ['clients', '7 règles · 3 à revoir', 'prop', 'À revoir'], ['produits', 'colonne prix_ht introuvable', 'err'], ['commandes', 'attend l’analyse', 'idle'], ['lignes_commande', '6 règles appliquées', 'app']] },
+      { n: '03', t: 'Modèle', layer: 'gold', sum: 'Schéma en étoile, 1 relation à confirmer', items: [
+        ['dim_clients', '4 812 lignes · 2 col. pseudonymisées', 'app'], ['dim_produits', '640 lignes', 'app'], ['dim_date', '2023 → 2025', 'app'], ['fct_ventes', 'relation id_client à 94 %', 'prop', 'À revoir']] },
+      { n: '04', t: 'Diffusion', layer: 'serving', sum: '2 data marts publiés, 1 aperçu prêt', items: [
+        ['Montant par mois et par ville 2024', 'Power BI · chaque matin', 'app', 'Publié', 1], ['Quantité par catégorie', 'Superset · chaque matin', 'app', 'Publié', 1], ['CA par mois et par ville 2025, Pro', 'aperçu de Claire Martin', 'prop', 'Aperçu prêt', 1]] }
+    ].map(s => ({ ...s, bar: s.items.map(i => this.seg(i[2])), items: s.items.map(i => ({ name: i[0], meta: i[1], b: b(i[2], i[3]), ns: i[4] ? sans : mono,
+      cs: { padding: '10px 12px', borderRadius: 8, background: 'var(--panel)', border: i[2] === 'prop' ? '1px dashed var(--prop-bd)' : i[2] === 'err' ? '1px solid var(--err-bd)' : '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 2 } })) }));
+    const dotC = { run: 'var(--run-fg)', app: 'var(--tx)', err: 'var(--err-fg)' };
+    const runs = [
+      ['10:42', 'run_0418', 'Profilage commandes.csv', 'statistiques par colonne', '1:12', 'run'], ['06:00', 'run_0417', 'Construction de fct_ventes', '6 750 lignes', '0:48', 'app', 'Réussi'],
+      ['09:15', 'run_0416', 'Nettoyage lignes_commande', '6 règles appliquées', '1:03', 'app', 'Réussi'], ['09:02', 'run_0414', 'Nettoyage produits', 'colonne prix_ht introuvable dans produits.xlsx', '0:14', 'err', 'Échec'],
+      ['06:00', 'run_0415', 'Publication Quantité par catégorie', 'Superset · 12 lignes', '0:09', 'app', 'Réussi']
+    ].map(r => ({ at: r[0], id: r[1], op: r[2], note: r[3], dur: r[4], b: b(r[5], r[6]), ns: { color: r[5] === 'err' ? 'var(--err-fg)' : 'var(--tx3)' }, dot: { width: 8, height: 8, borderRadius: '50%', background: dotC[r[5]] } }));
+    const queue = [
+      [b('prop'), 'Plan de nettoyage · clients', '3 règles proposées, dont une pseudonymisation', '12 min'],
+      [b('prop'), 'Relation entre commandes et clients', '94 % des valeurs de commandes.id_client existent dans clients.id_client', '1 h'],
+      [b('pii', 'Données personnelles'), 'Méthode de pseudonymisation', 'email et telephone : hachage salé proposé', '12 min'],
+      [b('prop', 'Aperçu prêt'), 'CA par mois et par ville 2025, Pro', 'Demandé par Claire Martin · 5 contrôles', '3 min']
+    ].map(q => ({ b: q[0], t: q[1], d: q[2], age: q[3] }));
+    const cols = [['id_client', 'int', 100], ['nom', 'text', 100, 1], ['prenom', 'text', 100, 1], ['email', 'text', 98, 1], ['telephone', 'text', 94, 1], ['ville', 'text', 99.6], ['code_postal', 'text', 99], ['segment', 'text', 99.4], ['date_inscription', 'date?', 100, 0, 1], ['siret', 'text', 23]]
+      .map(c => ({ n: c[0], t: c[1], f: String(c[2]).replace('.', ',') + ' %', pii: !!c[3], fs: { height: '100%', width: c[2] + '%', background: c[2] < 50 ? 'var(--prop-fg)' : 'var(--tx2)' },
+        cs: { padding: '7px 9px', borderRadius: 6, background: 'var(--panel)', border: c[4] ? '1px dashed var(--prop-bd)' : '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 } }));
+    const R = [
+      { id: 'R-04', t: 'Pseudonymiser les coordonnées', col: 'email, telephone', n: '4 790', why: 'Remplacées par un identifiant stable (hachage salé). Les jointures restent possibles, les valeurs réelles ne sortent pas de la source.', meta: 'Proposé par Forja · obligatoire avant toute publication',
+        params: [{ k: 'Méthode', v: 'Hachage SHA-256 salé, préfixe cli_' }, { k: 'Clé de sel', v: 'Coffre local · forja-salt-01' }], expr: "'cli_' || left(sha256(email || :salt), 8)", ex: [{ a: 'j.dupont@…', b: 'cli_8f2c41a0' }, { a: 'm.roux@…', b: 'cli_03be7d19' }, { a: '06 12 …', b: 'tel_a91f0c22' }, { a: '(vide)', b: 'NULL' }] },
+      { id: 'R-01', t: 'Supprimer les espaces superflus', col: 'nom, prenom, ville', n: '312', why: 'Espaces en début et fin de texte retirés sur 312 valeurs.', meta: 'Validé par Thomas L. il y a 8 min', params: [{ k: 'Colonnes', v: 'nom, prenom, ville' }], expr: 'trim(nom), trim(prenom), trim(ville)', ex: [{ a: '"Dupont "', b: '"Dupont"' }, { a: '" Lyon"', b: '"Lyon"' }] },
+      { id: 'R-03', t: 'Harmoniser l’écriture des villes', col: 'ville', n: '61', why: '« paris », « PARIS » et « Paris » sont regroupés : 14 écritures ramenées à 9 villes.', meta: 'Proposé par Forja · confiance moyenne · 5 regroupements à vérifier',
+        params: [{ k: 'Règle', v: 'Majuscule initiale, accents conservés' }, { k: 'Correspondances', v: '5 regroupements à vérifier' }], expr: 'initcap(trim(ville))', ex: [{ a: 'paris', b: 'Paris' }, { a: 'LYON', b: 'Lyon' }, { a: 'st-etienne', b: 'Saint-Étienne' }, { a: 'Nantes ', b: 'Nantes' }] },
+      { id: 'R-05', t: 'Supprimer les doublons exacts', col: 'id_client', n: '3', why: '3 lignes strictement identiques supprimées, la première occurrence est conservée.', meta: 'Validé par Thomas L. il y a 8 min', params: [{ k: 'Clé', v: 'Toutes les colonnes' }], expr: 'SELECT DISTINCT *', ex: [{ a: '3 doublons', b: 'supprimés' }] },
+      { id: 'R-06', t: 'Remplir les segments manquants', col: 'segment', n: '27', why: '27 clients sans segment recevraient « Non renseigné ».', meta: 'Rejeté par Thomas L. · « à corriger dans le CRM »', params: [{ k: 'Valeur', v: 'Non renseigné' }], expr: "coalesce(segment, 'Non renseigné')", ex: [{ a: 'NULL', b: 'Non renseigné' }] },
+      { id: 'R-02', t: 'Convertir en date', col: 'date_inscription', n: '1', why: 'Conversion en date au format JJ/MM/AAAA, 1 valeur invalide détectée.', meta: 'Proposé par Forja · confiance élevée · la ligne invalide sera signalée, pas supprimée',
+        params: [{ k: 'Format reconnu', v: 'JJ/MM/AAAA' }, { k: 'Si la valeur est invalide', v: 'Mettre à vide (NULL) et signaler' }], expr: "try_strptime(date_inscription, '%d/%m/%Y')::DATE", ex: [{ a: '03/01/2024', b: '2024-01-03' }, { a: '17/11/2023', b: '2023-11-17' }, { a: '31/02/2024', b: 'NULL · date impossible', bad: 1 }, { a: '08/07/2025', b: '2025-07-08' }] },
+      { id: 'R-07', t: 'Garder le code postal en texte', col: 'code_postal', n: '—', why: 'Les zéros initiaux sont conservés (ex. 06000).', meta: 'Validé par Thomas L. il y a 8 min', params: [{ k: 'Type', v: 'Texte (VARCHAR)' }], expr: 'code_postal::VARCHAR', ex: [{ a: '6000', b: '06000' }] }
+    ];
+    const st = S.rules, counts = { prop: 0, val: 0, rej: 0 };
+    R.forEach(r => counts[st[r.id]]++);
+    const set = (id, v, next) => this.setState(s => {
+      const rules = { ...s.rules, [id]: v };
+      let cur = s.cur;
+      if (next) { const p = R.find(x => rules[x.id] === 'prop'); if (p) cur = p.id; }
+      return { rules, cur };
+    });
+    const rules = R.map(r => ({ ...r, b: b(st[r.id]), sel: () => this.setState({ cur: r.id }),
+      rs: { display: 'grid', gridTemplateColumns: '112px 52px minmax(0,1.1fr) 150px minmax(0,1.5fr) 72px', gap: 12, alignItems: 'center', height: 46, padding: '0 28px', borderBottom: '1px solid var(--line)', cursor: 'pointer', background: S.cur === r.id ? 'var(--acc-bg)' : 'transparent', boxShadow: S.cur === r.id ? 'inset 3px 0 0 var(--acc)' : 'none', opacity: st[r.id] === 'rej' ? 0.65 : 1 } }));
+    const c = R.find(r => r.id === S.cur) || R[0];
+    const cur = { ...c, b: b(st[c.id]), ex: c.ex.map(e => ({ ...e, bs: { color: e.bad ? 'var(--err-fg)' : 'var(--tx)' } })), approve: () => set(c.id, 'val', 1), reject: () => set(c.id, 'rej', 1), undo: () => set(c.id, 'prop') };
+    const ready = counts.prop === 0;
+    const meter = R.map(r => ({ width: 18, height: 6, borderRadius: 3, background: st[r.id] === 'val' ? 'var(--val-fg)' : st[r.id] === 'rej' ? 'var(--line2)' : 'transparent', border: st[r.id] === 'prop' ? '1px dashed var(--prop-fg)' : 'none' }));
+    const steps = S.clar
+      ? { b: b('run'), t: 'Construction du data mart', d: 'Étape 3 sur 5 · ventes croisées avec les clients et le calendrier · environ 1 min', bar: ['app', 'app', 'run', 'idle', 'idle'] }
+      : { b: b('prop', 'En pause'), t: 'J’ai besoin d’une précision', d: 'Étape 2 sur 5 · la question est comprise, la population reste à préciser', bar: ['app', 'prop', 'idle', 'idle', 'idle'] };
+    const prog = { ...steps, bar: steps.bar.map(k => ({ width: 22, height: 5, borderRadius: 3, background: k === 'app' ? 'var(--tx)' : k === 'run' ? 'var(--run-fg)' : k === 'prop' ? 'var(--prop-fg)' : 'var(--line2)' })) };
+    const clarOpts = [
+      { k: 'seg', key: 'Option A', t: 'Le segment « Professionnel »', d: 'Le champ « segment » du fichier clients vaut Professionnel', n: '1 284 clients' },
+      { k: 'siret', key: 'Option B', t: 'Les clients ayant un SIRET', d: 'Le numéro SIRET est renseigné, quel que soit le segment', n: '1 102 clients' },
+      { k: 'both', key: 'Option C', t: 'L’un ou l’autre', d: 'Segment Professionnel ou SIRET renseigné', n: '1 391 clients' }
+    ].map(o => ({ ...o, pick: () => this.setState({ clar: o.k }) }));
+    const vs = (pending) => ({ fontSize: 14.5, fontWeight: 500, color: pending ? 'var(--prop-fg)' : 'var(--tx)', borderBottom: pending ? '1px dashed var(--prop-bd)' : 'none', justifySelf: 'start' });
+    const spec = [['Mesure', 'Chiffre d’affaires HT'], ['Découpage', 'Par mois, par ville du client'], ['Période', 'Année 2025'], ['Population', S.clar ? this.clarMap()[S.clar] : 'À préciser — voir la question', !S.clar], ['Publication', 'Choisie à l’étape d’aperçu']].map(s => ({ k: s[0], v: s[1], vs: vs(s[2]) }));
+    const stepper = [['Question', 'done'], ['Précision', 'done'], ['Construction', 'done'], ['Vérification', 'cur'], ['Publication', 'idle']].map(([l, k], i) => ({ l, mk: k === 'done' ? '✓' : String(i + 1),
+      s: { display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px 0 4px', height: 28, borderRadius: 999, color: k === 'idle' ? 'var(--tx3)' : 'var(--tx)', fontWeight: k === 'cur' ? 600 : 400, background: k === 'cur' ? 'var(--sunk)' : 'transparent' },
+      ds: { width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, background: k === 'cur' ? 'var(--tx)' : 'transparent', color: k === 'cur' ? 'var(--inv)' : k === 'done' ? 'var(--val-fg)' : 'var(--tx3)', border: k === 'idle' ? '1px solid var(--line2)' : k === 'done' ? '1px solid var(--val-bd)' : 'none' } }));
+    const understood = [['Mesure', 'Chiffre d’affaires HT · somme des montants des lignes de commande'], ['Découpage', 'Par mois de commande, par ville du client'], ['Période', 'Du 1er janvier au 31 décembre 2025'], ['Population', 'Clients du segment « Professionnel » · 1 284 clients']].map(u => ({ k: u[0], v: u[1] }));
+    const checks = [[b('val'), 'Total identique aux ventes', '2 418 650,30 € ici comme dans fct_ventes filtrée'], [b('val'), '12 mois sur 12', 'Janvier à décembre 2025'], [b('val'), 'Aucun doublon', 'Une ligne par mois et par ville'], [b('val'), 'Aucune valeur manquante', 'Sur les 4 colonnes'], [b('warn'), '3 villes avec moins de 5 commandes', 'Brest, Pau, Nîmes : montants peu représentatifs']].map(c => ({ b: c[0], t: c[1], d: c[2] }));
+    const detail = [['Janv. 2025', 'cli_8f2c41a0', 'em_51c0e2', 'Lyon', '1 240,00 €'], ['Janv. 2025', 'cli_03be7d19', 'em_9a7f13', 'Paris', '386,50 €'], ['Janv. 2025', 'cli_e7a90b54', 'em_c2d8a4', 'Paris', '2 015,80 €'], ['Févr. 2025', 'cli_5d11c3f2', 'em_07be61', 'Bordeaux', '712,00 €'], ['Févr. 2025', 'cli_8f2c41a0', 'em_51c0e2', 'Lyon', '948,20 €']].map(r => ({ m: r[0], id: r[1], em: r[2], v: r[3], mt: r[4] }));
+    const dests = [['Power BI', 'Jeu de données actualisé chaque matin'], ['Superset', 'Table dans l’entrepôt partagé'], ['Fichier CSV', 'Téléchargement unique'], ['Fichier Parquet', 'Pour les équipes data']].map(([l, d]) => { const on = S.dest === l; return { l, d, pick: () => this.setState({ dest: l }),
+      s: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', minHeight: 44, borderRadius: 8, border: on ? '1px solid var(--acc)' : '1px solid var(--line)', background: on ? 'var(--acc-bg)' : 'transparent', color: 'var(--tx)' },
+      rs: { width: 16, height: 16, borderRadius: '50%', flex: 'none', border: on ? '5px solid var(--acc)' : '1.5px solid var(--line2)', background: 'var(--panel)' } }; });
+    const tl = [['--bg', '#f4f2ee', 'Fond'], ['--panel', '#fcfbf9', 'Surfaces'], ['--sunk', '#efece6', 'Retraits, code'], ['--line', '#e3dfd7', 'Filets'], ['--tx', '#1b1915', 'Encre, bouton principal'], ['--tx2', '#4f4a42', 'Texte secondaire'], ['--tx3', '#6a645a', 'Méta (AA ✓)'], ['--acc', 'oklch(0.5 0.1 230)', 'Acier trempé : focus, sélection']];
+    const td = [['--bg', '#151412', 'Fond'], ['--panel', '#1c1a17', 'Surfaces'], ['--sunk', '#23211d', 'Retraits, code'], ['--line', '#2e2b26', 'Filets'], ['--tx', '#ece8e1', 'Encre, bouton principal'], ['--tx2', '#b3ada3', 'Texte secondaire'], ['--tx3', '#958f85', 'Méta (AA ✓)'], ['--acc', 'oklch(0.75 0.09 225)', 'Acier trempé : focus, sélection']];
+    const tk = (a, bd) => a.map(t => ({ n: t[0], v: t[1], u: t[2], s: { height: 52, borderRadius: 8, background: t[1], border: '1px solid ' + bd } }));
+    const states = [['prop'], ['val'], ['app'], ['rej'], ['run'], ['err'], ['pii'], ['idle']].map(([k]) => ({ b: b(k) }));
+    return {
+      spin: this.spin(), hatch: this.hatch(), stages, runs, queue, cols, rules, cur, curPos: (R.indexOf(c) + 1) + ' sur ' + R.length,
+      summary: `${counts.val} validées · ${counts.prop} à revoir · ${counts.rej} rejetée`, meter,
+      footMsg: ready ? `Tout est décidé : ${counts.val} règles seront appliquées.` : `${counts.prop} règle${counts.prop > 1 ? 's' : ''} attend${counts.prop > 1 ? 'ent' : ''} votre décision. Rien n’est appliqué avant.`,
+      applyL: ready ? `Appliquer ${counts.val} règles` : 'Appliquer le plan',
+      applyS: { marginLeft: 'auto', height: 38, padding: '0 16px', borderRadius: 8, fontSize: 13, fontWeight: 500, border: 0, background: ready ? 'var(--tx)' : 'var(--sunk)', color: ready ? 'var(--inv)' : 'var(--tx3)', cursor: ready ? 'pointer' : 'not-allowed' },
+      prog, clarOpts, clarPending: !S.clar, clarDone: !!S.clar, clarLabel: S.clar ? this.clarMap()[S.clar] : '', resetClar: () => this.setState({ clar: null }), spec,
+      stepper, draftB: b('prop', 'Brouillon · non publié'), understood, checks, detail, dests, publishL: 'Valider et publier vers ' + S.dest,
+      refine: S.refine, toggleRefine: () => this.setState(s => ({ refine: !s.refine })),
+      sql: S.sql, toggleSql: () => this.setState(s => ({ sql: !s.sql })), sqlChev: S.sql ? '▾' : '▸',
+      sqlText: "SELECT date_trunc('month', d.date_jour) AS mois,\n       c.ville,\n       sum(v.montant_ht)             AS chiffre_affaires_ht,\n       count(DISTINCT v.id_commande) AS nb_commandes\nFROM gold.fct_ventes v\nJOIN gold.dim_clients c ON c.cle_client = v.cle_client\nJOIN gold.dim_date    d ON d.cle_date   = v.cle_date\nWHERE d.annee = 2025\n  AND c.segment = 'Professionnel'\nGROUP BY 1, 2\nORDER BY 1, 3 DESC;",
+      tokL: tk(tl, '#e3dfd7'), tokD: tk(td, '#3d3932'), states
+    };
+  }
+}
+</script>
+</body>
+</html>
