@@ -15,9 +15,35 @@ from typing import Any
 
 from forja_core.errors import BuildError
 from forja_core.jobs.models import DbtTestResult, DbtTestSummary
+from forja_core.jobs.scope import item_finished, item_started, report
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+# "3 of 27 START sql incremental model main.stg_commandes ...... [RUN]"
+_NODE_LINE_RE = re.compile(r"\b(\d+) of (\d+) (START|OK|PASS|WARN|ERROR|FAIL|SKIP)\b(.*)")
+_NODE_NAME_RE = re.compile(r"\b(?:model|snapshot|snapshotted|snapshotting|seed) (?:\w+\.)?(\w+)")
 _TEST_STATUSES = {"pass", "fail", "warn", "error", "skipped"}
+
+
+class DbtProgress:
+    """Follows the node lines of ``dbt build`` and reports them to the current job."""
+
+    def __init__(self) -> None:
+        self.finished = 0
+
+    def feed(self, line: str) -> None:
+        match = _NODE_LINE_RE.search(line)
+        if match is None:
+            return
+        _, total, status, rest = match.groups()
+        name = _NODE_NAME_RE.search(rest)
+        if status == "START":
+            if name:
+                item_started(name.group(1))
+            return
+        self.finished += 1
+        if name:
+            item_finished(name.group(1), ok=status in ("OK", "PASS", "WARN"))
+        report("dbt", "", round(100 * self.finished / max(1, int(total))))
 
 
 @dataclass
@@ -145,8 +171,11 @@ class DbtRunner:
             errors="replace",
         )
         assert process.stdout is not None
+        progress = DbtProgress()
         for line in process.stdout:
-            log(_ANSI_RE.sub("", line.rstrip()))
+            text = _ANSI_RE.sub("", line.rstrip())
+            log(text)
+            progress.feed(text)
         try:
             returncode = process.wait(timeout=self.timeout_seconds)
         except subprocess.TimeoutExpired as exc:

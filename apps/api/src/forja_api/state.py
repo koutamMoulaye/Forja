@@ -107,7 +107,9 @@ class AppState:
 
         def refresh_semantic_layer(job: Job, log_line: Callable[[str], None]) -> None:
             # The semantic layer follows the applied Gold model.
-            if job.type is JobType.BUILD_GOLD:
+            if job.type is JobType.BUILD_GOLD or (
+                job.type is JobType.BUILD_ALL and job.metrics is not None and job.metrics.models
+            ):
                 layer = semantic.regenerate(job.project_id, by=job.created_by)
                 log_line(f"semantic layer v{layer.version} ready")
 

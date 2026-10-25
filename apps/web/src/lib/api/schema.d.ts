@@ -2002,6 +2002,16 @@ export type components = {
         /** JobProgress */
         JobProgress: {
             /**
+             * Done
+             * @description Items finished successfully
+             */
+            done?: string[];
+            /**
+             * Failed
+             * @description Items that failed
+             */
+            failed?: string[];
+            /**
              * Message
              * @default
              */
@@ -2011,6 +2021,11 @@ export type components = {
              * @default 0
              */
             percent: number;
+            /**
+             * Running
+             * @description Items being processed: dbt models (stg_clients, dim_clients...), or source ids while profiling
+             */
+            running?: string[];
             /** Step */
             step: string;
             /** Updated At */
@@ -2025,7 +2040,7 @@ export type components = {
          * JobType
          * @enum {string}
          */
-        JobType: "profile" | "build_silver" | "build_gold" | "export" | "gold_proposal" | "mart_request" | "publish_mart";
+        JobType: "profile" | "build_silver" | "build_gold" | "export" | "gold_proposal" | "mart_request" | "publish_mart" | "build_all";
         /** LLMTrace */
         LLMTrace: {
             /**

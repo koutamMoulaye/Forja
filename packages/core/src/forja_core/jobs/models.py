@@ -17,6 +17,7 @@ class JobType(StrEnum):
     GOLD_PROPOSAL = "gold_proposal"
     MART_REQUEST = "mart_request"
     PUBLISH_MART = "publish_mart"
+    BUILD_ALL = "build_all"
 
     @property
     def uses_llm(self) -> bool:
@@ -140,6 +141,13 @@ class JobProgress(BaseModel):
     message: str = ""
     percent: int = Field(default=0, ge=0, le=100)
     updated_at: datetime | None = None
+    running: list[str] = Field(
+        default_factory=list,
+        description="Items being processed: dbt models (stg_clients, dim_clients...), or "
+        "source ids while profiling",
+    )
+    done: list[str] = Field(default_factory=list, description="Items finished successfully")
+    failed: list[str] = Field(default_factory=list, description="Items that failed")
 
 
 class RunMetrics(BaseModel):

@@ -2011,6 +2011,22 @@
       },
       "JobProgress": {
         "properties": {
+          "done": {
+            "description": "Items finished successfully",
+            "items": {
+              "type": "string"
+            },
+            "title": "Done",
+            "type": "array"
+          },
+          "failed": {
+            "description": "Items that failed",
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed",
+            "type": "array"
+          },
           "message": {
             "default": "",
             "title": "Message",
@@ -2022,6 +2038,14 @@
             "minimum": 0.0,
             "title": "Percent",
             "type": "integer"
+          },
+          "running": {
+            "description": "Items being processed: dbt models (stg_clients, dim_clients...), or source ids while profiling",
+            "items": {
+              "type": "string"
+            },
+            "title": "Running",
+            "type": "array"
           },
           "step": {
             "title": "Step",
@@ -2065,7 +2089,8 @@
           "export",
           "gold_proposal",
           "mart_request",
-          "publish_mart"
+          "publish_mart",
+          "build_all"
         ],
         "title": "JobType",
         "type": "string"

@@ -34,6 +34,11 @@ export const JOB_TEXT: Record<JobType, { label: string; done: string; failed: st
     done: "Data mart préparé",
     failed: "Échec de la préparation du data mart",
   },
+  build_all: {
+    label: "Run complet",
+    done: "Run complet terminé",
+    failed: "Échec du run complet",
+  },
   publish_mart: {
     label: "Publication d’un data mart",
     done: "Data mart publié",

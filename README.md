@@ -62,9 +62,11 @@ aperçu de vérification avant publication.
 - **Fournisseurs LLM** Anthropic, OpenAI et Ollama : sortie structurée validée, retries,
   journal des appels sans données. Ils ne reçoivent que schémas, statistiques et
   relations, jamais une valeur de ligne.
-- **Moteur de jobs** (`profile`, `build_silver`, `build_gold`, `export`) exécuté en tâche de fond, avec
-  logs et métriques : lignes lues, valides, rejetées, doublons retirés, durée, résultats
-  des tests dbt.
+- **Moteur de jobs** (`profile`, `build_silver`, `build_gold`, `export`, et `build_all` qui
+  enchaîne nettoyage, modèle et diffusion) exécuté en tâche de fond, avec logs et
+  métriques : lignes lues, valides, rejetées, doublons retirés, durée, résultats des tests
+  dbt. La progression suit chaque modèle dbt (en cours, terminé, en échec) et chaque
+  source profilée.
 - **Authentification et rôles** ([docs/security.md](docs/security.md)) : mode `local`
   (un administrateur, mot de passe initial affiché une fois dans les logs et à changer)
   ou `multi` (invitations) ; mots de passe argon2, jetons JWT courts et refresh tokens

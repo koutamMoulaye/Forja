@@ -9,12 +9,15 @@ import pytest
 from forja_api.state import AppState
 from forja_core.config import Settings
 from forja_core.errors import SourceNotFoundError
-from forja_core.jobs.models import Job, JobStatus, JobType, RunMetrics, RunRequest
+from forja_core.jobs.models import Job, JobProgress, JobStatus, JobType, RunMetrics, RunRequest
 from forja_core.jobs.runner import InlineJobRunner, ThreadJobRunner
+from forja_core.jobs.scope import JobScope, job_scope
 from forja_core.models import Project, ProjectCreate
 from forja_core.silver.build import requires_full_refresh
+from forja_core.silver.dbt.runner import DbtProgress
 from forja_core.silver.plan import ColumnPatch, PlanPatch, PlanStatus, SilverType
 from tests.fixtures import generate as fx
+from tests.shop import build_shop, shop_settings
 
 
 @pytest.fixture
@@ -92,6 +95,11 @@ def test_build_silver_routes_rows_and_measures(
     assert reasons["21"] == "clé primaire en double dans le lot"
     assert missing_batch == 0
 
+    progress = job.progress
+    assert progress is not None and progress.percent == 100
+    assert {"stg_clients", "stg_clients__rejects"} <= set(progress.done)
+    assert progress.running == [] and progress.failed == []
+
     logs = state.catalog.job_logs(job.id)
     assert "dbt build --select stg_clients stg_clients__rejects" in logs
     assert "Completed successfully" in logs
@@ -107,7 +115,57 @@ def test_profile_job(state: AppState, demo: Project, fixtures_dir: Path) -> None
     job = _run(state, demo, RunRequest(type=JobType.PROFILE))
     assert job.status is JobStatus.SUCCEEDED
     assert job.metrics is not None and job.metrics.profiled_sources == 1
+    assert job.progress is not None and job.progress.done == [job_source(state, demo)]
     assert "quality score" in state.catalog.job_logs(job.id)
+
+
+def job_source(state: AppState, project: Project) -> str:
+    [source] = state.catalog.list_sources(project.id)
+    return source.id
+
+
+def test_dbt_lines_become_progress_items() -> None:
+    seen: list[JobProgress] = []
+    scope = JobScope(job_id="j", project_id="p", on_progress=lambda p, _log: seen.append(p))
+    lines = [
+        "21:51:18  1 of 3 START sql incremental model main.stg_clients ........ [RUN]",
+        "21:51:19  1 of 3 OK created sql incremental model main.stg_clients ... [OK in 0.90s]",
+        "21:51:19  2 of 3 START snapshot main.snap_clients ................... [RUN]",
+        "21:51:19  2 of 3 ERROR snapshotting main.snap_clients ............... [ERROR in 0.1s]",
+        "21:51:20  3 of 3 START test not_null_stg_clients_id ................ [RUN]",
+        "21:51:20  3 of 3 PASS not_null_stg_clients_id ...................... [PASS in 0.1s]",
+    ]
+    with job_scope(scope), scope.stage(40, 60):
+        progress = DbtProgress()
+        for line in lines:
+            progress.feed(line)
+    last = seen[-1]
+    assert last.done == ["stg_clients"] and last.failed == ["snap_clients"]
+    assert last.running == [] and last.percent == 60
+    assert seen[0].running == ["stg_clients"] and seen[2].percent == 46
+
+
+def test_build_all_runs_silver_gold_and_serving(tmp_path: Path, ecommerce_dir: Path) -> None:
+    state, project = build_shop(shop_settings(tmp_path), ecommerce_dir)
+    try:
+        skipped = _run(state, project, RunRequest(type=JobType.BUILD_ALL))
+        assert skipped.status is JobStatus.SUCCEEDED, state.catalog.job_logs(skipped.id)
+        assert "model skipped" in state.catalog.job_logs(skipped.id)
+
+        for relation in state.catalog.list_relations(project.id):
+            state.relations.confirm(relation.id)
+        state.gold.propose(project.id, use_llm=False)
+        state.gold.approve(project.id)
+        job = _run(state, project, RunRequest(type=JobType.BUILD_ALL))
+        assert job.status is JobStatus.SUCCEEDED, state.catalog.job_logs(job.id)
+        assert job.progress is not None and job.progress.percent == 100
+        assert {"stg_clients", "dim_clients", "fct_ventes"} <= set(job.progress.done)
+        assert job.metrics is not None and job.metrics.models and job.metrics.exports
+        assert job.metrics.serving_path is not None
+        assert state.catalog.effective_gold_plan(project.id).status is PlanStatus.APPLIED  # type: ignore[union-attr]
+        assert state.catalog.latest_semantic_layer(project.id) is not None
+    finally:
+        state.close()
 
 
 def test_run_on_source_of_another_project(
