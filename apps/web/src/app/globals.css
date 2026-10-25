@@ -290,19 +290,16 @@
 @utility material-glass {
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--saturate-glass));
-  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--saturate-glass));
 }
 
 @utility material-glass-hi {
   background: var(--glass-hi);
   backdrop-filter: blur(var(--blur-glass-lg)) saturate(var(--saturate-glass));
-  -webkit-backdrop-filter: blur(var(--blur-glass-lg)) saturate(var(--saturate-glass));
 }
 
 @utility material-side {
   background: var(--side);
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--saturate-glass));
-  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--saturate-glass));
 }
 
 @utility hatch {
