@@ -47,12 +47,6 @@ import { cn } from "@/lib/cn";
 import { useTheme } from "@/lib/theme/use-theme";
 import { COLOR_TOKENS, MOTION, RADII, SHADOWS, STATE_TOKENS, TYPE_SCALE } from "./tokens";
 
-const ROLE_NAMES: Record<string, string> = {
-  admin: "Propriétaire",
-  engineer: "Engineer",
-  analyst: "Analyst",
-};
-
 function Section({
   id,
   title,
@@ -298,7 +292,7 @@ function Components() {
             <span className="text-meta font-semibold text-tx2">Rôle</span>
             <Select value={role} onValueChange={setRole}>
               <SelectTrigger aria-label="Rôle" className="self-start">
-                <SelectValue>{ROLE_NAMES[role]}</SelectValue>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="admin">Propriétaire</SelectItem>

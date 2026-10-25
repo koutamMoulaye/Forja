@@ -2,11 +2,64 @@
 
 import { Select as SelectPrimitive } from "radix-ui";
 import { CaretUpDown, Check } from "@phosphor-icons/react";
+import { Children, createContext, isValidElement, useContext, useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 
-export const Select = SelectPrimitive.Root;
+type Labels = { value: string | undefined; labels: Map<string, React.ReactNode> };
+
+const LabelsContext = createContext<Labels>({ value: undefined, labels: new Map() });
+
+/** Reads the items' labels from the JSX, so the trigger shows them before the list mounts. */
+function collectLabels(node: React.ReactNode, labels: Map<string, React.ReactNode>) {
+  Children.forEach(node, (child) => {
+    if (!isValidElement<{ value?: string; children?: React.ReactNode }>(child)) return;
+    if (child.type === SelectItem && child.props.value !== undefined) {
+      labels.set(child.props.value, child.props.children);
+    } else {
+      collectLabels(child.props.children, labels);
+    }
+  });
+  return labels;
+}
+
+export function Select({
+  value,
+  defaultValue,
+  onValueChange,
+  children,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Root>) {
+  const [inner, setInner] = useState(defaultValue);
+  const current = value ?? inner;
+  const labels = useMemo(() => collectLabels(children, new Map()), [children]);
+  return (
+    <LabelsContext.Provider value={{ value: current, labels }}>
+      <SelectPrimitive.Root
+        value={value}
+        defaultValue={defaultValue}
+        onValueChange={(next) => {
+          setInner(next);
+          onValueChange?.(next);
+        }}
+        {...props}
+      >
+        {children}
+      </SelectPrimitive.Root>
+    </LabelsContext.Provider>
+  );
+}
+
 export const SelectGroup = SelectPrimitive.Group;
-export const SelectValue = SelectPrimitive.Value;
+
+/** Shows the selected item's label; children, when given, still take precedence. */
+export function SelectValue({
+  children,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Value>) {
+  const { value, labels } = useContext(LabelsContext);
+  const label = value ? labels.get(value) : undefined;
+  return <SelectPrimitive.Value {...props}>{children ?? label}</SelectPrimitive.Value>;
+}
 
 export function SelectTrigger({
   className,
