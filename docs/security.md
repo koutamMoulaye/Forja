@@ -81,6 +81,41 @@ Le front appelle l'API depuis une autre origine : `FORJA_CORS_ORIGINS` (JSON, pa
 l'en-tête `Authorization` : aucun cookie, donc pas de `credentials`. En-têtes exposés :
 `X-Request-ID`, `Retry-After`, `Content-Disposition`.
 
+## Interface web
+
+Le navigateur ne manipule jamais les jetons. L'application Next.js (`apps/web`) sert de
+proxy : ses route handlers appellent l'API côté serveur (`FORJA_API_URL`).
+
+- **Cookies** : jeton d'accès (`forja_at`, expire 30 s avant le jeton) et de
+  rafraîchissement (`forja_rt`) en cookies `HttpOnly`, `SameSite=Lax`, `Secure` en
+  production, limités au chemin `/api`. Sans « Rester connecté », le cookie de
+  rafraîchissement disparaît à la fermeture du navigateur. Un marqueur sans secret
+  (`forja_session`) sert seulement à aiguiller les pages ; l'API reste l'autorité.
+- **Rafraîchissement** : quand le jeton d'accès a expiré (ou sur un 401), le proxy
+  échange le refresh token (rotation) et rejoue la requête si son corps le permet. Des
+  requêtes simultanées partagent un seul échange pendant 30 s : sans cela, l'API
+  prendrait la deuxième présentation du même jeton pour un vol et révoquerait la
+  session. Ce partage est en mémoire : un seul processus web, ou des sessions collantes.
+  Un refresh refusé (réutilisation détectée, session révoquée) efface les cookies et
+  renvoie à la connexion.
+- **CSRF** : toute mutation (`POST`, `PUT`, `PATCH`, `DELETE`) exige une origine
+  identique (`Origin`, ou `Referer`, ou `Sec-Fetch-Site: same-origin`) et l'en-tête
+  `X-CSRF-Token` égal au cookie `forja_csrf` (double soumission, comparaison à temps
+  constant). Le jeton est renouvelé à chaque connexion.
+- **Routes** : `/api/auth/login`, `/api/auth/password`, `/api/auth/logout`,
+  `/api/auth/session` ; `/api/forja/*` relaie le reste de l'API mais refuse les routes
+  de jetons (`/auth/login`, `/auth/refresh`, ...) et les chemins en `..`.
+- **Mot de passe initial** : tant qu'il n'est pas remplacé, toute page renvoie vers
+  « Nouveau mot de passe » (et l'API répond `403 password_change_required`).
+- **Limitation des tentatives** : le proxy transmet `X-Forwarded-For` ; lancez l'API
+  avec `FORJA_AUTH_TRUST_FORWARDED_FOR=true` et ne l'exposez qu'au serveur web, sinon
+  tous les navigateurs partagent l'adresse du serveur web pour la limite par IP.
+  Derrière un reverse proxy, c'est lui qui doit fixer cet en-tête ; si le serveur web
+  est exposé directement, un client peut le falsifier et contourner la limite par IP
+  (la limite par compte reste appliquée).
+- **En-têtes** : `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`,
+  `Permissions-Policy` sur toutes les pages.
+
 ## Invitations (mode multi)
 
 `POST /projects/{id}/invitations` (`{"email", "role"}`) :

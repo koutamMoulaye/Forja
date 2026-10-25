@@ -149,6 +149,35 @@ pseudonymisation dans le volume Docker `forja-secrets`.
 La configuration se fait par variables d'environnement préfixées par `FORJA_` ou via
 un fichier `.env` (voir [`.env.example`](.env.example)).
 
+## Interface web
+
+Prérequis : Node.js 22 ou plus récent et [pnpm](https://pnpm.io/) (`npm i -g pnpm`).
+L'API doit tourner (voir ci-dessus) ; le front l'appelle côté serveur, jamais depuis le
+navigateur.
+
+```bash
+cd apps/web
+pnpm install
+pnpm dev                       # http://localhost:3000, API attendue sur 127.0.0.1:8000
+```
+
+Avec la démo (`uv run forja demo`), connectez-vous avec `ingenieur@demo.forja.local`
+(vue Engineer, arrivée sur le pipeline) ou `analyste@demo.forja.local` (vue Analyst,
+arrivée sur l'accueil). L'administrateur doit d'abord remplacer son mot de passe
+initial : l'écran « Nouveau mot de passe » s'impose tant que ce n'est pas fait.
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `FORJA_API_URL` | `http://127.0.0.1:8000` | Adresse de l'API, vue du serveur web |
+| `FORJA_WEB_SECURE_COOKIES` | `true` en production | Cookies `Secure` ; `false` seulement derrière HTTP sur un réseau de confiance |
+| `FORJA_WEB_DESIGN_SYSTEM` | `false` | Expose `/design-system` en production (toujours visible en développement) |
+
+En production : `pnpm build && pnpm start`. Les jetons restent dans des cookies
+httpOnly ; voir [`docs/security.md`](docs/security.md#interface-web).
+
+La page interne <http://localhost:3000/design-system> montre tous les tokens et
+composants dans les deux thèmes, pour comparaison avec les maquettes.
+
 ## Parcours complet
 
 ```bash
@@ -311,6 +340,7 @@ vide, corrompu ou illisible, ou modification de plan invalide.
 ```
 forja/
 ├── apps/api/          FastAPI : routes, erreurs, logs de requêtes, worker de jobs
+├── apps/web/          Next.js : interface, proxy d'API à cookies httpOnly, tests Playwright
 ├── packages/core/     Logique métier
 │   └── forja_core/
 │       ├── config.py      Configuration (variables FORJA_*)
@@ -357,6 +387,19 @@ uv run forja openapi                        # régénérer docs/openapi.json (fr
 uv run forja openapi --record-examples      # réenregistrer les exemples de réponse
 uv run python -m tests.agent_eval           # évaluer l'agent (modèle simulé)
 uv run python -m tests.agent_eval --provider ollama --subset   # 5 questions, Ollama
+```
+
+Front (`apps/web`) :
+
+```bash
+pnpm lint && pnpm format:check && pnpm typecheck
+pnpm test                     # Vitest + Testing Library ; échoue si le client d'API
+                              # n'est plus à jour avec docs/openapi.json
+pnpm api:generate             # régénérer les types après `forja openapi`
+pnpm exec playwright install chromium
+pnpm test:e2e                 # Playwright contre l'API réelle sur un workspace neuf
+                              # (forja demo) et le build de production ; captures dans
+                              # test-results/captures
 ```
 
 ## Licence
