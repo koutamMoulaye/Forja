@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PreviewResponse(BaseModel):
@@ -26,3 +26,7 @@ class TablePreview(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     version: str
+    auth_mode: str = Field(
+        description="local (single administrator) or multi (invitations); "
+        "lets the sign-in screen adapt before anyone is authenticated"
+    )

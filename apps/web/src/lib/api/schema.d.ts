@@ -1880,6 +1880,11 @@ export type components = {
         };
         /** HealthResponse */
         HealthResponse: {
+            /**
+             * Auth Mode
+             * @description local (single administrator) or multi (invitations); lets the sign-in screen adapt before anyone is authenticated
+             */
+            auth_mode: string;
             /** Status */
             status: string;
             /** Version */
@@ -3982,6 +3987,7 @@ export interface operations {
                 content: {
                     /**
                      * @example {
+                     *       "auth_mode": "local",
                      *       "status": "ok",
                      *       "version": "0.1.0"
                      *     }

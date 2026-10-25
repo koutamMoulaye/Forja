@@ -33,6 +33,7 @@ def test_health(client: TestClient) -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    assert response.json()["auth_mode"] == "local"
     assert "x-request-id" in response.headers
 
 

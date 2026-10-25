@@ -1723,6 +1723,11 @@
       },
       "HealthResponse": {
         "properties": {
+          "auth_mode": {
+            "description": "local (single administrator) or multi (invitations); lets the sign-in screen adapt before anyone is authenticated",
+            "title": "Auth Mode",
+            "type": "string"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -1734,7 +1739,8 @@
         },
         "required": [
           "status",
-          "version"
+          "version",
+          "auth_mode"
         ],
         "title": "HealthResponse",
         "type": "object"
@@ -6126,6 +6132,7 @@
             "content": {
               "application/json": {
                 "example": {
+                  "auth_mode": "local",
                   "status": "ok",
                   "version": "0.1.0"
                 },

@@ -102,6 +102,7 @@
   },
   "GET /health": {
     "body": {
+      "auth_mode": "local",
       "status": "ok",
       "version": "0.1.0"
     },
