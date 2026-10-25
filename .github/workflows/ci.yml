@@ -55,3 +55,94 @@ jobs:
       - name: Report failed tests as annotations
         if: failure()
         run: uv run python .github/report_failures.py pytest-report.xml
+
+  web:
+    name: Web, lint, types, tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: apps/web/package.json
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: ESLint
+        run: pnpm lint
+
+      - name: Prettier
+        run: pnpm format:check
+
+      - name: TypeScript (strict)
+        run: pnpm typecheck
+
+      - name: Unit tests (API client up to date included)
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  web-e2e:
+    name: Web, end-to-end against the API
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FORJA_SKIP_REAL_LLM_TESTS: "1"
+      PYTHONIOENCODING: utf-8
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install the API
+        working-directory: .
+        run: uv sync --locked
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: apps/web/package.json
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Playwright
+        run: pnpm test:e2e
+
+      - name: Captures and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-e2e
+          path: |
+            apps/web/test-results/
+            apps/web/playwright-report/
+          retention-days: 14
