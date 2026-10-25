@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   agentRules: false,
+  experimental: {
+    // Project pages render once the session is known, on the client: only segments
+    // that export `instant` are validated.
+    instantInsights: { validationLevel: "manual-warning" },
+  },
   poweredByHeader: false,
   turbopack: {
     rules: {

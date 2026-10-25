@@ -72,7 +72,7 @@ export function Segmented<T extends string>({
           type="button"
           aria-pressed={option.value === value}
           onClick={() => onValueChange(option.value)}
-          className={cn(segmentClass, size === "md" ? "h-[34px] text-ui" : "h-8")}
+          className={cn(segmentClass, size === "md" ? "h-[34px] text-ui" : "h-8 min-w-0 px-2")}
         >
           {option.icon}
           {option.label}
