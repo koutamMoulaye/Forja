@@ -379,3 +379,74 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Pipeline canvas (React Flow), styled as ForjaApp's canvas. */
+.pipeline-canvas .react-flow {
+  --xy-background-color: transparent;
+  --xy-background-pattern-color: var(--dot);
+}
+
+.pipeline-canvas .react-flow__node {
+  cursor: pointer;
+}
+
+.pipeline-canvas .react-flow__node[data-id^="lane:"] {
+  cursor: default;
+  pointer-events: none;
+}
+
+.pipeline-canvas .react-flow__node[data-id^="lane:"] button {
+  pointer-events: auto;
+}
+
+.pipeline-canvas .react-flow__node:focus-visible {
+  outline: none;
+}
+
+.pipeline-canvas .react-flow__node:focus-visible .canvas-node {
+  outline: 2px solid var(--acc);
+  outline-offset: 3px;
+}
+
+.canvas-handle {
+  width: 1px;
+  min-width: 0;
+  height: 1px;
+  min-height: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.canvas-node {
+  box-shadow: var(--ring), var(--sh-node);
+  transition:
+    box-shadow var(--dur-base) ease,
+    translate var(--dur-base) var(--ease-soft);
+}
+
+.react-flow__node:hover .canvas-node {
+  box-shadow: var(--ring), var(--sh-hover);
+  translate: 0 -2px;
+}
+
+.canvas-edge {
+  transition:
+    opacity 260ms ease,
+    stroke var(--dur-base) ease;
+}
+
+.canvas-edge-flow {
+  animation: var(--animate-flow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__node:hover .canvas-node {
+    translate: none;
+  }
+
+  .canvas-edge-flow {
+    stroke-dasharray: none;
+    opacity: 0.55;
+  }
+}

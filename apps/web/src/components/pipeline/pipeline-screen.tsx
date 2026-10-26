@@ -1,0 +1,45 @@
+"use client";
+
+import { useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import { ShellMessage } from "@/components/shell/shell-states";
+import { useShell } from "@/components/shell/shell-context";
+import { Skeleton } from "@/components/ui/skeleton";
+import { syntheticGraph } from "@/lib/pipeline/synthetic";
+import { useProjectGraph } from "@/lib/pipeline/use-graph";
+import { PipelineCanvas } from "./pipeline-canvas";
+
+/** /projects/[id]/pipeline: the canvas, or its first-launch state for an empty project. */
+export function PipelineScreen({ allowSynthetic }: { allowSynthetic: boolean }) {
+  const shell = useShell();
+  const params = useSearchParams();
+  const syntheticSize = allowSynthetic ? Number(params.get("synthetic")) || 0 : 0;
+  const graph = useProjectGraph(shell.project.id, syntheticSize === 0);
+  const synthetic = useMemo(
+    () => (syntheticSize ? syntheticGraph(syntheticSize) : null),
+    [syntheticSize],
+  );
+  const data = synthetic ?? graph.data;
+
+  if (!data) {
+    if (graph.isError) {
+      return (
+        <ShellMessage
+          title="Impossible de charger le pipeline"
+          description="L’API Forja ne répond pas ou a refusé la demande."
+          action={{ label: "Réessayer", onClick: () => void graph.refetch() }}
+        />
+      );
+    }
+    return (
+      <div className="absolute inset-0 flex gap-3.5 bg-cv pt-[72px] pr-7 pl-[84px]" aria-busy>
+        {[0, 1, 2, 3].map((lane) => (
+          <Skeleton key={lane} className="h-[70vh] flex-1 rounded-3xl opacity-60" />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <PipelineCanvas projectId={shell.project.id} graph={data} synthetic={synthetic !== null} />
+  );
+}

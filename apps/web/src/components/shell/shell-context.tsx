@@ -2,8 +2,31 @@
 
 import { createContext, useContext } from "react";
 import type { Counters } from "@/lib/project/use-counters";
+import type { Filter, GraphNode } from "@/lib/pipeline/model";
 import type { SectionId } from "@/lib/navigation";
 import type { Me, Project, Role, View } from "@/lib/session/views";
+
+/** What the canvas lends the palette while it is open: its nodes and actions on them. */
+export type CanvasCommands = {
+  nodes: { node: GraphNode; lane: string }[];
+  /** Selects the node and moves the camera to it. */
+  focus: (id: string) => void;
+  /** Selects the node on an inspector tab. */
+  review: (id: string, tab: "overview" | "columns" | "rules" | "quality" | "history") => void;
+  run: (type: "build_all" | "build_silver" | "build_gold") => void;
+  add: () => void;
+  filter: (filter: Filter) => void;
+  fit: () => void;
+};
+
+/** A node growing into its detailed screen (double-click), shared through the shell. */
+export type SharedTransition = {
+  id: string;
+  name: string;
+  type: GraphNode["type"];
+  rect: { x: number; y: number; width: number; height: number };
+  href: string;
+};
 
 export type Shell = {
   me: Me;
@@ -26,6 +49,10 @@ export type Shell = {
   switchView: (view: View) => void;
   switchProject: (projectId: string) => void;
   signOut: () => void;
+  canvasCommands: CanvasCommands | null;
+  registerCanvas: (commands: CanvasCommands | null) => void;
+  transition: SharedTransition | null;
+  startTransition: (transition: SharedTransition) => void;
 };
 
 const ShellContext = createContext<Shell | null>(null);

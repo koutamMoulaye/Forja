@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { LayoutGroup } from "motion/react";
 import { toast } from "@/components/ui/toast";
 import { signOut as signOutRequest } from "@/lib/auth/auth-client";
 import { COOKIES } from "@/lib/auth/cookies";
@@ -27,7 +28,13 @@ import { useTheme } from "@/lib/theme/use-theme";
 import { TABLET_QUERY, useMediaQuery } from "@/lib/use-media-query";
 import { CommandPalette, rememberSection } from "./command-palette";
 import { ShellLoading, ShellMessage } from "./shell-states";
-import { ShellProvider, type Shell } from "./shell-context";
+import {
+  ShellProvider,
+  type CanvasCommands,
+  type Shell,
+  type SharedTransition,
+} from "./shell-context";
+import { SharedTransitionLayer } from "./shared-transition";
 import { SIDEBAR_OPEN, SIDEBAR_RAIL, Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
 import { ShortcutsDialog } from "./user-menu";
@@ -94,6 +101,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [canvasCommands, registerCanvas] = useState<CanvasCommands | null>(null);
+  const [transition, setTransition] = useState<SharedTransition | null>(null);
+  const startTransition = useCallback((next: SharedTransition) => setTransition(next), []);
+  useEffect(() => {
+    if (!transition) return;
+    const timer = window.setTimeout(() => setTransition(null), 900);
+    return () => window.clearTimeout(timer);
+  }, [transition]);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const counters = useCounters(projectId, role);
 
@@ -190,6 +205,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       switchView,
       switchProject,
       signOut: () => void signOut(),
+      canvasCommands,
+      registerCanvas,
+      transition,
+      startTransition,
     };
   }, [
     me.data,
@@ -210,6 +229,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     switchView,
     switchProject,
     signOut,
+    canvasCommands,
+    transition,
+    startTransition,
   ]);
 
   if (me.isPending || projects.isPending) return <ShellLoading />;
@@ -236,25 +258,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const left = tablet ? 0 : sidebarOpen ? SIDEBAR_OPEN : SIDEBAR_RAIL;
   return (
     <ShellProvider value={shell}>
-      <div
-        className="relative h-dvh overflow-hidden bg-bg"
-        style={{ "--shell-left": `${left}px` } as React.CSSProperties}
-      >
-        <Sidebar />
-        <TopBar />
-        <main
-          id="contenu"
-          className={cn(
-            "absolute right-0 bottom-0 overflow-auto transition-[left] duration-(--dur-layout) ease-soft",
-            canvas ? "top-0" : "top-14",
-          )}
-          style={{ left: canvas ? 0 : "var(--shell-left)" }}
+      <LayoutGroup>
+        <div
+          className="relative h-dvh overflow-hidden bg-bg"
+          style={{ "--shell-left": `${left}px` } as React.CSSProperties}
         >
-          {children}
-        </main>
-        <CommandPalette />
-        <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-      </div>
+          <Sidebar />
+          <TopBar />
+          <main
+            id="contenu"
+            className={cn(
+              "absolute right-0 bottom-0 overflow-auto transition-[left] duration-(--dur-layout) ease-soft",
+              canvas ? "top-0" : "top-14",
+            )}
+            style={{ left: canvas ? 0 : "var(--shell-left)" }}
+          >
+            {children}
+          </main>
+          <CommandPalette />
+          <SharedTransitionLayer />
+          <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+        </div>
+      </LayoutGroup>
     </ShellProvider>
   );
 }

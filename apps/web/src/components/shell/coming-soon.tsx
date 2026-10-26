@@ -1,8 +1,13 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+import { motion } from "motion/react";
 import { CalendarDots, type Icon } from "@phosphor-icons/react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/cn";
+import { springs } from "@/lib/motion";
+import { transitionLayoutId } from "./shared-transition";
+import { useShell } from "./shell-context";
 
 /** Screen title and subtitle, as on every page of the mockups. */
 export function PageHeader({
@@ -47,8 +52,15 @@ export function ComingSoon({
   mockup?: string;
   canvas?: boolean;
 }) {
+  const { transition } = useShell();
+  const pathname = usePathname();
+  // Opened from the canvas: the node's card grows into this one.
+  const layoutId =
+    transition && transition.href === pathname ? transitionLayoutId(transition.id) : undefined;
   const card = (
-    <div
+    <motion.div
+      layoutId={layoutId}
+      transition={{ layout: springs.sheet }}
       data-testid="coming-soon"
       className={cn(
         "flex w-full max-w-[640px] flex-col items-center gap-5 rounded-3xl px-10 pt-11 pb-9 text-center",
@@ -69,7 +81,7 @@ export function ComingSoon({
         </span>
         {mockup ? <StatusBadge kind="queue" label={`Maquette ${mockup}`} size={13} /> : null}
       </div>
-    </div>
+    </motion.div>
   );
 
   if (canvas) {
