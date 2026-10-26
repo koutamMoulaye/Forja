@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, Minus, X } from "@phosphor-icons/react";
 import { Spinner } from "@/components/ui/spinner";
@@ -18,6 +20,15 @@ import {
 } from "@/lib/project/use-runs";
 import { useShell } from "./shell-context";
 
+/** Steps of a run as the top bar names them. */
+const STEPS: Record<string, string> = {
+  dbt: "Construction des tables",
+  profile: "Profilage",
+  silver: "Nettoyage",
+  gold: "Modèle en étoile",
+  serving: "Publication",
+};
+
 function describe(run: Job): { title: string; meta: string; percent: number } {
   const text = JOB_TEXT[run.type];
   const label = text.label;
@@ -25,7 +36,7 @@ function describe(run: Job): { title: string; meta: string; percent: number } {
   if (run.status === "running") {
     const percent = run.progress?.percent ?? 0;
     return {
-      title: run.progress?.message || run.progress?.step || label,
+      title: run.progress?.message || STEPS[run.progress?.step ?? ""] || label,
       meta: `${percent} %`,
       percent,
     };
@@ -41,6 +52,7 @@ export function RunStatus() {
   const shell = useShell();
   const { run } = useRunTracker(shell.project.id, shell.role !== "analyst");
   const cancel = useCancelRun(shell.project.id);
+  useRunEndToast(run, shell.project.id);
   if (shell.view !== "engineer" || shell.tablet) return null;
 
   return (
@@ -142,4 +154,33 @@ function RunIcon({ run }: { run: Job }) {
       <Minus size={12} weight="bold" />
     </span>
   );
+}
+
+/** Toast at the top centre when the tracked run ends, wherever the user is in the project. */
+function useRunEndToast(run: Job | null, projectId: string) {
+  const router = useRouter();
+  const seen = useRef<Map<string, Job["status"]>>(new Map());
+  useEffect(() => {
+    if (!run) return;
+    const before = seen.current.get(run.id);
+    seen.current.set(run.id, run.status);
+    if (!before || !isActive(before) || isActive(run.status)) return;
+    const text = JOB_TEXT[run.type];
+    const duration = runDuration(run);
+    const open = {
+      label: "Voir le run",
+      onClick: () => router.push(`/projects/${projectId}/runs/${run.id}`),
+    };
+    if (run.status === "succeeded") {
+      const tables = run.progress?.done?.filter((item) => !item.endsWith("__rejects")).length;
+      toast.success({
+        title: text.done,
+        description: [tables ? `${tables} table${tables > 1 ? "s" : ""} à jour` : "", duration]
+          .filter(Boolean)
+          .join(" en "),
+      });
+    } else if (run.status === "failed") {
+      toast.error({ title: text.failed, description: run.error ?? undefined, action: open });
+    }
+  }, [run, projectId, router]);
 }
