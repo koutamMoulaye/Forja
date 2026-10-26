@@ -15,7 +15,8 @@ aperçu de vérification avant publication.
 > relus puis exécutés par dbt, relations entre sources, modèle en étoile Gold proposé par
 > un LLM ou par des règles, construit par dbt (SCD2 compris), publié pour la BI avec
 > pseudonymisation ; authentification et rôles par projet, couche sémantique, agent
-> métier. Le front arrive à l'étape 5.
+> métier. Interface web (étape 5) : connexion, navigation par rôle et canvas du
+> pipeline ; les écrans détaillés suivent.
 
 ## Fonctionnalités
 
@@ -176,6 +177,17 @@ initial : l'écran « Nouveau mot de passe » s'impose tant que ce n'est pas fai
 
 En production : `pnpm build && pnpm start`. Les jetons restent dans des cookies
 httpOnly ; voir [`docs/security.md`](docs/security.md#interface-web).
+
+**Canvas du pipeline** (`/projects/<id>/pipeline`, vue Engineer) : sources, nettoyage,
+modèle en étoile et diffusion en compartiments repliables, mise en page automatique par
+ELK dans un Web Worker, zoom sémantique, filtres, minimap. Un clic ouvre l'inspecteur
+(Aperçu, Colonnes, Règles, Qualité, Historique), partageable par l'adresse
+(`?node=dim_clients&tab=columns`) ; ⌘K cherche les nœuds ; « Lancer un run » (complet,
+nettoyage ou modèle) fait passer les tables d'« En attente » à « En cours » puis
+« Réussi ». Clavier : `+`, `-`, `0` (ajuster), flèches entre les nœuds, Entrée, Échap.
+Un projet vide propose de déposer des fichiers. Pour vérifier la fluidité,
+`?synthetic=200` dessine un pipeline généré de 200 nœuds (développement, ou
+`FORJA_WEB_DESIGN_SYSTEM=true`).
 
 La page interne <http://localhost:3000/design-system> montre tous les tokens et
 composants dans les deux thèmes, pour comparaison avec les maquettes.
