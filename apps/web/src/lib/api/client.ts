@@ -31,7 +31,8 @@ const csrf: Middleware = {
 
 const errors: Middleware = {
   async onResponse({ response }) {
-    if (response.ok) return response;
+    // 304: the caller sent If-None-Match and keeps what it has.
+    if (response.ok || response.status === 304) return response;
     const body: unknown = await response
       .clone()
       .json()

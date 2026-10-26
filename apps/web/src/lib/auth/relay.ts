@@ -43,7 +43,7 @@ export async function relay(call: SessionCall, remember: boolean): Promise<NextR
   } else {
     const upstream = call.response!;
     const headers = relayHeaders(upstream);
-    if (upstream.ok) {
+    if (upstream.ok || upstream.status === 304) {
       const body = upstream.status === 204 || upstream.status === 304 ? null : upstream.body;
       response = new NextResponse(body, { status: upstream.status, headers });
     } else {
