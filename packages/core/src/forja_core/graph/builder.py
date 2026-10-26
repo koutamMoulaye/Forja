@@ -50,6 +50,10 @@ SERVING = "dest_serving"
 EXPORTS = "dest_exports"
 _HIGHLIGHTS = 3
 _REF_RE = re.compile(r"\b(?:dim|fct)_\w+\b")
+# Runs that report the tables they build one by one (JobProgress items).
+_ITEMIZED = frozenset(
+    {JobType.PROFILE, JobType.BUILD_SILVER, JobType.BUILD_GOLD, JobType.BUILD_ALL}
+)
 
 
 @dataclass(frozen=True)
@@ -466,6 +470,9 @@ class _Builder:
                 return JobStatus.QUEUED
             # The run ended before reaching the node: a failure elsewhere stopped it.
             return None
+        if job.status is JobStatus.RUNNING and kind != "destination" and job.type in _ITEMIZED:
+            # Started, but dbt (or the profiler) has not reached any table yet.
+            return JobStatus.QUEUED
         building_all = job.type is JobType.BUILD_ALL and job.status is JobStatus.RUNNING
         if kind == "destination" and building_all:
             serving = progress is not None and progress.step == "serving"

@@ -128,6 +128,19 @@ def test_running_build_marks_nodes(shop: AppState) -> None:
     assert {n.id: n for n in _graph(shop, project.id).nodes}["stg_clients"].state == "applied"
 
 
+def test_started_build_waits_for_dbt(shop: AppState) -> None:
+    project = _project(shop)
+    job = _add_job(shop, project, JobType.BUILD_GOLD, progress=JobProgress(step="gold"))
+    try:
+        nodes = {n.id: n for n in _graph(shop, project.id).nodes}
+        assert nodes["fct_ventes"].state == "pending"  # dbt has not reached it yet
+        assert nodes["fct_ventes"].run and nodes["fct_ventes"].run.status == "queued"
+        assert nodes["stg_clients"].run is None or nodes["stg_clients"].run.run_id != job.id
+    finally:
+        job.status, job.finished_at = JobStatus.CANCELLED, utcnow()
+        shop.catalog.save_job(job)
+
+
 def test_states_follow_plans(tmp_path: Path, ecommerce_dir: Path) -> None:
     state = AppState.build(
         shop_settings(tmp_path).model_copy(update={"auto_approve_silver": False})
