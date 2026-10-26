@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { E2E } from "./env.mjs";
 import { capture, expectShell, signIn } from "./helpers";
 
-const NEW_PASSWORD = "Nouveau-Forja-2026";
+const NEW_PASSWORD = E2E.admin.newPassword;
 
 test("the initial password must be replaced before anything else", async ({ page }) => {
   const admin = { email: E2E.admin.email, password: E2E.admin.initialPassword };
