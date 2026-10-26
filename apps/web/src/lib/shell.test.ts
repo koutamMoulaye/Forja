@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { initialsOf } from "@/components/shell/shell-context";
-import { paletteFilter } from "@/components/shell/command-palette";
+import { fuzzyScore, paletteFilter } from "@/components/shell/command-palette";
 import { dayGroup, runNotifications } from "@/components/shell/notifications";
 import { breadcrumb, canOpen, parseProjectPath } from "@/lib/navigation";
 import { runDuration, type Job } from "@/lib/project/use-runs";
@@ -60,6 +60,13 @@ describe("shell helpers", () => {
     expect(paletteFilter("go:settings", "regl", ["Réglages"])).toBe(1);
     expect(paletteFilter("go:model", "modele etoile", ["Modèle en étoile"])).toBe(1);
     expect(paletteFilter("go:runs", "modele", ["Runs"])).toBe(0);
+    // Nodes match fuzzily, best first: prefix, word start, substring, letters in order.
+    expect(fuzzyScore("clients.csv", "cli")).toBe(1);
+    expect(fuzzyScore("dim_clients", "cli")).toBe(0.9);
+    expect(fuzzyScore("Montant par client", "lient")).toBe(0.75);
+    expect(fuzzyScore("dim_clients", "dmcl")).toBe(0.4);
+    expect(fuzzyScore("fct_ventes", "cli")).toBe(0);
+    expect(paletteFilter("node:dim_clients", "cli", ["dim_clients", "Modèle en étoile"])).toBe(0.9);
   });
 
   it("write delays for people", () => {
