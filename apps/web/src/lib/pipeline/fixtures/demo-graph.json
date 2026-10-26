@@ -1,0 +1,554 @@
+{
+  "project_id": "demo",
+  "version": "42806e7acc251557",
+  "nodes": [
+    {
+      "id": "src_clients",
+      "type": "source",
+      "lane": "sources",
+      "name": "clients.csv",
+      "label": "Source clients.csv",
+      "ref": "src_clients",
+      "counts": {
+        "rows": 20,
+        "columns": 7,
+        "rules": null,
+        "tables": null
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": 100,
+      "pii_count": 3,
+      "pii_columns": ["nom", "prénom", "email"],
+      "review_count": 0,
+      "highlights": ["id_client", "nom", "prénom"],
+      "run": null
+    },
+    {
+      "id": "stg_clients",
+      "type": "silver",
+      "lane": "cleaning",
+      "name": "clients",
+      "label": "Nettoyage de clients",
+      "ref": "stg_clients",
+      "counts": {
+        "rows": 20,
+        "columns": 7,
+        "rules": 14,
+        "tables": null
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": null,
+      "pii_count": 3,
+      "pii_columns": ["nom", "prenom", "email"],
+      "review_count": 0,
+      "highlights": ["id_client", "nom", "prenom"],
+      "run": null
+    },
+    {
+      "id": "src_commandes",
+      "type": "source",
+      "lane": "sources",
+      "name": "commandes.csv",
+      "label": "Source commandes.csv",
+      "ref": "src_commandes",
+      "counts": {
+        "rows": 40,
+        "columns": 5,
+        "rules": null,
+        "tables": null
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": 100,
+      "pii_count": 0,
+      "pii_columns": [],
+      "review_count": 0,
+      "highlights": ["id_commande", "id_client", "date_commande"],
+      "run": null
+    },
+    {
+      "id": "stg_commandes",
+      "type": "silver",
+      "lane": "cleaning",
+      "name": "commandes",
+      "label": "Nettoyage de commandes",
+      "ref": "stg_commandes",
+      "counts": {
+        "rows": 40,
+        "columns": 5,
+        "rules": 9,
+        "tables": null
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": null,
+      "pii_count": 0,
+      "pii_columns": [],
+      "review_count": 0,
+      "highlights": ["id_commande", "id_client", "date_commande"],
+      "run": null
+    },
+    {
+      "id": "src_lignes_commande",
+      "type": "source",
+      "lane": "sources",
+      "name": "lignes_commande.csv",
+      "label": "Source lignes_commande.csv",
+      "ref": "src_lignes_commande",
+      "counts": {
+        "rows": 79,
+        "columns": 5,
+        "rules": null,
+        "tables": null
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": 95.5,
+      "pii_count": 0,
+      "pii_columns": [],
+      "review_count": 0,
+      "highlights": ["id_commande", "num_ligne", "code_produit"],
+      "run": null
+    },
+    {
+      "id": "stg_lignes_commande",
+      "type": "silver",
+      "lane": "cleaning",
+      "name": "lignes_commande",
+      "label": "Nettoyage de lignes_commande",
+      "ref": "stg_lignes_commande",
+      "counts": {
+        "rows": 79,
+        "columns": 5,
+        "rules": 11,
+        "tables": null
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": null,
+      "pii_count": 0,
+      "pii_columns": [],
+      "review_count": 0,
+      "highlights": ["id_commande", "num_ligne", "code_produit"],
+      "run": null
+    },
+    {
+      "id": "src_produits",
+      "type": "source",
+      "lane": "sources",
+      "name": "produits.csv",
+      "label": "Source produits.csv",
+      "ref": "src_produits",
+      "counts": {
+        "rows": 12,
+        "columns": 5,
+        "rules": null,
+        "tables": null
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": 100,
+      "pii_count": 0,
+      "pii_columns": [],
+      "review_count": 0,
+      "highlights": ["code_produit", "libelle", "categorie"],
+      "run": null
+    },
+    {
+      "id": "stg_produits",
+      "type": "silver",
+      "lane": "cleaning",
+      "name": "produits",
+      "label": "Nettoyage de produits",
+      "ref": "stg_produits",
+      "counts": {
+        "rows": 12,
+        "columns": 5,
+        "rules": 9,
+        "tables": null
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": null,
+      "pii_count": 0,
+      "pii_columns": [],
+      "review_count": 0,
+      "highlights": ["code_produit", "libelle", "categorie"],
+      "run": null
+    },
+    {
+      "id": "dim_clients",
+      "type": "dimension",
+      "lane": "star_schema",
+      "name": "dim_clients",
+      "label": "Dimension clients",
+      "ref": "dim_clients",
+      "counts": {
+        "rows": 21,
+        "columns": 11,
+        "rules": null,
+        "tables": null
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": null,
+      "pii_count": 3,
+      "pii_columns": ["nom", "prenom", "email"],
+      "review_count": 0,
+      "highlights": ["client_key", "nom", "prenom"],
+      "run": null
+    },
+    {
+      "id": "dim_produits",
+      "type": "dimension",
+      "lane": "star_schema",
+      "name": "dim_produits",
+      "label": "Dimension produits",
+      "ref": "dim_produits",
+      "counts": {
+        "rows": 13,
+        "columns": 9,
+        "rules": null,
+        "tables": null
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": null,
+      "pii_count": 0,
+      "pii_columns": [],
+      "review_count": 0,
+      "highlights": ["produit_key", "libelle", "categorie"],
+      "run": null
+    },
+    {
+      "id": "dim_date",
+      "type": "date_dimension",
+      "lane": "star_schema",
+      "name": "dim_date",
+      "label": "Dimension date",
+      "ref": "dim_date",
+      "counts": {
+        "rows": 323,
+        "columns": 11,
+        "rules": null,
+        "tables": null
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": null,
+      "pii_count": 0,
+      "pii_columns": [],
+      "review_count": 0,
+      "highlights": ["date_key", "date", "annee"],
+      "run": null
+    },
+    {
+      "id": "fct_ventes",
+      "type": "fact",
+      "lane": "star_schema",
+      "name": "fct_ventes",
+      "label": "Faits ventes",
+      "ref": "fct_ventes",
+      "counts": {
+        "rows": 79,
+        "columns": 10,
+        "rules": null,
+        "tables": null
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": null,
+      "pii_count": 0,
+      "pii_columns": [],
+      "review_count": 0,
+      "highlights": ["quantite", "prix_unitaire", "montant"],
+      "run": null
+    },
+    {
+      "id": "mart_a93444e99c45",
+      "type": "mart",
+      "lane": "serving",
+      "name": "Chiffre d'affaires et nombre de commandes par mois et par ville, sur 2024",
+      "label": "Chiffre d'affaires et nombre de commandes par mois et par ville en 2024",
+      "ref": "mart_a93444e99c45",
+      "counts": {
+        "rows": 33,
+        "columns": 4,
+        "rules": null,
+        "tables": null
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": null,
+      "pii_count": 0,
+      "pii_columns": [],
+      "review_count": 0,
+      "highlights": ["Mois (date de commande)", "Ville (client)", "Chiffre d'affaires (EUR)"],
+      "run": null
+    },
+    {
+      "id": "mart_7e611d48a1aa",
+      "type": "mart",
+      "lane": "serving",
+      "name": "Quantité vendue et prix moyen unitaire par catégorie",
+      "label": "Quantité vendue et prix moyen par catégorie de produit",
+      "ref": "mart_7e611d48a1aa",
+      "counts": {
+        "rows": 4,
+        "columns": 3,
+        "rules": null,
+        "tables": null
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": null,
+      "pii_count": 0,
+      "pii_columns": [],
+      "review_count": 0,
+      "highlights": [
+        "Catégorie (produit)",
+        "Quantité vendue (unités)",
+        "Prix moyen unitaire (EUR)"
+      ],
+      "run": null
+    },
+    {
+      "id": "dest_serving",
+      "type": "destination",
+      "lane": "serving",
+      "name": "Base de diffusion",
+      "label": "Base DuckDB pour Power BI, Superset ou Metabase",
+      "ref": null,
+      "counts": {
+        "rows": null,
+        "columns": null,
+        "rules": null,
+        "tables": 6
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": null,
+      "pii_count": 0,
+      "pii_columns": [],
+      "review_count": 0,
+      "highlights": ["dim_clients", "dim_date", "dim_produits"],
+      "run": null
+    },
+    {
+      "id": "dest_exports",
+      "type": "destination",
+      "lane": "serving",
+      "name": "Exports",
+      "label": "Fichiers Parquet et CSV",
+      "ref": null,
+      "counts": {
+        "rows": null,
+        "columns": null,
+        "rules": null,
+        "tables": 2
+      },
+      "state": "applied",
+      "message": null,
+      "quality_score": null,
+      "pii_count": 0,
+      "pii_columns": [],
+      "review_count": 0,
+      "highlights": ["mart_montant_par_mois_par_ville_2024", "mart_quantite_par_categorie"],
+      "run": null
+    }
+  ],
+  "edges": [
+    {
+      "id": "src_clients->stg_clients",
+      "source": "src_clients",
+      "target": "stg_clients",
+      "type": "lineage",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "src_commandes->stg_commandes",
+      "source": "src_commandes",
+      "target": "stg_commandes",
+      "type": "lineage",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "src_lignes_commande->stg_lignes_commande",
+      "source": "src_lignes_commande",
+      "target": "stg_lignes_commande",
+      "type": "lineage",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "src_produits->stg_produits",
+      "source": "src_produits",
+      "target": "stg_produits",
+      "type": "lineage",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "stg_clients->dim_clients",
+      "source": "stg_clients",
+      "target": "dim_clients",
+      "type": "lineage",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "stg_produits->dim_produits",
+      "source": "stg_produits",
+      "target": "dim_produits",
+      "type": "lineage",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "stg_lignes_commande->fct_ventes",
+      "source": "stg_lignes_commande",
+      "target": "fct_ventes",
+      "type": "lineage",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "stg_commandes->fct_ventes",
+      "source": "stg_commandes",
+      "target": "fct_ventes",
+      "type": "lineage",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "dim_produits->fct_ventes",
+      "source": "dim_produits",
+      "target": "fct_ventes",
+      "type": "relation",
+      "state": "applied",
+      "confidence": 0.95
+    },
+    {
+      "id": "dim_clients->fct_ventes",
+      "source": "dim_clients",
+      "target": "fct_ventes",
+      "type": "relation",
+      "state": "applied",
+      "confidence": 0.963
+    },
+    {
+      "id": "dim_date->fct_ventes",
+      "source": "dim_date",
+      "target": "fct_ventes",
+      "type": "relation",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "dim_clients->mart_a93444e99c45",
+      "source": "dim_clients",
+      "target": "mart_a93444e99c45",
+      "type": "lineage",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "dim_date->mart_a93444e99c45",
+      "source": "dim_date",
+      "target": "mart_a93444e99c45",
+      "type": "lineage",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "fct_ventes->mart_a93444e99c45",
+      "source": "fct_ventes",
+      "target": "mart_a93444e99c45",
+      "type": "lineage",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "dim_produits->mart_7e611d48a1aa",
+      "source": "dim_produits",
+      "target": "mart_7e611d48a1aa",
+      "type": "lineage",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "fct_ventes->mart_7e611d48a1aa",
+      "source": "fct_ventes",
+      "target": "mart_7e611d48a1aa",
+      "type": "lineage",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "mart_a93444e99c45->dest_serving",
+      "source": "mart_a93444e99c45",
+      "target": "dest_serving",
+      "type": "publication",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "mart_a93444e99c45->dest_exports",
+      "source": "mart_a93444e99c45",
+      "target": "dest_exports",
+      "type": "publication",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "mart_7e611d48a1aa->dest_serving",
+      "source": "mart_7e611d48a1aa",
+      "target": "dest_serving",
+      "type": "publication",
+      "state": "applied",
+      "confidence": null
+    },
+    {
+      "id": "mart_7e611d48a1aa->dest_exports",
+      "source": "mart_7e611d48a1aa",
+      "target": "dest_exports",
+      "type": "publication",
+      "state": "applied",
+      "confidence": null
+    }
+  ],
+  "lanes": [
+    {
+      "lane": "sources",
+      "total": 4,
+      "states": {
+        "applied": 4
+      }
+    },
+    {
+      "lane": "cleaning",
+      "total": 4,
+      "states": {
+        "applied": 4
+      }
+    },
+    {
+      "lane": "star_schema",
+      "total": 4,
+      "states": {
+        "applied": 4
+      }
+    },
+    {
+      "lane": "serving",
+      "total": 4,
+      "states": {
+        "applied": 4
+      }
+    }
+  ]
+}
