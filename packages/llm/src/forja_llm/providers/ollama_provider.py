@@ -40,6 +40,22 @@ class OllamaProvider(LLMProvider):
             )
         return self._client
 
+    def check(self) -> None:
+        model = self._require_model()
+        try:
+            response = self.client.get("/api/tags", timeout=10)
+        except (httpx.TimeoutException, httpx.TransportError) as exc:
+            raise LLMConfigurationError(
+                f"Ollama ne répond pas à {self.settings.ollama_base_url}"
+            ) from exc
+        if response.status_code != 200:
+            raise LLMError(f"Ollama a répondu {response.status_code}")
+        names = {str(m.get("name", "")) for m in response.json().get("models", [])}
+        if model not in names and f"{model}:latest" not in names:
+            raise LLMConfigurationError(
+                f"Le modèle {model} n'est pas installé : lancez « ollama pull {model} »"
+            )
+
     def _abort(self) -> None:
         """Closing the connection makes Ollama stop reading or writing for this request."""
         client, self._client = self._client, None

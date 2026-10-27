@@ -27,6 +27,7 @@ from forja_api.routes import (
     sources,
     tables,
 )
+from forja_api.routes import settings as instance_settings
 from forja_api.schemas import HealthResponse
 from forja_api.state import AppState
 from forja_core import __version__
@@ -111,6 +112,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(gold.router)
     app.include_router(semantic.router)
     app.include_router(marts.router)
+    app.include_router(instance_settings.router)
     openapi.install(app)
     return app
 

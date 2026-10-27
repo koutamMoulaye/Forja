@@ -32,6 +32,7 @@ from forja_core.storage import Workspace
 from forja_llm import LLMProvider, LLMSettings, get_provider
 from forja_llm.agent import LLMMartInterpreter
 from forja_llm.gold import LLMGoldProposer
+from forja_llm.store import LLMConfigStore, effective_settings
 
 
 @dataclass
@@ -52,6 +53,9 @@ class AppState:
     auth: AuthService
     semantic: SemanticService
     marts: MartService
+    llm_store: LLMConfigStore
+    llm_base: LLMSettings
+    llm_settings: LLMSettings
 
     @classmethod
     def build(cls, settings: Settings) -> AppState:
@@ -64,11 +68,18 @@ class AppState:
 
         locks = WarehouseLocks()
         generator = DbtProjectGenerator(workspace, threads=settings.dbt_threads)
-        dbt = DbtRunner(settings.dbt_executable, timeout_seconds=settings.dbt_timeout_seconds)
+        dbt = DbtRunner(
+            settings.dbt_executable,
+            timeout_seconds=settings.dbt_timeout_seconds,
+            model_delay_seconds=settings.test_model_delay_seconds,
+        )
         builder = SilverBuilder(catalog, workspace, plans, generator, dbt, locks)
         publisher = Publisher(catalog, workspace, settings, generator, locks)
         detector = RelationDetector(catalog, settings, generator, locks)
-        llm = get_provider(LLMSettings(), journal=catalog.add_llm_call, cache=catalog)
+        llm_store = LLMConfigStore(settings.secrets_dir)
+        llm_base = LLMSettings()
+        llm_settings = effective_settings(llm_base, llm_store.load())
+        llm = get_provider(llm_settings, journal=catalog.add_llm_call, cache=catalog)
         gold = GoldPlanService(catalog, LLMGoldProposer(llm, catalog) if llm is not None else None)
         executor = JobExecutor(
             catalog,
@@ -131,7 +142,21 @@ class AppState:
             auth=auth,
             semantic=semantic,
             marts=marts,
+            llm_store=llm_store,
+            llm_base=llm_base,
+            llm_settings=llm_settings,
         )
+
+    def configure_llm(self) -> None:
+        """Apply the provider saved from the interface to the services that use it."""
+        self.llm_settings = effective_settings(self.llm_base, self.llm_store.load())
+        self.llm = get_provider(
+            self.llm_settings, journal=self.catalog.add_llm_call, cache=self.catalog
+        )
+        self.gold.proposer = (
+            LLMGoldProposer(self.llm, self.catalog) if self.llm is not None else None
+        )
+        self.marts.interpreter = LLMMartInterpreter(self.llm) if self.llm is not None else None
 
     def start(self) -> None:
         self.auth.bootstrap()

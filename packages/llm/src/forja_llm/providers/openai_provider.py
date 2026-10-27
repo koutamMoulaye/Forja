@@ -8,6 +8,7 @@ import openai
 
 from forja_llm.base import (
     Completion,
+    LLMConfigurationError,
     LLMError,
     LLMProvider,
     LLMRefusalError,
@@ -40,6 +41,19 @@ class OpenAIProvider(LLMProvider):
                 options["api_key"] = key.get_secret_value()
             self._client = openai.OpenAI(**options)
         return self._client
+
+    def check(self) -> None:
+        model = self._require_model()
+        if self.settings.openai_api_key is None:
+            raise LLMConfigurationError("Aucune clé API OpenAI n'est enregistrée")
+        try:
+            self.client.models.retrieve(model, timeout=15)
+        except openai.AuthenticationError as exc:
+            raise LLMConfigurationError("Clé API OpenAI refusée") from exc
+        except openai.NotFoundError as exc:
+            raise LLMConfigurationError(f"Le modèle {model} est introuvable chez OpenAI") from exc
+        except openai.APIError as exc:
+            raise LLMError(f"OpenAI injoignable : {type(exc).__name__}") from exc
 
     def _complete(
         self, *, system: str, prompt: str, response_schema: dict[str, Any], schema_name: str

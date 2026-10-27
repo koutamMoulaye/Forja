@@ -14,6 +14,7 @@ import anthropic
 
 from forja_llm.base import (
     Completion,
+    LLMConfigurationError,
     LLMError,
     LLMProvider,
     LLMRefusalError,
@@ -54,6 +55,20 @@ class AnthropicProvider(LLMProvider):
                 options["api_key"] = key.get_secret_value()
             self._client = anthropic.Anthropic(**options)
         return self._client
+
+    def check(self) -> None:
+        model = self._require_model()
+        if self.settings.anthropic_api_key is None:
+            raise LLMConfigurationError("Aucune clé API Anthropic n'est enregistrée")
+        try:
+            self.client.models.retrieve(model, timeout=15)
+        except anthropic.AuthenticationError as exc:
+            raise LLMConfigurationError("Clé API Anthropic refusée") from exc
+        except anthropic.NotFoundError as exc:
+            message = f"Le modèle {model} est introuvable chez Anthropic"
+            raise LLMConfigurationError(message) from exc
+        except anthropic.APIError as exc:
+            raise LLMError(f"Anthropic injoignable : {type(exc).__name__}") from exc
 
     def _complete(
         self, *, system: str, prompt: str, response_schema: dict[str, Any], schema_name: str

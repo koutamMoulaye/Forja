@@ -158,6 +158,12 @@ class LLMProvider(ABC):
             raise LLMConfigurationError(f"no model configured for {self.name}: set FORJA_LLM_MODEL")
         return model
 
+    def check(self) -> None:  # noqa: B027 - providers without a lookup are always ready
+        """Reach the provider and make sure the configured model is available.
+
+        Sends no data, only a lookup of the model; raises :class:`LLMError` otherwise.
+        """
+
     @staticmethod
     def render_prompt(request: LLMRequest, schema: dict[str, Any]) -> str:
         context = serialize_for_llm(request.context)
