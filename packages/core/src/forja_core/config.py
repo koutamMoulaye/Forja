@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     dbt_executable: str | None = None
     dbt_threads: int = Field(default=1, ge=1)
     dbt_timeout_seconds: float = Field(default=1800, gt=0)
+    test_model_delay_seconds: float = Field(
+        default=0,
+        ge=0,
+        le=30,
+        description="End-to-end tests only: each dbt model stays « running » this long, so "
+        "the interface can be seen mid-run",
+    )
 
     secrets_dir: Path = Field(
         default_factory=lambda: Path.home() / ".forja" / "secrets",

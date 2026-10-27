@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -27,8 +28,9 @@ _TEST_STATUSES = {"pass", "fail", "warn", "error", "skipped"}
 class DbtProgress:
     """Follows the node lines of ``dbt build`` and reports them to the current job."""
 
-    def __init__(self) -> None:
+    def __init__(self, model_delay_seconds: float = 0) -> None:
         self.finished = 0
+        self.model_delay_seconds = model_delay_seconds
 
     def feed(self, line: str) -> None:
         match = _NODE_LINE_RE.search(line)
@@ -39,6 +41,9 @@ class DbtProgress:
         if status == "START":
             if name:
                 item_started(name.group(1))
+                if self.model_delay_seconds:
+                    # Tests only: keep the model visibly running before reading on.
+                    time.sleep(self.model_delay_seconds)
             return
         self.finished += 1
         if name:
@@ -127,9 +132,16 @@ def attach_tested_models(summary: DbtTestSummary, manifest_path: Path) -> None:
 
 
 class DbtRunner:
-    def __init__(self, executable: str | None = None, *, timeout_seconds: float = 1800) -> None:
+    def __init__(
+        self,
+        executable: str | None = None,
+        *,
+        timeout_seconds: float = 1800,
+        model_delay_seconds: float = 0,
+    ) -> None:
         self.executable = executable
         self.timeout_seconds = timeout_seconds
+        self.model_delay_seconds = model_delay_seconds
 
     def build(
         self,
@@ -171,7 +183,7 @@ class DbtRunner:
             errors="replace",
         )
         assert process.stdout is not None
-        progress = DbtProgress()
+        progress = DbtProgress(self.model_delay_seconds)
         for line in process.stdout:
             text = _ANSI_RE.sub("", line.rstrip())
             log(text)

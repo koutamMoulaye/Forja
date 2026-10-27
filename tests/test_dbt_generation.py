@@ -9,6 +9,7 @@ from forja_core.catalog import Catalog
 from forja_core.ingestion import IngestionService
 from forja_core.models import Project
 from forja_core.silver.dbt.project import DbtProjectGenerator, render_project
+from forja_core.silver.dbt.runner import DbtProgress
 from forja_core.silver.dbt.sql import ident
 from forja_core.silver.plan import ColumnPatch, PlanPatch, TransformationPlan
 from forja_core.silver.service import PlanService
@@ -163,3 +164,14 @@ def test_regeneration_updates_and_removes_files(
 )
 def test_identifiers_are_quoted_when_needed(name: str, expected: str) -> None:
     assert ident(name) == expected
+
+
+def test_dbt_progress_can_hold_models_for_tests(monkeypatch: pytest.MonkeyPatch) -> None:
+    slept: list[float] = []
+    monkeypatch.setattr("forja_core.silver.dbt.runner.time.sleep", slept.append)
+    progress = DbtProgress(model_delay_seconds=1.5)
+    progress.feed("1 of 3 START sql incremental model main.stg_clients ...... [RUN]")
+    progress.feed("1 of 3 OK created sql incremental model main.stg_clients ... [OK in 0.2s]")
+    assert slept == [1.5]
+    DbtProgress().feed("1 of 3 START sql incremental model main.stg_clients ...... [RUN]")
+    assert slept == [1.5]
