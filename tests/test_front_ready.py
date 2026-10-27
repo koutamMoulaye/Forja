@@ -20,7 +20,8 @@ from tests.auth import login
 DOCS = Path(__file__).parents[1] / "docs" / "openapi.json"
 # Files, or operations whose answer has no body.
 NO_JSON_EXAMPLE = {"GET /tables/{table_id}/export", "POST /auth/logout",
-                   "DELETE /projects/{project_id}/members/{user_id}"}  # fmt: skip
+                   "DELETE /projects/{project_id}/members/{user_id}",
+                   "DELETE /projects/{project_id}/invitations/{invitation_id}"}  # fmt: skip
 
 
 @pytest.fixture(scope="module")

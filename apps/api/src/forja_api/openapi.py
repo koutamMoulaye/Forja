@@ -314,6 +314,57 @@ ROUTE_DOCS: dict[tuple[str, str], tuple[str, str]] = {
         "Approuver un data mart",
         f"Lance la publication : modèle dbt mart_<nom>, serving, exports. {ENG}",
     ),
+    # --- Revue Silver, quarantaine, validation Gold, réglages -------------------------
+    ("get", "/sources/{source_id}/plan/review"): (
+        "Revue du plan Silver",
+        "Le plan sous forme de règles (conversion, écriture, pseudonymisation, doublons, clé), "
+        "chacune avec son explication, sa confiance et la décision prise. Paramètre version "
+        f"pour une version antérieure. {ENG}",
+    ),
+    ("post", "/sources/{source_id}/plan/review"): (
+        "Décider des règles du plan",
+        "Valider ou rejeter des règles du dernier brouillon, sans créer de version ; null remet "
+        "une règle en revue. Une donnée personnelle se modifie, elle ne se rejette pas. Les "
+        f"règles rejetées sont retirées à l'approbation, dans une nouvelle version. {ENG}",
+    ),
+    ("get", "/sources/{source_id}/plan/samples"): (
+        "Aperçu avant et après",
+        "Valeurs d'un échantillon de la dernière version, avant et après les expressions du "
+        "plan (celles des modèles dbt). Données personnelles masquées pour un engineer, "
+        f"pseudonymisées sinon ; en clair seulement avec FORJA_ALLOW_BRONZE_PREVIEW. {ENG}",
+    ),
+    ("get", "/sources/{source_id}/rejects"): (
+        "Lignes en quarantaine",
+        "Lignes rejetées par le nettoyage, comptées par motif, et les dernières d'entre elles "
+        "(paramètre run_id pour un run). Données personnelles traitées comme dans les "
+        f"exports. {ENG}",
+    ),
+    ("get", "/projects/{project_id}/gold-plan/issues"): (
+        "Validation du plan Gold",
+        "Contrôles du dernier plan recalculés avec les relations et les tables actuelles : "
+        "une relation confirmée depuis la proposition lève son erreur. Le plan n'est pas "
+        f"modifié. {ENG}",
+    ),
+    ("delete", "/projects/{project_id}/invitations/{invitation_id}"): (
+        "Révoquer une invitation",
+        f"Une invitation pas encore acceptée : son lien d'inscription cesse de marcher. {ADMIN}",
+    ),
+    ("get", "/settings/llm"): (
+        "Fournisseur IA",
+        "Fournisseur, modèle et adresse en service, et si une clé API est enregistrée ; une clé "
+        f"n'est jamais renvoyée. editable indique si l'appelant peut le changer. {ANY_USER}",
+    ),
+    ("put", "/settings/llm"): (
+        "Choisir le fournisseur IA",
+        "Ollama, Anthropic, OpenAI ou aucun (heuristiques seules), le modèle et la clé API. "
+        "Enregistré dans FORJA_SECRETS_DIR, hors du dépôt, et appliqué sans redémarrage ; "
+        f"prime sur les variables FORJA_LLM_*. {INSTANCE}",
+    ),
+    ("post", "/settings/llm/test"): (
+        "Tester la connexion IA",
+        "Joint le fournisseur et vérifie que le modèle existe, sans envoyer de donnée. "
+        f"Le résultat est conservé (last_check). {INSTANCE}",
+    ),
     ("post", "/mart-requests/{mart_id}/reject"): (
         "Rejeter une demande",
         "Avec un motif. Auteur de la demande ou engineer.",
@@ -335,6 +386,7 @@ TAGS = [
     {"name": "gold", "description": "Modèle en étoile Gold."},
     {"name": "semantic layer", "description": "Couche sémantique et synonymes."},
     {"name": "agent", "description": "Agent métier : demandes de data marts en français."},
+    {"name": "settings", "description": "Réglages de l'instance : fournisseur IA."},
 ]
 
 

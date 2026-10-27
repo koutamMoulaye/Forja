@@ -164,6 +164,17 @@ def record(root: Path) -> dict[str, Any]:
             {"email": "nouveau@exemple.fr", "role": "analyst"},
         )
         get(admin, "/projects/{project_id}/invitations")
+        revoked = post(
+            admin,
+            "/projects/{project_id}/invitations",
+            {"email": "erreur@exemple.fr", "role": "analyst"},
+        )
+        rec.call(
+            admin,
+            "DELETE",
+            "/projects/{project_id}/invitations/{invitation_id}",
+            p("/projects/{project_id}/invitations/{invitation_id}", invitation_id=revoked["id"]),
+        )
         registered = rec.call(
             TestClient(app),
             "POST",
@@ -234,7 +245,22 @@ def record(root: Path) -> dict[str, Any]:
             p("/sources/{source_id}/plan", **source_ids),
             json={"columns": {"email": {"pii_treatment": "mask"}}},
         )
+        review = get(engineer, "/sources/{source_id}/plan/review", **source_ids)
+        post(
+            engineer,
+            "/sources/{source_id}/plan/review",
+            {"decisions": {rule["id"]: "validated" for rule in review["rules"]}},
+            **source_ids,
+        )
+        get(engineer, "/sources/{source_id}/plan/samples", **source_ids)
         post(engineer, "/sources/{source_id}/plan/approve", **source_ids)
+        rec.call(
+            engineer,
+            "GET",
+            "/sources/{source_id}/rejects",
+            p("/sources/{source_id}/rejects", **source_ids),
+            params={"limit": 2},
+        )
 
         # Relations
         relations = get(engineer, "/projects/{project_id}/relations")
@@ -257,6 +283,7 @@ def record(root: Path) -> dict[str, Any]:
 
         # Gold
         get(engineer, "/projects/{project_id}/gold-plan")
+        get(engineer, "/projects/{project_id}/gold-plan/issues")
         get(engineer, "/projects/{project_id}/gold-plans")
         post(engineer, "/projects/{project_id}/gold-plan/propose", {"use_llm": False})
         rec.call(
@@ -349,6 +376,11 @@ def record(root: Path) -> dict[str, Any]:
             {"reason": "doublon"},
             mart_id=rejected["mart_request"]["id"],
         )
+
+        # Instance settings
+        get(analyst, "/settings/llm")
+        rec.call(admin, "PUT", "/settings/llm", "/settings/llm", json={"provider": "none"})
+        post(admin, "/settings/llm/test")
 
         # Audit last: it holds everything above.
         rec.call(

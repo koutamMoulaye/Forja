@@ -91,6 +91,7 @@ def world(tmp_path_factory: pytest.TempPathFactory, ecommerce_dir: Path) -> Iter
             "mart_id": asked["mart_request"]["id"],
             "agent_run": asked["run"]["id"],
             "victim_id": victim_id,
+            "invitation_id": "absente",
         }
         for _ in range(3):
             proposal = analyst.post(
@@ -121,6 +122,7 @@ MATRIX: list[tuple[str, str, Any, set[str]]] = [
         {"admin"},
     ),
     ("GET", "/projects/{project_id}/invitations", None, {"admin"}),
+    ("DELETE", "/projects/{project_id}/invitations/{invitation_id}", None, {"admin"}),
     ("GET", "/projects/{project_id}/audit", None, {"admin"}),
     ("GET", "/audit", None, {"admin"}),
     ("GET", "/auth/users", None, {"admin"}),
@@ -135,6 +137,10 @@ MATRIX: list[tuple[str, str, Any, set[str]]] = [
     ("GET", "/sources/{source_id}/plans", None, {"engineer", "admin"}),
     ("PATCH", "/sources/{source_id}/plan", {"columns": {}}, {"engineer", "admin"}),
     ("POST", "/sources/{source_id}/plan/approve", None, {"engineer", "admin"}),
+    ("GET", "/sources/{source_id}/plan/review", None, {"engineer", "admin"}),
+    ("POST", "/sources/{source_id}/plan/review", {"decisions": {}}, {"engineer", "admin"}),
+    ("GET", "/sources/{source_id}/plan/samples", None, {"engineer", "admin"}),
+    ("GET", "/sources/{source_id}/rejects", None, {"engineer", "admin"}),
     ("GET", "/projects/{project_id}/relations", None, {"engineer", "admin"}),
     ("POST", "/projects/{project_id}/relations/detect", None, {"engineer", "admin"}),
     ("POST", "/projects/{project_id}/relations", {"from_source": "x"}, {"engineer", "admin"}),
@@ -144,6 +150,7 @@ MATRIX: list[tuple[str, str, Any, set[str]]] = [
     ("POST", "/projects/{project_id}/gold-plan/propose", {"use_llm": False}, {"engineer", "admin"}),
     ("GET", "/projects/{project_id}/gold-plan", None, {"engineer", "admin"}),
     ("GET", "/projects/{project_id}/gold-plans", None, {"engineer", "admin"}),
+    ("GET", "/projects/{project_id}/gold-plan/issues", None, {"engineer", "admin"}),
     ("PATCH", "/projects/{project_id}/gold-plan", {"unknown": 1}, {"engineer", "admin"}),
     ("POST", "/projects/{project_id}/gold-plan/approve", None, {"engineer", "admin"}),
     ("POST", "/projects/{project_id}/runs", {"type": "profile"}, {"engineer", "admin"}),
@@ -183,6 +190,9 @@ MATRIX: list[tuple[str, str, Any, set[str]]] = [
     ("GET", "/projects/{project_id}/mart-requests", None, set(ROLES)),
     ("GET", "/mart-requests/{mart_id}", None, set(ROLES)),
     ("POST", "/mart-requests/{mart_id}/approve", None, {"engineer", "admin"}),
+    ("GET", "/settings/llm", None, set(ROLES)),
+    ("PUT", "/settings/llm", {"provider": "none"}, {"admin"}),
+    ("POST", "/settings/llm/test", None, {"admin"}),
 ]
 
 # Routes acting on the caller's own request: allowed to its author only (analyst here).
