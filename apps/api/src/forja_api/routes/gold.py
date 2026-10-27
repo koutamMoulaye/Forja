@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from forja_api.security import Access, require
 from forja_api.state import StateDep
 from forja_core.auth.models import Action
-from forja_core.gold.plan import GoldPlan, GoldPlanPatch
+from forja_core.gold.plan import GoldPlan, GoldPlanPatch, ValidationIssue
 from forja_core.jobs.models import Job, JobType, RunRequest
 
 router = APIRouter(tags=["gold"])
@@ -52,6 +52,16 @@ def get_gold_plan(
     version: Annotated[int | None, Query(ge=1)] = None,
 ) -> GoldPlan:
     return state.catalog.get_gold_plan(project_id, version=version)
+
+
+@router.get(
+    "/projects/{project_id}/gold-plan/issues",
+    summary="Validation of the latest plan, recomputed with the current relations",
+)
+def get_gold_plan_issues(
+    project_id: str, state: StateDep, _access: ReadAccess
+) -> list[ValidationIssue]:
+    return state.gold.issues(project_id)
 
 
 @router.get("/projects/{project_id}/gold-plans", summary="All versions of the Gold plan")

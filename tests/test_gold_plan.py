@@ -268,6 +268,9 @@ def test_gold_api(shop: tuple[AppState, Project]) -> None:
             assert run["result"]["origin"] == "heuristic"  # no provider configured
             version = run["result"]["gold_plan_version"]
             assert client.get(f"/projects/{project.id}/gold-plan").json()["version"] == version
+            issues = client.get(f"/projects/{project.id}/gold-plan/issues")
+            assert issues.status_code == 200
+            assert not [i for i in issues.json() if i["severity"] == "error"]
             patched = client.patch(
                 f"/projects/{project.id}/gold-plan",
                 json={"dimension_scd": {"dim_clients": "scd1"}},

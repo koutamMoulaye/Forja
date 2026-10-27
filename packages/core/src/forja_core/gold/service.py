@@ -160,6 +160,16 @@ class GoldPlanService:
         log.info("gold_plan_patched", project_id=project_id, version=plan.version)
         return plan
 
+    def issues(self, project_id: str) -> list[ValidationIssue]:
+        """Validation of the latest plan against the current relations and tables.
+
+        Stored issues date from the plan's creation; confirming a relation since then
+        may have resolved some of them.
+        """
+        plan = self.catalog.get_gold_plan(project_id)
+        ctx = self.context(project_id)
+        return validate_model(link_relations(plan.model(), ctx), ctx)
+
     def approve(self, project_id: str) -> GoldPlan:
         plan = self.catalog.get_gold_plan(project_id)
         if plan.status is not PlanStatus.DRAFT:
