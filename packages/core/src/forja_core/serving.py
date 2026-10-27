@@ -40,7 +40,8 @@ from forja_core.privacy import (
 )
 from forja_core.profiling.models import PiiType
 from forja_core.silver.dbt.project import DbtProjectGenerator
-from forja_core.silver.plan import PiiTreatment
+from forja_core.silver.plan import PiiTreatment, TransformationPlan
+from forja_core.silver.quarantine import Quarantine, read_quarantine
 from forja_core.silver.tables import TableLayer, WarehouseTable
 from forja_core.storage import Workspace
 from forja_core.utils import quote_ident, slugify, sql_literal, utcnow
@@ -258,6 +259,25 @@ class Publisher:
                         {k: json_safe(v) for k, v in r.items()} for r in treated.to_pylist()
                     )
         return Preview(columns=[c.name for c in item.columns], rows=rows, total_rows=int(total))
+
+    def quarantine(
+        self,
+        plan: TransformationPlan,
+        limit: int,
+        *,
+        strict: bool = False,
+        run_id: str | None = None,
+    ) -> Quarantine:
+        """Rows of a source in quarantine, personal data treated as in exports."""
+        salt = self.secrets.salt(plan.project_id)
+        with (
+            self.locks.hold(plan.project_id, timeout=self.settings.export_lock_timeout_seconds),
+            duckdb.connect() as con,
+        ):
+            if not self.generator.warehouse_path(plan.project_id).exists():
+                return read_quarantine(con, plan, salt, limit=limit, strict=strict, run_id=run_id)
+            self._attach_warehouse(con, plan.project_id)
+            return read_quarantine(con, plan, salt, limit=limit, strict=strict, run_id=run_id)
 
     def export(
         self,

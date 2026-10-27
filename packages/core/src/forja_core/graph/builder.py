@@ -38,12 +38,11 @@ from forja_core.jobs.models import Job, JobStatus, JobType
 from forja_core.models import Source
 from forja_core.relations.models import Relation, RelationStatus
 from forja_core.silver.plan import (
-    Normalization,
     PiiTreatment,
     PlanStatus,
-    SilverType,
     TransformationPlan,
 )
+from forja_core.silver.review import review_rules
 from forja_core.silver.tables import TableLayer, WarehouseTable
 
 SERVING = "dest_serving"
@@ -79,19 +78,12 @@ def mart_node_id(request_id: str) -> str:
 
 
 def plan_rules(plan: TransformationPlan) -> int:
-    """Rules of a Silver plan as the review screen lists them, one decision each."""
-    rules = 0
-    for column in plan.columns:
-        if not column.included:
-            rules += 1
-            continue
-        rules += column.from_text and column.target_type is not SilverType.VARCHAR
-        rules += column.normalization is not Normalization.NONE
-        rules += column.pii_treatment is not PiiTreatment.NONE
-        rules += sum(1 for rule in column.rules if rule.enabled)
-    rules += plan.deduplication.enabled and plan.deduplication.duplicate_rows > 0
-    rules += plan.primary_key is not None
-    return rules
+    """Rules of a Silver plan still to decide, as the review screen lists them; every rule
+    once the plan is approved."""
+    rules = review_rules(plan)
+    if plan.status is PlanStatus.DRAFT:
+        return sum(1 for rule in rules if rule.decision is None)
+    return len(rules)
 
 
 @dataclass

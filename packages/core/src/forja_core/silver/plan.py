@@ -150,6 +150,10 @@ class TransformationPlan(BaseModel):
     deduplication: DeduplicationPlan = Field(default_factory=DeduplicationPlan)
     warnings: list[str] = Field(default_factory=list)
     summary: str = ""
+    reviews: dict[str, Literal["validated", "rejected"]] = Field(
+        default_factory=dict,
+        description="Review decisions by rule id (see GET /sources/{id}/plan/review)",
+    )
 
     def column(self, source_column: str) -> ColumnPlan | None:
         return next((c for c in self.columns if c.source_column == source_column), None)
