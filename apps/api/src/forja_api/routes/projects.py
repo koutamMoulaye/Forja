@@ -88,6 +88,20 @@ def invite(
     return state.auth.invite(access.principal, project_id, payload)
 
 
+@router.delete(
+    "/projects/{project_id}/invitations/{invitation_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Revoke a pending invitation: its registration link stops working",
+)
+def revoke_invitation(
+    project_id: str,
+    invitation_id: str,
+    state: StateDep,
+    access: Annotated[Access, require(Action.PROJECT_MANAGE)],
+) -> None:
+    state.auth.revoke_invitation(access.principal, project_id, invitation_id)
+
+
 @router.get("/projects/{project_id}/invitations")
 def list_invitations(
     project_id: str,

@@ -306,6 +306,20 @@ class AuthMixin(GoldPlansMixin):
             [to_db_timestamp(utcnow()), invitation_id],
         )
 
+    def delete_pending_invitation(self, project_id: str, invitation_id: str) -> Invitation | None:
+        """Remove an invitation not accepted yet; its registration token stops working."""
+        pending = next(
+            (
+                i
+                for i in self.list_invitations(project_id)
+                if i.id == invitation_id and i.accepted_at is None
+            ),
+            None,
+        )
+        if pending is not None:
+            self._execute("DELETE FROM invitations WHERE id = ?", [invitation_id])
+        return pending
+
     def list_invitations(self, project_id: str) -> list[Invitation]:
         rows = self._fetchall(
             f"SELECT {_INVITATION_COLUMNS} FROM invitations WHERE project_id = ? "

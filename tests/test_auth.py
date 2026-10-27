@@ -230,6 +230,24 @@ def test_invitation_tokens_are_single_use(multi: TestClient) -> None:
     )
 
 
+def test_revoked_invitation_cannot_register(multi: TestClient) -> None:
+    project_id = _project(multi)
+    invitation = multi.post(
+        f"/projects/{project_id}/invitations", json={"email": "c@exemple.fr", "role": "analyst"}
+    ).json()
+    revoked = multi.delete(f"/projects/{project_id}/invitations/{invitation['id']}")
+    assert revoked.status_code == 204
+    assert multi.get(f"/projects/{project_id}/invitations").json() == []
+    assert multi.delete(f"/projects/{project_id}/invitations/{invitation['id']}").status_code == 404
+    fresh = TestClient(multi.app)
+    registered = fresh.post(
+        "/auth/register", json={"token": invitation["token"], "password": USER_PASSWORD}
+    )
+    assert registered.status_code == 401
+    actions = [e["action"] for e in multi.get(f"/projects/{project_id}/audit").json()]
+    assert "member.invitation_revoke" in actions
+
+
 def test_audit_log(multi: TestClient) -> None:
     project_id = _project(multi)
     multi.post("/auth/login", json={"email": ADMIN_EMAIL, "password": "wrong"})

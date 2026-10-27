@@ -38,7 +38,13 @@ from forja_core.auth.throttle import Limit, Throttle, TooManyAttemptsError
 from forja_core.catalog import Catalog
 from forja_core.catalog.auth import new_id
 from forja_core.config import Settings
-from forja_core.errors import ConflictError, ForbiddenError, PlanValidationError, UnauthorizedError
+from forja_core.errors import (
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    PlanValidationError,
+    UnauthorizedError,
+)
 from forja_core.logging import get_logger
 from forja_core.utils import utcnow
 
@@ -343,6 +349,21 @@ class AuthService:
             details={"email": request.email, "role": request.role.value},
         )
         return invitation.model_copy(update={"token": token})
+
+    def revoke_invitation(self, principal: Principal, project_id: str, invitation_id: str) -> None:
+        invitation = self.catalog.delete_pending_invitation(project_id, invitation_id)
+        if invitation is None:
+            raise NotFoundError(
+                "no pending invitation with this id", details={"invitation_id": invitation_id}
+            )
+        self.audit(
+            principal.user,
+            "member.invitation_revoke",
+            project_id=project_id,
+            object_type="invitation",
+            object_id=invitation_id,
+            details={"email": invitation.email},
+        )
 
     def register(self, token: str, password: str, *, ip: str | None = None) -> TokenPair:
         limits = self.throttle.ip_limits("register", ip)
