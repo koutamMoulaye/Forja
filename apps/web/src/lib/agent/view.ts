@@ -52,9 +52,21 @@ function sentence(text: string): string {
  * par mois et par ville »), else the question as asked.
  */
 export function martTitle(request: MartRequest): string {
-  const summary = previewedIteration(request)?.summary ?? request.model_summary;
+  const previewed = previewedIteration(request);
+  const parts = previewed?.summary_parts ?? [];
+  // Metrics and axes; the period, filters and limit stay in the summary.
+  const cut = parts.findIndex((p) => p.term && ["period", "filter", "limit"].includes(p.term.kind));
+  const fromParts = parts.length
+    ? sentence(
+        parts
+          .slice(0, cut < 0 ? parts.length : cut)
+          .map((p) => p.text)
+          .join(""),
+      ).replace(/,\s*$/, "")
+    : null;
+  const summary = fromParts ?? previewed?.summary ?? request.model_summary;
   if (summary) {
-    const head = sentence(summary).split(", ")[0]!;
+    const head = fromParts ?? sentence(summary).split(", ")[0]!;
     return head.length > 72 ? `${head.slice(0, 71)}…` : head;
   }
   return request.question;

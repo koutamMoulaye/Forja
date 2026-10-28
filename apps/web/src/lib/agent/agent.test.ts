@@ -188,6 +188,25 @@ describe("data marts", () => {
   it("names a mart from its summary and reads its status", () => {
     expect(martTitle(marts[0]!)).toBe("Chiffre d'affaires par mois et par ville");
     expect(martTitle(marts[4]!)).toBe("ventes par ville");
+    const parts = request({ status: "previewed" }, [
+      iteration({
+        status: "previewed",
+        preview: PREVIEW,
+        summary_parts: [
+          { text: "Chiffre d'affaires", term: { kind: "metric" } },
+          { text: " " },
+          { text: "par mois", term: { kind: "grain" } },
+          { text: ", " },
+          { text: "par segment", term: { kind: "axis" } },
+          { text: " et " },
+          { text: "par ville", term: { kind: "axis", index: 1 } },
+          { text: ", " },
+          { text: "clients ville Lyon", term: { kind: "filter" } },
+          { text: "." },
+        ],
+      } as Partial<MartIteration>),
+    ]);
+    expect(martTitle(parts)).toBe("Chiffre d'affaires par mois, par segment et par ville");
     expect(martBadge(marts[0]!)).toEqual({ kind: "prop", label: "À vérifier" });
     expect(martBadge(marts[1]!)).toEqual({ kind: "queue", label: "En attente d’approbation" });
     expect(martBadge({ ...marts[1]!, publish_job_id: "j" })).toEqual({
