@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Placeholder } from "@/components/shell/placeholders";
+import { SettingsScreen } from "@/components/settings/settings-screen";
 
 export const metadata: Metadata = { title: "Réglages du projet" };
 
 export default function Page() {
-  return <Placeholder screen="settings" />;
+  return <SettingsScreen />;
 }
