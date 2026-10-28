@@ -146,6 +146,14 @@ validation. La même requête, avec `{{ ref('fct_ventes') }}`, devient le modèl
 | `preview.pseudonymized` | colonnes personnelles pseudonymisées (toujours pour un analyst ; selon le plan pour un engineer) |
 | `sql` | SQL compilé lisible |
 | `controls` | voir ci-dessous |
+| `summary_parts` | le résumé découpé : chaque élément du MartSpec (métrique, découpage, axe, période, filtre, limite) est un terme avec sa question et ses options |
+| `option_counts` | pour une question en retour, ce que couvre chaque option : membres ayant la valeur (« 1 284 clients »), valeurs distinctes d'un attribut, total d'une métrique |
+
+Les options d'un terme viennent de la couche sémantique et des données : autres métriques
+du même fait, autres attributs de la dimension (« retirer cet axe »), années et
+trimestres couverts, valeurs de l'attribut filtré (« retirer ce filtre »), 5, 10 ou 20
+premiers. Corriger un terme crée une version `correction` dont le MartSpec choisi est
+prévisualisé tel quel, sans parseur ni LLM.
 
 Contrôles (`ok`, `info`, `warning`, `error`) :
 
@@ -177,9 +185,16 @@ MartSpec, Clarification ou refus, résumé, SQL, aperçu.
 | `GET` | `/projects/{id}/mart-requests` · `/mart-requests/{id}` | les siennes (toutes pour un engineer) |
 | `POST` | `/mart-requests/{id}/answer` | `{"option": 0}` ou `{"text": "…"}` : répond à la question |
 | `POST` | `/mart-requests/{id}/refine` | `{"instruction": "seulement le T1"}` : nouvelle version |
-| `POST` | `/mart-requests/{id}/validate` | valide l'aperçu ; publie, ou attend l'approbation |
+| `POST` | `/mart-requests/{id}/correct` | `{"version", "term", "option"}` : corrige un terme souligné |
+| `POST` | `/mart-requests/{id}/validate` | `{"destination": "powerbi"}` (facultatif) : publie, ou attend l'approbation |
 | `POST` | `/mart-requests/{id}/approve` | engineer : approuve et publie |
 | `POST` | `/mart-requests/{id}/reject` | `{"reason"}` |
+
+Un engineer (droit d'approuver) qui valide sa propre demande l'approuve du même coup.
+`GET /projects/{id}/agent/overview` donne la date du dernier build Gold réussi et des
+questions suggérées : écrites depuis la couche sémantique (métriques par défaut, axes
+nommés, jamais de code ni d'identifiant), elles ne sont gardées que si le parseur les
+comprend seul et qu'elles passent la validation, d'où un aperçu immédiat.
 
 Une réponse par option fixe le sens du terme pour la suite de la demande (`bindings`) ;
 une réponse libre remplace le terme dans la demande. Un affinage (« ajoute le nombre de

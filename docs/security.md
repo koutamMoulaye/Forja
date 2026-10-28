@@ -123,7 +123,16 @@ proxy : ses route handlers appellent l'API côté serveur (`FORJA_API_URL`).
 - si l'email a déjà un compte, l'utilisateur est ajouté au projet avec ce rôle ;
 - sinon un jeton d'inscription à usage unique est renvoyé (une fois), valable
   `FORJA_AUTH_INVITATION_DAYS` jours ; la personne crée son compte avec
-  `POST /auth/register` (`{"token", "password"}`).
+  `POST /auth/register` (`{"token", "password", "name"}`).
+
+L'interface envoie un lien `/auth/invite/<jeton>`. Avant l'inscription, la page lit
+l'invitation par `POST /auth/invitations/lookup` (`{"token"}`, sans session) : le jeton
+passe dans le corps, jamais dans une URL d'API que les journaux garderaient. La réponse
+ne donne l'e-mail et le rôle que pour une invitation valide ; sinon seulement son état
+(`expired`, `revoked`, `used`, `unknown`). Un jeton inconnu compte comme une tentative
+échouée de `register:ip:<ip>`, comme à l'inscription. Une invitation révoquée est
+conservée comme telle (`revoked_at`) pour que son lien le dise ; elle ne figure plus parmi
+les invitations en attente.
 
 Les rôles se gèrent ensuite par `PUT` / `DELETE /projects/{id}/members/{user_id}`.
 

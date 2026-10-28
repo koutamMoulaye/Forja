@@ -199,8 +199,25 @@ pas, édition latérale, « Valider le modèle » puis « Construire ») ; *Runs
 étapes table par table, métriques, tests dbt, journal) ; *Diffusion* (tables publiées,
 exports, connexion Power BI, Superset, Metabase) ; *Couche sémantique*
 (`?metric=chiffre_affaires` ouvre l'édition, synonymes proposés par les analysts) ;
-*Réglages* (membres, invitations, fournisseur IA, clés API) et *Gouvernance* (colonnes
-personnelles par couche, journal d'audit filtrable).
+*Réglages* (membres, invitations avec le lien d'inscription à copier, fournisseur IA,
+clés API) ; *Gouvernance* (colonnes personnelles par couche, journal d'audit filtrable) ;
+*À approuver* (data marts validés par les analysts : le même aperçu, Approuver ou
+Rejeter avec un motif).
+
+**Écrans analyst** : *Accueil* (date du dernier build Gold, champ « Posez une question »,
+suggestions que le parseur comprend seul, questions récentes, data marts, indicateurs) ;
+*Poser une question* (`/ask/<id>` : la conversation version par version, la carte de
+préparation qui suit le run réel avec la durée et le chemin, « réponse immédiate » ou
+« analyse approfondie », « Me prévenir à la fin », « Annuler » ; options cliquables avec
+leur effectif, réponse libre, synonyme à proposer ; refus utile ; affinage en français ;
+conversations récentes dans la barre latérale, et notification à la fin d'un job même
+ailleurs dans l'application) ; *Aperçu de vérification* (`/marts/<id>/preview` : termes
+soulignés corrigeables, contrôles, échantillon pseudonymisé, total, lignée, SQL replié,
+destination Power BI, Superset, CSV ou Parquet, « Valider et publier ») ; *Mes data
+marts* (filtres, destination, Affiner, Exporter) ; *Indicateurs* (`/indicators` :
+catalogue métier, synonymes, hiérarchies, recherche). Un administrateur invite par
+e-mail (`FORJA_AUTH_MODE=multi`) ; le lien `/auth/invite/<jeton>` crée le compte (nom,
+mot de passe) et connecte, ou explique qu'il a expiré, été révoqué ou déjà servi.
 
 La page interne <http://localhost:3000/design-system> montre tous les tokens et
 composants dans les deux thèmes, pour comparaison avec les maquettes.
@@ -254,7 +271,8 @@ curl -X POST localhost:8000/projects/<project_id>/mart-requests \
 curl localhost:8000/mart-requests/<mart_id>        # résumé, aperçu, SQL, contrôles
 curl -X POST localhost:8000/mart-requests/<mart_id>/refine \
      -H "Content-Type: application/json" -d '{"instruction": "seulement le T1"}'
-curl -X POST localhost:8000/mart-requests/<mart_id>/validate   # publie mart_<nom>
+curl -X POST localhost:8000/mart-requests/<mart_id>/correct      -H "Content-Type: application/json" -d '{"version": 3, "term": 2, "option": 1}'
+curl -X POST localhost:8000/mart-requests/<mart_id>/validate      -H "Content-Type: application/json" -d '{"destination": "powerbi"}'   # publie mart_<nom>
 ```
 
 Pour que le modèle Gold soit proposé par un LLM, définissez `FORJA_LLM_PROVIDER`
