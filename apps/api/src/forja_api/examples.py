@@ -175,12 +175,23 @@ def record(root: Path) -> dict[str, Any]:
             "/projects/{project_id}/invitations/{invitation_id}",
             p("/projects/{project_id}/invitations/{invitation_id}", invitation_id=revoked["id"]),
         )
+        rec.call(
+            TestClient(app),
+            "POST",
+            "/auth/invitations/lookup",
+            "/auth/invitations/lookup",
+            json={"token": invitation["token"]},
+        )
         registered = rec.call(
             TestClient(app),
             "POST",
             "/auth/register",
             "/auth/register",
-            json={"token": invitation["token"], "password": "Nouveau-Passw0rd-26"},
+            json={
+                "token": invitation["token"],
+                "password": "Nouveau-Passw0rd-26",
+                "name": "Nora Nouvelle",
+            },
         )
         newcomer = TestClient(app)
         newcomer.headers["Authorization"] = f"Bearer {registered['access_token']}"
@@ -351,6 +362,7 @@ def record(root: Path) -> dict[str, Any]:
         post(engineer, "/synonym-proposals/{proposal_id}/reject", proposal_id=other["id"])
 
         # Agent
+        get(analyst, "/projects/{project_id}/agent/overview")
         asked = post(
             analyst,
             "/projects/{project_id}/mart-requests",
@@ -359,10 +371,18 @@ def record(root: Path) -> dict[str, Any]:
         mart = {"mart_id": asked["mart_request"]["id"]}
         post(analyst, "/mart-requests/{mart_id}/answer", {"option": 0}, **mart)
         post(analyst, "/mart-requests/{mart_id}/refine", {"instruction": "seulement le T1"}, **mart)
+        refined = get(analyst, "/mart-requests/{mart_id}", **mart)["iterations"][-1]
+        term = next(i for i, part in enumerate(refined["summary_parts"]) if part.get("term"))
+        post(
+            analyst,
+            "/mart-requests/{mart_id}/correct",
+            {"version": refined["version"], "term": term, "option": 1},
+            **mart,
+        )
         get(analyst, "/mart-requests/{mart_id}", **mart)
         get(analyst, "/projects/{project_id}/mart-requests")
         state.settings.mart_require_approval = True
-        post(analyst, "/mart-requests/{mart_id}/validate", **mart)
+        post(analyst, "/mart-requests/{mart_id}/validate", {"destination": "powerbi"}, **mart)
         post(engineer, "/mart-requests/{mart_id}/approve", **mart)
         state.settings.mart_require_approval = False
         rejected = post(

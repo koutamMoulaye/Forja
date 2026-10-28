@@ -53,6 +53,12 @@ ROUTE_DOCS: dict[tuple[str, str], tuple[str, str]] = {
         "Jeton d'invitation à usage unique et mot de passe (mode multi). Renvoie une paire de "
         f"jetons. {PUBLIC}",
     ),
+    ("post", "/auth/invitations/lookup"): (
+        "Lire une invitation",
+        "Où mène un lien d'inscription : valide (e-mail, rôle, projet), expirée, révoquée, déjà "
+        "utilisée ou inconnue. Le jeton passe dans le corps, jamais dans une URL. "
+        f"{PUBLIC}",
+    ),
     ("get", "/auth/api-keys"): (
         "Lister ses clés API",
         f"Clés API personnelles (préfixe seulement, jamais le secret). {ANY_USER}",
@@ -282,6 +288,11 @@ ROUTE_DOCS: dict[tuple[str, str], tuple[str, str]] = {
         f"Décision conservée. {ENG}",
     ),
     # --- Agent métier -----------------------------------------------------------------
+    ("get", "/projects/{project_id}/agent/overview"): (
+        "Accueil de l'agent",
+        "Date du dernier build Gold réussi et questions suggérées, écrites depuis la couche "
+        f"sémantique et comprises par le parseur seul (aperçu immédiat). {ALL}",
+    ),
     ("post", "/projects/{project_id}/mart-requests"): (
         "Demander un data mart",
         "Demande en français ; l'agent la traite dans un run (202) : aperçu de vérification, "
@@ -305,10 +316,18 @@ ROUTE_DOCS: dict[tuple[str, str], tuple[str, str]] = {
         "« ajoute le nombre de commandes », « seulement le T1 » : nouvelle version (run). "
         "Auteur de la demande.",
     ),
+    ("post", "/mart-requests/{mart_id}/correct"): (
+        "Corriger un terme de l'aperçu",
+        "Un terme souligné du résumé (mesure, découpage, axe, période, filtre, limite) prend "
+        "l'une de ses options : nouvelle version (run) prévisualisée telle quelle, sans LLM. "
+        "Auteur de la demande.",
+    ),
     ("post", "/mart-requests/{mart_id}/validate"): (
         "Valider l'aperçu",
-        "Publie le data mart (run), ou attend l'approbation d'un engineer si "
-        "FORJA_MART_REQUIRE_APPROVAL=true. Refusé si un contrôle est en erreur. Auteur.",
+        "Avec la destination choisie (Power BI, Superset, CSV, Parquet). Publie le data mart "
+        "(run), ou attend l'approbation d'un engineer si FORJA_MART_REQUIRE_APPROVAL=true ; "
+        "un engineer qui valide sa propre demande l'approuve du même coup. Refusé si un "
+        "contrôle est en erreur. Auteur.",
     ),
     ("post", "/mart-requests/{mart_id}/approve"): (
         "Approuver un data mart",
