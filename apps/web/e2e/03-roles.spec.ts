@@ -49,7 +49,7 @@ test("an engineer navigates the pipeline side and switches to the analyst view",
   await expect(page).toHaveURL(/\/runs$/);
   await expect(page.getByRole("heading", { level: 1, name: "Runs" })).toBeVisible();
   // The previous page may stay mounted, hidden, for instant back navigation.
-  await expect(page.getByTestId("coming-soon").filter({ visible: true })).toBeVisible();
+  await expect(page.getByTestId("runs-screen").filter({ visible: true })).toBeVisible();
 
   await page.getByTestId("notifications-bell").click();
   await expect(page).toHaveURL(/\?panel=notifications$/);

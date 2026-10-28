@@ -51,7 +51,12 @@ if (!credentials.engineer.password || !credentials.analyst.password) {
 }
 writeFileSync(`${dataDir}credentials.json`, JSON.stringify(credentials, null, 2));
 
-const api = spawn("uv", ["run", "forja", "serve"], { cwd: repo, env, stdio: "inherit" });
+// Each dbt model stays « running » a moment, so the tests can see a run in progress.
+const api = spawn("uv", ["run", "forja", "serve"], {
+  cwd: repo,
+  env: { ...env, FORJA_TEST_MODEL_DELAY_SECONDS: "1.5" },
+  stdio: "inherit",
+});
 const stop = () => api.kill();
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);

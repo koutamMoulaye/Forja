@@ -116,11 +116,10 @@ test("a Silver run moves the cleaned tables from waiting to done", async ({ page
   await expect(page.locator('[data-state="running"], [data-state="pending"]').first()).toBeVisible({
     timeout: 30_000,
   });
-  // dbt builds each demo table in a fraction of a second: the flow on the incoming link is
-  // only there while one is caught running.
-  if (await page.locator('[data-state="running"]').count()) {
-    await expect(page.getByTestId("edge-flow").first()).toBeAttached();
-  }
+  // The test API holds each dbt model « running » (FORJA_TEST_MODEL_DELAY_SECONDS): the node
+  // shows « En cours » and the flow runs along its incoming link.
+  await expect(page.locator('[data-state="running"]').first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("edge-flow").first()).toBeAttached();
   await captureThemes(page, "run-in-progress");
   for (const id of cleaning) {
     await expect(node(page, id)).toHaveAttribute("data-state", "applied", { timeout: 120_000 });
