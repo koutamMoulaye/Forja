@@ -409,9 +409,11 @@ function StarSchema({
         </svg>
         {nodes.map((node, index) => {
           const p = positions[index]!;
+          // Halfway along the visible part of the link, between the two cards.
+          const onLeft = p.x < fx;
           const mid = {
-            x: (p.x + CARD.width / 2 + center.x) / 2,
-            y: (p.y + CARD.height / 2 + center.y) / 2,
+            x: onLeft ? (p.x + CARD.width + fx) / 2 : (fx + FACT_WIDTH + p.x) / 2,
+            y: p.y + CARD.height / 2 - 12,
           };
           const state = node.kind === "date" ? "app" : edgeState(node.name, plan, issues);
           return (
