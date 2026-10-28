@@ -228,6 +228,26 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Server-Sent Events: notifications and run status changes
+         * @description `text/event-stream`. Events: `ready` (unread count), `notification` (a new notification), `job` (a run the caller may follow was queued, progressed or ended). A comment line every 15 s keeps the connection open. The stream ends when the access token expires or the session is revoked; the client reconnects.
+         */
+        get: operations["events_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -382,6 +402,40 @@ export type paths = {
          * @description Avec la destination choisie (Power BI, Superset, CSV, Parquet). Publie le data mart (run), ou attend l'approbation d'un engineer si FORJA_MART_REQUIRE_APPROVAL=true ; un engineer qui valide sa propre demande l'approuve du même coup. Refusé si un contrôle est en erreur. Auteur.
          */
         post: operations["validate_mart_request_mart_requests__mart_id__validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's notifications, newest first */
+        get: operations["list_notifications_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark notifications as read (all when no ids) */
+        post: operations["read_notifications_notifications_read_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3055,6 +3109,70 @@ export type components = {
          * @enum {string}
          */
         Normalization: "none" | "trim" | "collapse_whitespace" | "lowercase" | "compact_uppercase";
+        /** Notification */
+        Notification: {
+            action?: components["schemas"]["NotificationAction"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /** Id */
+            id: string;
+            kind: components["schemas"]["NotificationKind"];
+            /** Project Id */
+            project_id?: string | null;
+            /** Read At */
+            read_at?: string | null;
+            /** Title */
+            title: string;
+            /** User Id */
+            user_id: string;
+        };
+        /**
+         * NotificationAction
+         * @description What the notification leads to; the front turns the target into a page.
+         */
+        NotificationAction: {
+            /** Label */
+            label: string;
+            /** Target Id */
+            target_id: string;
+            /**
+             * Target Type
+             * @enum {string}
+             */
+            target_type: "run" | "source" | "gold_plan" | "mart";
+        };
+        /**
+         * NotificationKind
+         * @enum {string}
+         */
+        NotificationKind: "run_succeeded" | "run_failed" | "plan_review" | "mart_approval" | "mart_approved" | "mart_rejected" | "mart_published" | "ai_job_done";
+        /** NotificationPage */
+        NotificationPage: {
+            /** Items */
+            items: components["schemas"]["Notification"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /**
+             * Total
+             * @description Notifications matching the filter
+             */
+            total: number;
+            /**
+             * Unread
+             * @description Unread notifications of the user, all pages
+             */
+            unread: number;
+        };
         /**
          * OptionCount
          * @description How much an option of a question covers: « 1 284 clients », « 48 210 € ».
@@ -3365,6 +3483,21 @@ export type components = {
             rows: number;
             /** Run Id */
             run_id: string;
+        };
+        /** ReadRequest */
+        ReadRequest: {
+            /**
+             * Ids
+             * @description Notifications to mark as read; all of them when omitted
+             */
+            ids?: string[] | null;
+        };
+        /** ReadResult */
+        ReadResult: {
+            /** Marked */
+            marked: number;
+            /** Unread */
+            unread: number;
         };
         /** RefreshRequest */
         RefreshRequest: {
@@ -4825,6 +4958,26 @@ export interface operations {
                      *     ]
                      */
                     "application/json": components["schemas"]["User"][];
+                };
+            };
+        };
+    };
+    events_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": unknown;
                 };
             };
         };
@@ -6582,6 +6735,72 @@ export interface operations {
                      *     }
                      */
                     "application/json": components["schemas"]["MartRequestRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_notifications_notifications_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                unread_only?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_notifications_notifications_read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadResult"];
                 };
             };
             /** @description Validation Error */

@@ -4083,6 +4083,159 @@
         "title": "Normalization",
         "type": "string"
       },
+      "Notification": {
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotificationAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/NotificationKind"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "kind",
+          "title",
+          "created_at"
+        ],
+        "title": "Notification",
+        "type": "object"
+      },
+      "NotificationAction": {
+        "description": "What the notification leads to; the front turns the target into a page.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_type": {
+            "enum": [
+              "run",
+              "source",
+              "gold_plan",
+              "mart"
+            ],
+            "title": "Target Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "target_type",
+          "target_id"
+        ],
+        "title": "NotificationAction",
+        "type": "object"
+      },
+      "NotificationKind": {
+        "enum": [
+          "run_succeeded",
+          "run_failed",
+          "plan_review",
+          "mart_approval",
+          "mart_approved",
+          "mart_rejected",
+          "mart_published",
+          "ai_job_done"
+        ],
+        "title": "NotificationKind",
+        "type": "string"
+      },
+      "NotificationPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Notification"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "description": "Notifications matching the filter",
+            "title": "Total",
+            "type": "integer"
+          },
+          "unread": {
+            "description": "Unread notifications of the user, all pages",
+            "title": "Unread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "unread",
+          "offset",
+          "limit"
+        ],
+        "title": "NotificationPage",
+        "type": "object"
+      },
       "OptionCount": {
         "description": "How much an option of a question covers: « 1 284 clients », « 48 210 € ».",
         "properties": {
@@ -4835,6 +4988,45 @@
           "rows"
         ],
         "title": "QuarantineRun",
+        "type": "object"
+      },
+      "ReadRequest": {
+        "properties": {
+          "ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Notifications to mark as read; all of them when omitted",
+            "title": "Ids"
+          }
+        },
+        "title": "ReadRequest",
+        "type": "object"
+      },
+      "ReadResult": {
+        "properties": {
+          "marked": {
+            "title": "Marked",
+            "type": "integer"
+          },
+          "unread": {
+            "title": "Unread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "marked",
+          "unread"
+        ],
+        "title": "ReadResult",
         "type": "object"
       },
       "RefreshRequest": {
@@ -7593,6 +7785,24 @@
         ]
       }
     },
+    "/events": {
+      "get": {
+        "description": "`text/event-stream`. Events: `ready` (unread count), `notification` (a new notification), `job` (a run the caller may follow was queued, progressed or ended). A comment line every 15 s keeps the connection open. The stream ends when the access token expires or the session is revoked; the client reconnects.",
+        "operationId": "events_events_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {}
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Server-Sent Events: notifications and run status changes",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "description": "Version et disponibilité de l'API. Public (sans authentification).",
@@ -9463,6 +9673,113 @@
         "summary": "Valider l'aperçu",
         "tags": [
           "agent"
+        ]
+      }
+    },
+    "/notifications": {
+      "get": {
+        "operationId": "list_notifications_notifications_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "unread_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Unread Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The caller's notifications, newest first",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/notifications/read": {
+      "post": {
+        "operationId": "read_notifications_notifications_read_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark notifications as read (all when no ids)",
+        "tags": [
+          "notifications"
         ]
       }
     },

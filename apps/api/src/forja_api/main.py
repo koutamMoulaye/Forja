@@ -19,6 +19,7 @@ from forja_api.routes import (
     gold,
     graph,
     marts,
+    notifications,
     plans,
     projects,
     relations,
@@ -112,6 +113,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(gold.router)
     app.include_router(semantic.router)
     app.include_router(marts.router)
+    app.include_router(notifications.router)
     app.include_router(instance_settings.router)
     openapi.install(app)
     return app
@@ -124,4 +126,6 @@ def run() -> None:
         factory=True,
         host=settings.api_host,
         port=settings.api_port,
+        # Event streams stay open: do not wait for them on shutdown.
+        timeout_graceful_shutdown=5,
     )

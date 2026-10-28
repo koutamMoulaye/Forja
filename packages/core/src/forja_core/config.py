@@ -125,6 +125,10 @@ class Settings(BaseSettings):
         description="Origins allowed to call the API from a browser (the front)",
     )
 
+    events_heartbeat_seconds: float = Field(
+        default=15, gt=0, le=60, description="Keep-alive comment of the event stream"
+    )
+
     mart_require_approval: bool = Field(
         default=False, description="An engineer approves a data mart before it is published"
     )

@@ -17,6 +17,7 @@ from collections.abc import Callable
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import duckdb
 
@@ -81,6 +82,9 @@ from forja_core.silver.plan import PiiTreatment
 from forja_core.silver.tables import TableLayer, WarehouseTable
 from forja_core.utils import quote_ident, utcnow
 
+if TYPE_CHECKING:
+    from forja_core.notifications.service import NotificationService
+
 log = get_logger(__name__)
 
 CreateJob = Callable[[str, RunRequest, str], Job]
@@ -112,6 +116,7 @@ class MartService:
         self.create_job: CreateJob | None = None
         self.start_job: StartJob | None = None
         self.audit: Audit | None = None
+        self.notifications: NotificationService | None = None
         generator.marts = self.mart_models
         publisher.mart_columns = self.mart_columns
 
@@ -331,6 +336,8 @@ class MartService:
             destination=request.destination,
         )  # fmt: skip
         if self.settings.mart_require_approval and request.approved_at is None:
+            if self.notifications is not None:
+                self.notifications.mart_awaits_approval(request)
             return request, None
         return self._publish(request, principal)
 
@@ -351,6 +358,8 @@ class MartService:
         request.approved_at = utcnow()
         self.catalog.save_mart_request(request)
         self._record(principal, "mart.approve", request)
+        if self.notifications is not None:
+            self.notifications.mart_approved(request)
         published, job = self._publish(request, principal)
         assert job is not None
         return published, job
@@ -365,6 +374,8 @@ class MartService:
         request.updated_at = utcnow()
         self.catalog.save_mart_request(request)
         self._record(principal, "mart.reject", request, reason=reason)
+        if self.notifications is not None:
+            self.notifications.mart_rejected(request)
         return request
 
     def _publish(self, request: MartRequest, principal: Principal) -> tuple[MartRequest, Job]:

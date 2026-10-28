@@ -15,10 +15,13 @@ from forja_core.config import Settings
 from forja_core.gold.build import GoldBuilder
 from forja_core.gold.service import GoldPlanService
 from forja_core.ingestion import IngestionService
+from forja_core.ingestion.service import IngestedVersion
 from forja_core.jobs.executor import JobExecutor
 from forja_core.jobs.models import Job, JobType
 from forja_core.jobs.runner import InlineJobRunner, JobRunner, ThreadJobRunner
 from forja_core.locks import WarehouseLocks
+from forja_core.notifications.bus import EventBus
+from forja_core.notifications.service import NotificationService
 from forja_core.profiling.profiler import Profiler
 from forja_core.relations.detector import RelationDetector
 from forja_core.relations.service import RelationService
@@ -27,6 +30,7 @@ from forja_core.serving import Publisher
 from forja_core.silver.build import SilverBuilder
 from forja_core.silver.dbt.project import DbtProjectGenerator
 from forja_core.silver.dbt.runner import DbtRunner
+from forja_core.silver.plan import PlanStatus
 from forja_core.silver.service import PlanService
 from forja_core.storage import Workspace
 from forja_llm import LLMProvider, LLMSettings, get_provider
@@ -56,6 +60,8 @@ class AppState:
     llm_store: LLMConfigStore
     llm_base: LLMSettings
     llm_settings: LLMSettings
+    events: EventBus
+    notifications: NotificationService
 
     @classmethod
     def build(cls, settings: Settings) -> AppState:
@@ -125,6 +131,21 @@ class AppState:
                 log_line(f"semantic layer v{layer.version} ready")
 
         executor.after_success.append(refresh_semantic_layer)
+
+        events = EventBus()
+        notifications = NotificationService(catalog, events)
+        executor.on_change.append(notifications.job_changed)
+        executor.on_finish.append(notifications.job_finished)
+        marts.notifications = notifications
+
+        def plan_to_review(ingested: IngestedVersion) -> None:
+            plan = catalog.latest_plan(ingested.source.id)
+            if plan is not None and plan.status is PlanStatus.DRAFT:
+                notifications.plan_to_review(
+                    ingested.source.project_id, ingested.source.id, ingested.source.name
+                )
+
+        ingestion.subscribe(plan_to_review)
         return cls(
             settings=settings,
             catalog=catalog,
@@ -145,6 +166,8 @@ class AppState:
             llm_store=llm_store,
             llm_base=llm_base,
             llm_settings=llm_settings,
+            events=events,
+            notifications=notifications,
         )
 
     def configure_llm(self) -> None:
@@ -163,6 +186,7 @@ class AppState:
         self.runner.start()
 
     def close(self) -> None:
+        self.events.close()
         self.runner.stop(timeout=30)
         self.catalog.close()
 

@@ -338,6 +338,21 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         ALTER TABLE invitations ADD COLUMN revoked_at TIMESTAMP;
         """,
     ),
+    (
+        15,
+        """
+        CREATE TABLE notifications (
+            id VARCHAR PRIMARY KEY,
+            user_id VARCHAR NOT NULL,
+            project_id VARCHAR,
+            kind VARCHAR NOT NULL,
+            data JSON NOT NULL,
+            read_at TIMESTAMP,
+            created_at TIMESTAMP NOT NULL
+        );
+        CREATE INDEX notifications_user ON notifications (user_id, created_at);
+        """,
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]

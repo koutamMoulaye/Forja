@@ -81,6 +81,16 @@ class JobExecutor:
         }
         self._scopes: dict[str, JobScope] = {}
         self.after_success: list[Callable[[Job, Callable[[str], None]], None]] = []
+        # Listeners of every status or progress change, and of the end of a run.
+        self.on_change: list[Callable[[Job], None]] = []
+        self.on_finish: list[Callable[[Job], None]] = []
+
+    def _changed(self, job: Job, listeners: list[Callable[[Job], None]] | None = None) -> None:
+        for listener in self.on_change if listeners is None else listeners:
+            try:
+                listener(job)
+            except Exception:
+                log.exception("job_listener_failed", job_id=job.id)
 
     def register(self, job_type: JobType, handler: Handler) -> None:
         self.handlers[job_type] = handler
@@ -102,6 +112,7 @@ class JobExecutor:
         scope = self._scopes.get(job_id)
         if scope is not None:
             scope.cancelled.set()
+        self._changed(job)
         log.info("job_cancel_requested", job_id=job_id, status=job.status.value)
         return job
 
@@ -124,6 +135,7 @@ class JobExecutor:
         )
         self.catalog.add_job(job)
         log.info("job_queued", job_id=job.id, project_id=project_id, type=job.type.value)
+        self._changed(job)
         return job
 
     def execute(self, job_id: str) -> Job:
@@ -139,6 +151,7 @@ class JobExecutor:
         def on_progress(progress: JobProgress, log: bool) -> None:
             job.progress = progress.model_copy(update={"updated_at": utcnow()})
             self.catalog.save_job_progress(job.id, job.progress)
+            self._changed(job)
             if log:
                 log_line(f"[{progress.step}] {progress.message}")
 
@@ -147,6 +160,7 @@ class JobExecutor:
         job.attempts += 1
         job.error = None
         self.catalog.save_job(job)
+        self._changed(job)
         bound.info("job_started", attempt=job.attempts)
         attempt = f" (attempt {job.attempts})" if job.attempts > 1 else ""
         log_line(f"{job.type.value} started{attempt}")
@@ -217,6 +231,8 @@ class JobExecutor:
         )
         self.catalog.save_job(job)
         bound.info("job_finished", status=job.status.value, duration_s=duration, error=job.error)
+        self._changed(job)
+        self._changed(job, self.on_finish)
         return job
 
     def _source_ids(self, job: Job) -> list[str]:

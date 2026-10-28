@@ -209,6 +209,7 @@ PUBLIC = {("GET", "/health"), ("POST", "/auth/login"), ("POST", "/auth/refresh")
 ACCOUNT = {
     ("POST", "/auth/logout"), ("POST", "/auth/password"), ("GET", "/auth/me"),
     ("GET", "/auth/api-keys"), ("POST", "/auth/api-keys"), ("DELETE", "/auth/api-keys/{key_id}"),
+    ("GET", "/notifications"), ("POST", "/notifications/read"), ("GET", "/events"),
 }  # fmt: skip
 
 
