@@ -246,6 +246,7 @@ def _validate(spec: MartSpec, layer: SemanticLayer, lookup: ValueLookup) -> Vali
         raise _StopError(Validation(refusal="La période demandée se termine avant de commencer."))
 
     filters = [_filter(layer, f, fact, metrics, lookup) for f in spec.filters]
+    axes, notes = _drop_fixed_axes(layer, axes, filters)
 
     outputs = set(metrics) | {a.split(".")[-1] for a in axes} | set(axes)
     if spec.time_grain:
@@ -270,4 +271,34 @@ def _validate(spec: MartSpec, layer: SemanticLayer, lookup: ValueLookup) -> Vali
             "order_by": order_by,
         }
     )
-    return Validation(spec=validated, fact=fact)
+    return Validation(spec=validated, fact=fact, notes=notes)
+
+
+def _fixed_value(item: MartFilter) -> object | None:
+    """The single value a filter keeps (``ville = Lyon``, ``ville in [Lyon]``), if any."""
+    if item.operator is FilterOperator.EQ and not isinstance(item.value, list):
+        return item.value
+    if item.operator is FilterOperator.IN and isinstance(item.value, list):
+        return item.value[0] if len(item.value) == 1 else None
+    return None
+
+
+def _drop_fixed_axes(
+    layer: SemanticLayer, axes: list[str], filters: list[MartFilter]
+) -> tuple[list[str], list[str]]:
+    """An axis on an attribute a filter pins to one value adds a constant column: a model
+    sometimes asks for both (« CA par ville à Lyon »). The axis is removed, and said."""
+    fixed = {f.field: v for f in filters if (v := _fixed_value(f)) is not None}
+    kept: list[str] = []
+    notes: list[str] = []
+    for ref in axes:
+        if ref not in fixed:
+            kept.append(ref)
+            continue
+        found = layer.attribute(ref)
+        label = ref
+        if found is not None:
+            dim, attribute = found
+            label = dim.label if attribute.name == dim.display_attribute else attribute.label
+        notes.append(f"Axe « {label} » retiré : le filtre ne garde que {fixed[ref]}.")
+    return kept, notes

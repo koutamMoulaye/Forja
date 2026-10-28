@@ -389,6 +389,45 @@ def test_filters_found_locally_survive_the_model(shop: tuple[AppState, Project])
     assert "filter on client.ville" in provider.prompts[0]
 
 
+def test_an_axis_the_filter_pins_is_removed_and_said(shop: tuple[AppState, Project]) -> None:
+    state, project = shop
+    # The model groups by city and keeps only Lyon: a constant column.
+    provider = _Recording(
+        '{"kind": "mart", "mart": {"metrics": ["montant"], "axes": ["client.ville", '
+        '"client.segment"], "filters": [{"field": "client.ville", "value": "lyon"}], '
+        '"name": "ca_lyon"}}'
+    )
+    state.marts.interpreter = LLMMartInterpreter(provider)
+    try:
+        request = _ask(state, project, "Combien les gens de Lyon ont-ils dépensé, par segment ?")
+    finally:
+        state.marts.interpreter = None
+    iteration = request.latest
+    assert iteration is not None and iteration.status == "previewed"
+    assert iteration.spec is not None and iteration.spec.axes == ["client.segment"]
+    assert [(f.field, f.value) for f in iteration.spec.filters] == [("client.ville", "Lyon")]
+    assert iteration.summary is not None
+    assert iteration.summary.endswith("le filtre ne garde que Lyon.")
+    assert "par ville" not in iteration.summary
+    assert "".join(p.text for p in iteration.summary_parts) == iteration.summary
+
+
+def test_an_axis_filtered_on_several_values_stays(
+    shop: tuple[AppState, Project], layer: SemanticLayer
+) -> None:
+    state, _ = shop
+    spec = MartSpec(
+        metrics=["montant"],
+        axes=["client.ville"],
+        filters=[
+            MartFilter(field="client.ville", operator=FilterOperator.IN, value=["Lyon", "Paris"])
+        ],
+    )
+    validation = validate_spec(spec, layer, state.marts._lookup(layer))
+    assert validation.spec is not None and validation.spec.axes == ["client.ville"]
+    assert validation.notes == []
+
+
 # --- Verification preview: terms, counts, suggestions, destination --------------------
 
 

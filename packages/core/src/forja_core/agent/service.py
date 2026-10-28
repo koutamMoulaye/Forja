@@ -33,6 +33,7 @@ from forja_core.agent.models import (
     MartStatus,
     MartValidation,
     OptionCount,
+    SummaryPart,
     TermCorrection,
 )
 from forja_core.agent.parser import ParseOutcome, clarification, parse, refine
@@ -595,8 +596,11 @@ class MartService:
             validation = validate_spec(answer.mart, layer, self._lookup(layer))
             if validation.spec is not None and validation.fact is not None:
                 self._preview(
-                    request, iteration, validation.spec, validation.fact, layer, data_range
-                )
+                    request, iteration, validation.spec, validation.fact, layer, data_range,
+                    notes=validation.notes,
+                )  # fmt: skip
+                for note in validation.notes:
+                    log_line(f"adjusted: {note}")
                 log_line(f"preview: {iteration.summary}")
                 return
             answer = (
@@ -689,6 +693,7 @@ class MartService:
         fact: str,
         layer: SemanticLayer,
         data_range: tuple[date, date] | None,
+        notes: list[str] | None = None,
     ) -> None:
         compiled = compile_spec(spec, layer, fact)
         report("preview", "calcul de l'aperçu et des contrôles", 85)
@@ -713,6 +718,10 @@ class MartService:
         iteration.summary_parts = correctable(
             spec, layer, data_range=data_range, values=self._attribute_values(layer)
         )
+        # What Forja changed in the model's answer, said after the summary.
+        for note in notes or []:
+            iteration.summary = f"{iteration.summary} {note}"
+            iteration.summary_parts.append(SummaryPart(text=f" {note}"))
         iteration.preview = preview
         iteration.status = "previewed"
         request.status = MartStatus.PREVIEWED
