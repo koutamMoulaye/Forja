@@ -167,7 +167,6 @@ class Stream:
 
     def __init__(self, client: httpx.Client) -> None:
         self.events: list[tuple[str, dict[str, Any]]] = []
-        self.comments = 0
         self._client = client
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._read, daemon=True)
@@ -181,9 +180,7 @@ class Stream:
             for line in response.iter_lines():
                 if self._stop.is_set():
                     return
-                if line.startswith(":"):
-                    self.comments += 1
-                elif line.startswith("event: "):
+                if line.startswith("event: "):
                     name = line[7:]
                 elif line.startswith("data: "):
                     self.events.append((name, json.loads(line[6:])))
@@ -247,7 +244,7 @@ def test_mart_lifecycle_notifies_and_streams(live: Live) -> None:
         assert live.engineer.post(f"/mart-requests/{mart_id}/approve").status_code == 200
         analyst_stream.wait(lambda e: e[0] == "notification" and e[1]["kind"] == "mart_approved")
         analyst_stream.wait(lambda e: e[0] == "notification" and e[1]["kind"] == "mart_published")
-        assert analyst_stream.comments >= 1  # heartbeats
+        assert any(name == "ping" for name, _ in analyst_stream.events)  # heartbeats
     finally:
         analyst_stream.close()
         engineer_stream.close()

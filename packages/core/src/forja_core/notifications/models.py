@@ -20,7 +20,7 @@ class NotificationKind(StrEnum):
     AI_JOB_DONE = "ai_job_done"
 
 
-TargetType = Literal["run", "source", "gold_plan", "mart"]
+TargetType = Literal["run", "source", "gold_plan", "mart", "conversation"]
 
 
 class NotificationAction(BaseModel):

@@ -64,8 +64,9 @@ def _frame(event: str, data: object) -> str:
     description=(
         "`text/event-stream`. Events: `ready` (unread count), `notification` (a new "
         "notification), `job` (a run the caller may follow was queued, progressed or "
-        "ended). A comment line every 15 s keeps the connection open. The stream ends when "
-        "the access token expires or the session is revoked; the client reconnects."
+        "ended), `ping` every 15 s, which keeps the connection open and lets the client "
+        "notice a dead one. The stream ends when the access token expires or the session "
+        "is revoked; the client reconnects."
     ),
     response_class=StreamingResponse,
     responses={200: {"content": {"text/event-stream": {}}}},
@@ -89,7 +90,7 @@ async def events(request: Request, state: StateDep, principal: PrincipalDep) -> 
                         principal.session_id
                     ):
                         return
-                    yield ": ping\n\n"
+                    yield _frame("ping", {})
                     continue
                 if event is None:
                     return

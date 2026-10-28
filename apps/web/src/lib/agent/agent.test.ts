@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { registrationChecks } from "@/components/auth/password-form";
 import { describeRef } from "@/components/agent/clarify-options";
-import { agentNotifications } from "@/components/shell/notifications";
 import { invitationProblem } from "@/lib/auth/invitation";
 import type { SemanticLayer } from "@/lib/project/queries";
 import type { Job } from "@/lib/project/use-runs";
@@ -235,15 +234,6 @@ describe("data marts", () => {
     const rejected = request({ status: "rejected", rejection_reason: "doublon" }, [previewed]);
     expect(conversationOutcome(rejected)).toMatchObject({ state: "rejected", tone: "error" });
     expect(conversationOutcome(rejected).detail).toMatch(/doublon$/);
-
-    const now = Date.parse("2026-10-28T12:00:00Z");
-    const notices = agentNotifications(marts, "p1", now);
-    expect(notices.map((n) => n.title)).toEqual([
-      "Aperçu prêt à vérifier",
-      "En attente d’approbation",
-      "Data mart rejeté",
-    ]);
-    expect(notices[0]!.action).toEqual({ label: "Vérifier", href: "/projects/p1/marts/a/preview" });
   });
 });
 

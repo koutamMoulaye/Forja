@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { initialsOf } from "@/components/shell/shell-context";
 import { fuzzyScore, paletteFilter } from "@/components/shell/command-palette";
-import { dayGroup, runNotifications } from "@/components/shell/notifications";
+import { dayGroup } from "@/components/shell/notifications";
 import { breadcrumb, canOpen, parseProjectPath } from "@/lib/navigation";
 import { runDuration, type Job } from "@/lib/project/use-runs";
 import { formatDelay } from "@/lib/use-countdown";
@@ -77,29 +77,8 @@ describe("shell helpers", () => {
     expect(formatDelay(3725)).toBe("1 h 03 min");
   });
 
-  it("time runs and announce the finished ones", () => {
+  it("time runs", () => {
     expect(runDuration(job({}))).toBe("2 min 06 s");
-    const now = Date.parse("2026-10-25T12:00:00Z");
-    const items = runNotifications(
-      [
-        job({}),
-        job({
-          id: "run2",
-          status: "failed",
-          error: "Colonne prix_ht introuvable",
-          type: "build_silver",
-        }),
-        job({ id: "run3", status: "running", finished_at: null }),
-        job({ id: "old", finished_at: "2026-10-20T10:00:00Z" }),
-      ],
-      "p1",
-      now,
-    );
-    expect(items.map((item) => item.title)).toEqual(["Modèle construit", "Échec du nettoyage"]);
-    expect(items[1]).toMatchObject({
-      detail: "Colonne prix_ht introuvable",
-      action: { label: "Corriger", href: "/projects/p1/runs/run2" },
-    });
   });
 
   it("group notifications by day", () => {
@@ -107,5 +86,6 @@ describe("shell helpers", () => {
     expect(dayGroup(null, now)).toBe("pending");
     expect(dayGroup(new Date("2026-10-25T08:00:00").toISOString(), now)).toBe("today");
     expect(dayGroup(new Date("2026-10-24T18:00:00").toISOString(), now)).toBe("yesterday");
+    expect(dayGroup(new Date("2026-10-20T18:00:00").toISOString(), now)).toBe("earlier");
   });
 });

@@ -67,8 +67,7 @@ export function publicationSteps(request: MartRequest): PublicationStep[] {
       state: "done",
     },
   ];
-  const selfApproved =
-    Boolean(request.approved_at) && request.approved_at === request.validated_at;
+  const selfApproved = Boolean(request.approved_at) && request.approved_at === request.validated_at;
   if (!selfApproved) {
     steps.push({
       id: "pending",

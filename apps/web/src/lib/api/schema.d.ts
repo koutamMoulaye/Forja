@@ -237,7 +237,7 @@ export type paths = {
         };
         /**
          * Server-Sent Events: notifications and run status changes
-         * @description `text/event-stream`. Events: `ready` (unread count), `notification` (a new notification), `job` (a run the caller may follow was queued, progressed or ended). A comment line every 15 s keeps the connection open. The stream ends when the access token expires or the session is revoked; the client reconnects.
+         * @description `text/event-stream`. Events: `ready` (unread count), `notification` (a new notification), `job` (a run the caller may follow was queued, progressed or ended), `ping` every 15 s, which keeps the connection open and lets the client notice a dead one. The stream ends when the access token expires or the session is revoked; the client reconnects.
          */
         get: operations["events_events_get"];
         put?: never;
@@ -3147,7 +3147,7 @@ export type components = {
              * Target Type
              * @enum {string}
              */
-            target_type: "run" | "source" | "gold_plan" | "mart";
+            target_type: "run" | "source" | "gold_plan" | "mart" | "conversation";
         };
         /**
          * NotificationKind

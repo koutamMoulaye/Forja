@@ -13,7 +13,12 @@ from forja_core.catalog import Catalog
 from forja_core.jobs.models import Job, JobStatus, JobType
 from forja_core.logging import get_logger
 from forja_core.notifications.bus import Event, EventBus
-from forja_core.notifications.models import Notification, NotificationAction, NotificationKind
+from forja_core.notifications.models import (
+    Notification,
+    NotificationAction,
+    NotificationKind,
+    TargetType,
+)
 from forja_core.utils import utcnow
 
 log = get_logger(__name__)
@@ -152,8 +157,10 @@ class NotificationService:
         if request is None or request.latest is None:
             return
         latest = request.latest
+        target: TargetType = "conversation"
         if latest.status == "previewed":
             title, detail, label = "Aperçu prêt à vérifier", latest.summary or "", "Vérifier"
+            target = "mart"
         elif latest.status == "clarification":
             question = latest.clarification.question if latest.clarification else ""
             title, detail, label = "Une question pour vous", question, "Répondre"
@@ -167,7 +174,7 @@ class NotificationService:
             kind=NotificationKind.AI_JOB_DONE,
             title=title,
             detail=detail or request.question,
-            action=NotificationAction(label=label, target_type="mart", target_id=request.id),
+            action=NotificationAction(label=label, target_type=target, target_id=request.id),
         )
 
     def _mart_published(self, job: Job) -> None:
