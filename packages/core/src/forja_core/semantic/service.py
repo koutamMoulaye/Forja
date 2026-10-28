@@ -246,6 +246,33 @@ class SemanticService:
         self._values[cache_key] = values
         return values
 
+    def count_members(
+        self, layer: SemanticLayer, dimension: SemanticDimension, attribute: Attribute, value: str
+    ) -> int:
+        """Members of a dimension having a value: « 1 284 clients » segment Professionnel."""
+        counted = (
+            dimension.table_key
+            if dimension.kind != "degenerate" and dimension.table_key
+            else next(
+                (a.column for a in dimension.attributes if a.name == dimension.display_attribute),
+                attribute.column,
+            )
+        )
+        with self._warehouse(layer.project_id) as con:
+            [(count,)] = con.execute(
+                f"SELECT count(DISTINCT {quote_ident(counted)}) "
+                f"FROM {quote_ident(dimension.table)} "
+                f"WHERE CAST({quote_ident(attribute.column)} AS VARCHAR) = ?",
+                [value],
+            ).fetchall()
+        return int(count)
+
+    def scalar(self, project_id: str, sql: str) -> object | None:
+        """First value of a read-only query on the warehouse (a total, a count)."""
+        with self._warehouse(project_id) as con:
+            row = con.execute(sql).fetchone()
+        return None if row is None else row[0]
+
     def date_range(self, layer: SemanticLayer, time_dimension: str) -> tuple[date, date] | None:
         dim = layer.dimension(time_dimension)
         if dim is None or dim.fact_key is None:

@@ -2,10 +2,14 @@
 
 « Montant des ventes et nombre de commandes par mois et par ville, sur 2024,
 clients segment professionnel. »
+
+Each element of the spec (metric, grain, axis, period, filter, limit) is a term of the
+summary: the verification preview underlines it and offers to correct it.
 """
 
 from __future__ import annotations
 
+from forja_core.agent.models import SummaryPart, SummaryTerm, TermKind
 from forja_core.agent.spec import FilterOperator, MartFilter, MartSpec
 from forja_core.semantic.models import SemanticLayer, TimeGrain
 
@@ -75,31 +79,52 @@ def _period(spec: MartSpec) -> str | None:
     return f"du {start} au {end}"
 
 
-def summarize(spec: MartSpec, layer: SemanticLayer) -> str:
-    metrics = [layer.metric(m).label if layer.metric(m) else m for m in spec.metrics]  # type: ignore[union-attr]
-    text = _join([metrics[0], *(_lower_first(m) for m in metrics[1:])])
-    axes = []
+def _term(text: str, kind: TermKind, index: int = 0) -> SummaryPart:
+    return SummaryPart(text=text, term=SummaryTerm(kind=kind, index=index))
+
+
+def _joined(parts: list[SummaryPart], last: str = "et") -> list[SummaryPart]:
+    """The parts with « , » between them and « et » before the last one."""
+    out: list[SummaryPart] = []
+    for i, part in enumerate(parts):
+        if i:
+            out.append(SummaryPart(text=f" {last} " if i == len(parts) - 1 else ", "))
+        out.append(part)
+    return out
+
+
+def describe(spec: MartSpec, layer: SemanticLayer) -> list[SummaryPart]:
+    """The summary as parts; each element of the spec is a term the user can correct."""
+    labels = [layer.metric(m).label if layer.metric(m) else m for m in spec.metrics]  # type: ignore[union-attr]
+    parts = _joined(
+        [
+            _term(label if i == 0 else _lower_first(label), "metric", i)
+            for i, label in enumerate(labels)
+        ]
+    )
+    axes: list[SummaryPart] = []
     if spec.time_grain is not None:
-        axes.append(f"par {_GRAINS[spec.time_grain]}")
-    for ref in spec.axes:
+        axes.append(_term(f"par {_GRAINS[spec.time_grain]}", "grain"))
+    for index, ref in enumerate(spec.axes):
         found = layer.attribute(ref)
         if found is None:
             continue
         dim, attribute = found
-        if attribute.name == dim.display_attribute:
-            axes.append(f"par {dim.label.lower()}")
-        else:
-            axes.append(f"par {attribute.label.lower()}")
+        label = dim.label if attribute.name == dim.display_attribute else attribute.label
+        axes.append(_term(f"par {label.lower()}", "axis", index))
     if axes:
-        text += " " + _join(axes)
+        parts += [SummaryPart(text=" "), *_joined(axes)]
     if spec.time_dimension and spec.time_dimension != layer.default_time_dimension:
         time_dim = layer.dimension(spec.time_dimension)
         if time_dim is not None:
-            text += f" (selon la {time_dim.label.lower()})"
-    details = [d for d in [_period(spec)] if d]
-    details += [_filter(layer, f) for f in spec.filters]
-    if details:
-        text += ", " + ", ".join(details)
+            parts.append(SummaryPart(text=f" (selon la {time_dim.label.lower()})"))
+    details: list[SummaryPart] = []
+    period = _period(spec)
+    if period:
+        details.append(_term(period, "period"))
+    details += [_term(_filter(layer, f), "filter", i) for i, f in enumerate(spec.filters)]
+    for detail in details:
+        parts += [SummaryPart(text=", "), detail]
     if spec.limit:
         direction = (
             "premiers" if not spec.order_by or spec.order_by[0].direction == "desc" else "derniers"
@@ -109,7 +134,13 @@ def summarize(spec: MartSpec, layer: SemanticLayer) -> str:
         by = _lower_first(metric.label) if metric else target
         if spec.limit == 1:
             first = "le premier" if direction == "premiers" else "le dernier"
-            text += f", {first} par {by}"
+            text = f"{first} par {by}"
         else:
-            text += f", les {spec.limit} {direction} par {by}"
-    return text + "."
+            text = f"les {spec.limit} {direction} par {by}"
+        parts += [SummaryPart(text=", "), _term(text, "limit")]
+    parts.append(SummaryPart(text="."))
+    return parts
+
+
+def summarize(spec: MartSpec, layer: SemanticLayer) -> str:
+    return "".join(part.text for part in describe(spec, layer))

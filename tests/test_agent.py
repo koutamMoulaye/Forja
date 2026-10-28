@@ -14,14 +14,21 @@ import pytest
 
 from forja_api.state import AppState
 from forja_core.agent.compile import compile_spec
-from forja_core.agent.models import ClarificationAnswer, MartRequest, MartStatus
+from forja_core.agent.models import (
+    ClarificationAnswer,
+    MartRequest,
+    MartStatus,
+    MartValidation,
+    OptionCount,
+    TermCorrection,
+)
 from forja_core.agent.parser import parse
 from forja_core.agent.preselect import preselect
 from forja_core.agent.spec import FilterOperator, MartFilter, MartSpec, Period
 from forja_core.agent.validate import validate_spec
 from forja_core.agent.vocabulary import Vocabulary
 from forja_core.auth.models import Principal, User
-from forja_core.errors import PlanStateError
+from forja_core.errors import ConflictError, PlanStateError, PlanValidationError
 from forja_core.jobs.models import JobStatus
 from forja_core.models import Project
 from forja_core.semantic.models import SemanticLayer
@@ -380,3 +387,117 @@ def test_filters_found_locally_survive_the_model(shop: tuple[AppState, Project])
     assert iteration.path.value == "llm" and iteration.spec is not None
     assert [(f.field, f.value) for f in iteration.spec.filters] == [("client.ville", "Lyon")]
     assert "filter on client.ville" in provider.prompts[0]
+
+
+# --- Verification preview: terms, counts, suggestions, destination --------------------
+
+
+def test_summary_terms_can_be_corrected(shop: tuple[AppState, Project]) -> None:
+    state, project = shop
+    request = _ask(state, project, "Chiffre d'affaires par mois en 2024", who=ANALYST)
+    first = request.latest
+    assert first is not None and first.status == "previewed" and first.spec is not None
+    assert "".join(p.text for p in first.summary_parts) == first.summary
+    terms = {p.term.kind: (i, p.term) for i, p in enumerate(first.summary_parts) if p.term}
+    assert {"metric", "grain", "period"} <= set(terms)
+    for _, term in terms.values():
+        assert term.current == 0 and len(term.options) >= 2 and term.question
+
+    index, grain = terms["grain"]
+    option = grain.options.index("par trimestre")
+    state.marts.correct(
+        request.id, ANALYST, TermCorrection(version=first.version, term=index, option=option)
+    )
+    corrected = state.catalog.get_mart_request(request.id).latest
+    assert corrected is not None and corrected.kind == "correction"
+    assert corrected.status == "previewed" and corrected.path is not None
+    assert corrected.path.value == "parser" and corrected.spec is not None
+    assert corrected.spec.time_grain is not None and corrected.spec.time_grain.value == "trimestre"
+    assert corrected.spec.metrics == first.spec.metrics
+    assert corrected.instruction == "par mois → par trimestre"
+
+    index, metric = next(
+        (i, p.term)
+        for i, p in enumerate(corrected.summary_parts)
+        if p.term and p.term.kind == "metric"
+    )
+    state.marts.correct(
+        request.id,
+        ANALYST,
+        TermCorrection(
+            version=corrected.version,
+            term=index,
+            option=metric.options.index("Nombre de commandes"),
+        ),
+    )
+    latest = state.catalog.get_mart_request(request.id).latest
+    assert latest is not None and latest.spec is not None
+    assert latest.spec.metrics == ["nb_commandes"]
+    # Only the latest preview can be corrected.
+    with pytest.raises(ConflictError):
+        state.marts.correct(
+            request.id, ANALYST, TermCorrection(version=first.version, term=index, option=1)
+        )
+    with pytest.raises(PlanValidationError):
+        state.marts.correct(
+            request.id, ANALYST, TermCorrection(version=latest.version, term=0, option=40)
+        )
+
+
+def test_clarification_options_say_what_they_cover(
+    shop: tuple[AppState, Project], layer: SemanticLayer
+) -> None:
+    state, project = shop
+    request = _ask(state, project, "Évolution des ventes en 2024", who=ANALYST)
+    asked = request.latest
+    assert asked is not None and asked.clarification is not None
+    assert len(asked.option_counts) == len(asked.clarification.options)
+    by_ref = dict(
+        zip((o.ref for o in asked.clarification.options), asked.option_counts, strict=True)
+    )
+    revenue = by_ref["metric:montant"]
+    assert revenue is not None and revenue.format == "currency" and revenue.value > 0
+
+    found = layer.attribute("produit.categorie")
+    assert found is not None
+    counts = [
+        state.semantic.count_members(layer, *found, value)
+        for value in state.semantic.distinct_values(layer, *found)
+    ]
+    assert counts and all(c >= 1 for c in counts)
+    assert state.marts._option_count(layer, "attribute:produit.categorie") == OptionCount(
+        value=len(counts), unit="catégories"
+    )
+
+
+def test_overview_suggests_questions_the_parser_answers(shop: tuple[AppState, Project]) -> None:
+    state, project = shop
+    overview = state.marts.overview(project.id)
+    assert overview.data_updated_at is not None and overview.gold_run_id
+    assert 2 <= len(overview.suggestions) <= 4
+    assert len(set(overview.suggestions)) == len(overview.suggestions)
+    request = _ask(state, project, overview.suggestions[0], who=ANALYST)
+    latest = request.latest
+    assert latest is not None and latest.status == "previewed" and latest.path is not None
+    assert latest.path.value == "parser"
+
+
+def test_destination_and_engineer_self_approval(shop: tuple[AppState, Project]) -> None:
+    state, project = shop
+    state.settings.mart_require_approval = True
+    try:
+        own = _ask(state, project, "Quantité vendue par mois", who=ENGINEER)
+        validated, job = state.marts.validate(own.id, ENGINEER, MartValidation(destination="csv"))
+        assert job is not None and validated.destination == "csv"
+        assert validated.approved_by == ENGINEER.id
+        assert state.catalog.get_job(job.id).status is JobStatus.SUCCEEDED
+        assert state.catalog.get_mart_request(own.id).status is MartStatus.PUBLISHED
+
+        asked = _ask(state, project, "Nombre de commandes par mois", who=ANALYST)
+        waiting, none = state.marts.validate(
+            asked.id, ANALYST, MartValidation(destination="powerbi")
+        )
+        assert none is None and waiting.approved_at is None
+        assert waiting.status is MartStatus.VALIDATED and waiting.destination == "powerbi"
+    finally:
+        state.settings.mart_require_approval = False

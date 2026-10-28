@@ -59,6 +59,35 @@ class MartPreview(BaseModel):
     controls: list[Control] = Field(default_factory=list)
 
 
+TermKind = Literal["metric", "grain", "axis", "period", "filter", "limit"]
+
+
+class SummaryTerm(BaseModel):
+    """An element of the spec underlined in the summary, with what it can become."""
+
+    kind: TermKind
+    index: int = Field(default=0, description="Position in the spec list (metrics, axes...)")
+    question: str = ""
+    options: list[str] = Field(default_factory=list, description="Choices the user reads")
+    current: int | None = Field(default=None, description="The option in use, if listed")
+
+
+class SummaryPart(BaseModel):
+    text: str
+    term: SummaryTerm | None = None
+
+
+class OptionCount(BaseModel):
+    """How much an option of a question covers: « 1 284 clients », « 48 210 € »."""
+
+    value: float
+    unit: str = Field(default="", description="What is counted: clients, villes...")
+    format: Literal["count", "currency", "integer", "decimal", "percent"] = "count"
+
+
+Destination = Literal["powerbi", "superset", "csv", "parquet"]
+
+
 class LLMTrace(BaseModel):
     input_tokens: int = 0
     output_tokens: int = 0
@@ -68,7 +97,7 @@ class LLMTrace(BaseModel):
 
 class MartIteration(BaseModel):
     version: int
-    kind: Literal["question", "refinement", "answer"]
+    kind: Literal["question", "refinement", "answer", "correction"]
     instruction: str
     effective: str = Field(default="", description="Text actually interpreted")
     refines: bool = Field(default=False, description="Applied to the previous spec")
@@ -79,8 +108,17 @@ class MartIteration(BaseModel):
     clarification: Clarification | None = None
     refusal: str | None = None
     summary: str | None = None
+    summary_parts: list[SummaryPart] = Field(
+        default_factory=list, description="The summary, with the terms the user can correct"
+    )
     sql: str | None = None
     preview: MartPreview | None = None
+    option_counts: list[OptionCount | None] = Field(
+        default_factory=list, description="What each option of the question covers"
+    )
+    proposed: MartSpec | None = Field(
+        default=None, description="Correction of a term: the spec to preview as is"
+    )
     context_tokens: int | None = Field(
         default=None, description="Estimated tokens of the pre-selected semantic context"
     )
@@ -106,6 +144,9 @@ class MartRequest(BaseModel):
     semantic_version: int | None = None
     owner_unmasked: bool = Field(
         default=False, description="The author may see personal data as the plans treat it"
+    )
+    destination: Destination | None = Field(
+        default=None, description="Where the analyst wants the mart: a BI tool or a file"
     )
     validated_at: datetime | None = None
     approved_by: str | None = None
@@ -137,6 +178,19 @@ class MartRequest(BaseModel):
         return None
 
 
+class AgentOverview(BaseModel):
+    """What the analyst's home page shows before any question."""
+
+    data_updated_at: datetime | None = Field(
+        default=None, description="When the Gold model was last built successfully"
+    )
+    gold_run_id: str | None = None
+    semantic_version: int | None = None
+    suggestions: list[str] = Field(
+        default_factory=list, description="Questions the parser understands on its own"
+    )
+
+
 class MartQuestion(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -154,6 +208,20 @@ class ClarificationAnswer(BaseModel):
 
     option: int | None = Field(default=None, ge=0, description="Index of the chosen option")
     text: str | None = Field(default=None, max_length=1000, description="Free answer")
+
+
+class TermCorrection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: int = Field(ge=1, description="Version whose summary was read")
+    term: int = Field(ge=0, description="Index of the term among the summary parts")
+    option: int = Field(ge=0, description="Index of the chosen option of that term")
+
+
+class MartValidation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    destination: Destination | None = None
 
 
 class MartRejection(BaseModel):

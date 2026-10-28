@@ -11,11 +11,14 @@ from pydantic import BaseModel
 from forja_api.security import Access, require
 from forja_api.state import StateDep
 from forja_core.agent.models import (
+    AgentOverview,
     ClarificationAnswer,
     MartQuestion,
     MartRefinement,
     MartRejection,
     MartRequest,
+    MartValidation,
+    TermCorrection,
 )
 from forja_core.auth.models import Action
 from forja_core.errors import ForbiddenError
@@ -37,6 +40,14 @@ def _readable(access: Access, request: MartRequest) -> MartRequest:
     if request.owner_id != access.principal.id and not access.can(Action.MART_READ_ALL):
         raise ForbiddenError("this data mart request belongs to another user")
     return request
+
+
+@router.get(
+    "/projects/{project_id}/agent/overview",
+    summary="Freshness of the data and questions the agent answers at once",
+)
+def agent_overview(project_id: str, state: StateDep, _access: AgentAccess) -> AgentOverview:
+    return state.marts.overview(project_id)
 
 
 @router.post(
@@ -90,11 +101,29 @@ def refine_mart_request(
 
 
 @router.post(
-    "/mart-requests/{mart_id}/validate",
-    summary="Validate the preview; publishes, or waits for an engineer's approval",
+    "/mart-requests/{mart_id}/correct",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Correct an underlined term of the summary with one of its options: a new version",
 )
-def validate_mart_request(mart_id: str, state: StateDep, access: AgentAccess) -> MartRequestRun:
-    request, job = state.marts.validate(mart_id, access.principal)
+def correct_mart_request(
+    mart_id: str, payload: TermCorrection, state: StateDep, access: AgentAccess
+) -> MartRequestRun:
+    request, job = state.marts.correct(mart_id, access.principal, payload)
+    return MartRequestRun(mart_request=request, run=job)
+
+
+@router.post(
+    "/mart-requests/{mart_id}/validate",
+    summary="Validate the preview (and choose its destination); publishes, or waits for an "
+    "engineer's approval. An engineer's own request is approved at once",
+)
+def validate_mart_request(
+    mart_id: str,
+    state: StateDep,
+    access: AgentAccess,
+    payload: MartValidation | None = None,
+) -> MartRequestRun:
+    request, job = state.marts.validate(mart_id, access.principal, payload)
     return MartRequestRun(mart_request=request, run=job)
 
 

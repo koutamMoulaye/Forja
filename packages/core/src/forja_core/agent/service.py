@@ -15,6 +15,7 @@ import re
 import uuid
 from collections.abc import Callable
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 import duckdb
@@ -22,6 +23,7 @@ import duckdb
 from forja_core.agent.compile import CompiledMart, compile_spec
 from forja_core.agent.interpreter import InterpretationError, InterpretRequest, MartInterpreter
 from forja_core.agent.models import (
+    AgentOverview,
     AgentPath,
     ClarificationAnswer,
     LLMTrace,
@@ -29,12 +31,17 @@ from forja_core.agent.models import (
     MartIteration,
     MartRequest,
     MartStatus,
+    MartValidation,
+    OptionCount,
+    TermCorrection,
 )
 from forja_core.agent.parser import ParseOutcome, clarification, parse, refine
 from forja_core.agent.preselect import preselect
 from forja_core.agent.preview import build_preview
 from forja_core.agent.spec import AgentAnswer, Clarification, MartSpec
-from forja_core.agent.summary import summarize
+from forja_core.agent.suggestions import suggestions
+from forja_core.agent.summary import describe, summarize
+from forja_core.agent.terms import correctable, corrected
 from forja_core.agent.validate import validate_spec
 from forja_core.agent.vocabulary import Vocabulary
 from forja_core.auth.models import Action, Principal
@@ -246,7 +253,53 @@ class MartService:
         self._record(principal, "agent.refine", request, instruction=instruction)
         return self.catalog.get_mart_request(mart_id), job
 
-    def validate(self, mart_id: str, principal: Principal) -> tuple[MartRequest, Job | None]:
+    def correct(
+        self, mart_id: str, principal: Principal, correction: TermCorrection
+    ) -> tuple[MartRequest, Job]:
+        """A term of the summary corrected: the chosen spec is previewed as is."""
+        request = self._owned(mart_id, principal)
+        self._busy(request)
+        read = next((it for it in request.iterations if it.version == correction.version), None)
+        if read is None or read.spec is None or read.status != "previewed":
+            raise PlanStateError(f"version {correction.version} has no preview to correct")
+        if read.spec != request.current_spec:
+            raise ConflictError("a newer preview exists: correct the latest one")
+        layer = visible(self.semantic.current(request.project_id))
+        data_range = (
+            self.semantic.date_range(layer, layer.default_time_dimension)
+            if layer.default_time_dimension
+            else None
+        )
+        parts = describe(read.spec, layer)
+        found = corrected(
+            read.spec, layer, parts, correction.term, correction.option,
+            data_range=data_range, values=self._attribute_values(layer),
+        )  # fmt: skip
+        if found is None:
+            raise PlanValidationError("this term or option does not exist")
+        label, spec = found
+        was = parts[correction.term]
+        assert was.term is not None
+        iteration = MartIteration(
+            version=len(request.iterations) + 1,
+            kind="correction",
+            instruction=f"{was.text} → {label}",
+            effective=label,
+            refines=True,
+            proposed=spec,
+            created_at=utcnow(),
+        )
+        request.validated_at = request.approved_at = None
+        request.approved_by = None
+        job = self._queue(request, iteration, principal)
+        self._record(
+            principal, "agent.correct", request, term=was.term.kind, was=was.text, chosen=label
+        )
+        return self.catalog.get_mart_request(mart_id), job
+
+    def validate(
+        self, mart_id: str, principal: Principal, choice: MartValidation | None = None
+    ) -> tuple[MartRequest, Job | None]:
         request = self._owned(mart_id, principal)
         latest = request.latest
         if request.status is not MartStatus.PREVIEWED or latest is None or latest.preview is None:
@@ -259,9 +312,20 @@ class MartService:
             )
         request.status = MartStatus.VALIDATED
         request.validated_at = utcnow()
+        if choice is not None and choice.destination is not None:
+            request.destination = choice.destination
+        # Someone who may approve marts does not wait for another engineer.
+        if self.settings.mart_require_approval and principal.can(
+            request.project_id, Action.MART_APPROVE
+        ):
+            request.approved_by = principal.id
+            request.approved_at = request.validated_at
         self.catalog.save_mart_request(request)
-        self._record(principal, "mart.validate", request, version=latest.version)
-        if self.settings.mart_require_approval:
+        self._record(
+            principal, "mart.validate", request, version=latest.version,
+            destination=request.destination,
+        )  # fmt: skip
+        if self.settings.mart_require_approval and request.approved_at is None:
             return request, None
         return self._publish(request, principal)
 
@@ -314,6 +378,35 @@ class MartService:
                     values[f"{dim.name}.{attribute.name}"] = self.semantic.distinct_values(
                         layer, dim, attribute
                     )
+        return values
+
+    def overview(self, project_id: str) -> AgentOverview:
+        """Freshness of the data and suggested questions, for the analyst's home page."""
+        gold = [t for t in self.catalog.list_tables(project_id) if t.layer is TableLayer.GOLD]
+        latest = max(gold, key=lambda t: t.built_at, default=None)
+        layer = visible(self.semantic.current(project_id))
+        values = self._values(layer)
+        data_range = (
+            self.semantic.date_range(layer, layer.default_time_dimension)
+            if layer.default_time_dimension
+            else None
+        )
+        today = self._today()
+        return AgentOverview(
+            data_updated_at=latest.built_at if latest else None,
+            gold_run_id=latest.last_run_id if latest else None,
+            semantic_version=layer.version,
+            suggestions=suggestions(
+                layer, Vocabulary.build(layer, values), values, self._lookup(layer),
+                today=today, default_year=data_range[1].year if data_range else today.year,
+            ),
+        )  # fmt: skip
+
+    def _attribute_values(self, layer: SemanticLayer) -> Callable[[str], list[str]]:
+        def values(ref: str) -> list[str]:
+            found = layer.attribute(ref)
+            return self.semantic.distinct_values(layer, *found) if found else []
+
         return values
 
     def process(self, job: Job, log_line: Callable[[str], None]) -> RunMetrics:
@@ -379,6 +472,8 @@ class MartService:
 
         answer = outcome.answer if outcome.confident else None
         iteration.path = AgentPath.PARSER
+        if iteration.proposed is not None:
+            answer = AgentAnswer(kind="mart", mart=iteration.proposed)
         if answer is None and self.interpreter is not None:
             report("llm", f"interprétation par {self.interpreter.origin}", 30)
             try:
@@ -507,6 +602,9 @@ class MartService:
             if cleaned is not None:
                 iteration.status = "clarification"
                 iteration.clarification = cleaned
+                iteration.option_counts = [
+                    self._option_count(layer, option.ref) for option in cleaned.options
+                ]
                 request.status = MartStatus.DRAFTED
                 log_line(f"clarification: {cleaned.question}")
                 return
@@ -519,6 +617,38 @@ class MartService:
         iteration.refusal = answer.refusal_reason or "Demande hors du périmètre des données."
         request.status = fallback_status
         log_line(f"refusal: {iteration.refusal}")
+
+    def _option_count(self, layer: SemanticLayer, ref: str) -> OptionCount | None:
+        """What an option covers: members having the value, distinct values of an
+        attribute, or the total of a metric over all the data."""
+        kind, _, name = ref.partition(":")
+        try:
+            if kind == "value":
+                attribute_ref, _, value = name.partition("=")
+                found = layer.attribute(attribute_ref)
+                if found is None:
+                    return None
+                dim, attribute = found
+                count = self.semantic.count_members(layer, dim, attribute, value)
+                return OptionCount(value=count, unit=_plural(dim.label.lower(), count))
+            if kind == "attribute":
+                found = layer.attribute(name)
+                if found is None or not found[1].filterable:
+                    return None
+                count = len(self.semantic.distinct_values(layer, *found))
+                return OptionCount(value=count, unit=_plural(found[1].label.lower(), count))
+            if kind == "metric":
+                metric = layer.metric(name)
+                if metric is None:
+                    return None
+                compiled = compile_spec(MartSpec(metrics=[metric.name]), layer, metric.fact)
+                total = self.semantic.scalar(layer.project_id, compiled.sql)
+                if not isinstance(total, int | float | Decimal):
+                    return None
+                return OptionCount(value=float(total), format=metric.format.value)
+        except (duckdb.Error, ForjaError) as exc:
+            log.warning("option_count_failed", ref=ref, error=str(exc))
+        return None
 
     def _lookup(self, layer: SemanticLayer) -> Callable[..., list[str]]:
         return lambda dim, attribute: self.semantic.distinct_values(layer, dim, attribute)
@@ -573,6 +703,9 @@ class MartService:
         iteration.spec = spec
         iteration.sql = compiled.sql
         iteration.summary = summarize(spec, layer)
+        iteration.summary_parts = correctable(
+            spec, layer, data_range=data_range, values=self._attribute_values(layer)
+        )
         iteration.preview = preview
         iteration.status = "previewed"
         request.status = MartStatus.PREVIEWED
@@ -780,6 +913,15 @@ def _hints(outcome: ParseOutcome) -> list[str]:
     if spec.time_grain is not None:
         hints.append(f"time grain {spec.time_grain.value}")
     return hints
+
+
+def _plural(noun: str, count: float) -> str:
+    """« client » → « clients »; French nouns in -s, -x, -z do not change."""
+    if count < 2 or noun.endswith(("s", "x", "z")):
+        return noun
+    first, _, rest = noun.partition(" ")
+    first += "x" if first.endswith(("au", "eu")) else "s"
+    return f"{first} {rest}".strip()
 
 
 def _column_doc(column: MartColumn) -> dict[str, object]:
