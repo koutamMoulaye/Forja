@@ -29,6 +29,63 @@ export function passwordChecks(
   ];
 }
 
+/** Same rules for a new account: the email replaces the initial password. */
+export function registrationChecks(
+  email: string,
+  next: string,
+  confirmation: string,
+): PasswordCheck[] {
+  const lower = next.toLowerCase();
+  return [
+    { label: `${MIN_PASSWORD_LENGTH} caractères minimum`, ok: next.length >= MIN_PASSWORD_LENGTH },
+    { label: "Une majuscule et un chiffre", ok: /\p{Lu}/u.test(next) && /\d/.test(next) },
+    {
+      label: "Différent de votre adresse e-mail",
+      ok: next.length > 0 && !email.toLowerCase().includes(lower),
+    },
+    { label: "Confirmation identique", ok: confirmation.length > 0 && confirmation === next },
+  ];
+}
+
+/** The meter and the list of requirements under the password fields (S8). */
+export function PasswordRequirements({ checks }: { checks: PasswordCheck[] }) {
+  const satisfied = checks.filter((check) => check.ok).length;
+  return (
+    <>
+      <div
+        className="flex gap-1"
+        role="meter"
+        aria-label="Exigences satisfaites"
+        aria-valuemin={0}
+        aria-valuemax={checks.length}
+        aria-valuenow={satisfied}
+      >
+        {checks.map((check, index) => (
+          <span
+            key={check.label}
+            className={cn(
+              "h-1 flex-1 rounded-[2px] transition-colors duration-300 ease-soft",
+              index < satisfied ? "bg-val-fg" : "bg-sunk",
+            )}
+          />
+        ))}
+      </div>
+      <ul id="password-requirements" className="m-0 flex list-none flex-col gap-1.5 p-0">
+        {checks.map((check) => (
+          <li key={check.label} className="flex items-center gap-2 text-ui text-tx2">
+            {check.ok ? (
+              <CheckCircle size={17} weight="fill" className="text-val-fg" aria-label="Satisfait" />
+            ) : (
+              <Circle size={17} className="text-tx3" aria-label="Non satisfait" />
+            )}
+            {check.label}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
 export function passwordErrorMessage(error: unknown): string {
   if (!(error instanceof ApiError)) return "Enregistrement impossible pour le moment.";
   if (error.status === 401 && error.code !== WEB_ERROR_CODES.sessionExpired) {
@@ -140,41 +197,7 @@ export function PasswordForm() {
           )}
         </Field>
 
-        <div
-          className="flex gap-1"
-          role="meter"
-          aria-label="Exigences satisfaites"
-          aria-valuemin={0}
-          aria-valuemax={checks.length}
-          aria-valuenow={satisfied}
-        >
-          {checks.map((check, index) => (
-            <span
-              key={check.label}
-              className={cn(
-                "h-1 flex-1 rounded-[2px] transition-colors duration-300 ease-soft",
-                index < satisfied ? "bg-val-fg" : "bg-sunk",
-              )}
-            />
-          ))}
-        </div>
-        <ul id="password-requirements" className="m-0 flex list-none flex-col gap-1.5 p-0">
-          {checks.map((check) => (
-            <li key={check.label} className="flex items-center gap-2 text-ui text-tx2">
-              {check.ok ? (
-                <CheckCircle
-                  size={17}
-                  weight="fill"
-                  className="text-val-fg"
-                  aria-label="Satisfait"
-                />
-              ) : (
-                <Circle size={17} className="text-tx3" aria-label="Non satisfait" />
-              )}
-              {check.label}
-            </li>
-          ))}
-        </ul>
+        <PasswordRequirements checks={checks} />
 
         {mutation.error ? (
           <AuthAlert

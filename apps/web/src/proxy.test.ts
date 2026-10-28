@@ -42,6 +42,12 @@ describe("page routing", () => {
     expect(location(proxy(page("/auth/change-password")))).toBe("/auth/login");
   });
 
+  it("opens an invitation link signed out as well as signed in", () => {
+    expect(location(proxy(page("/auth/invite/abc")))).toBeNull();
+    expect(location(proxy(page("/auth/invite/abc", { forja_session: "1" })))).toBeNull();
+    expect(location(proxy(page("/auth/inviter")))).toBe("/auth/login?next=%2Fauth%2Finviter");
+  });
+
   it("issues a CSRF cookie to pages that lack one", () => {
     const request = new NextRequest("http://localhost:3000/auth/login");
     const cookie = proxy(request).headers.getSetCookie().join(";");

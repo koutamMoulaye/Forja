@@ -4,7 +4,9 @@ import { resetRefreshCache } from "@/lib/auth/session";
 import { CSRF, apiError, browserRequest, fakeApi, json, pair, setCookies } from "@/test/fake-api";
 import { POST as login } from "./login/route";
 import { POST as logout } from "./logout/route";
+import { POST as lookupInvitation } from "./invitation/route";
 import { POST as changePassword } from "./password/route";
+import { POST as register } from "./register/route";
 import { GET as forwardGet, POST as forwardPost } from "../forja/[...path]/route";
 
 const ME = {
@@ -81,6 +83,51 @@ describe("auth routes", () => {
     expect(response.status).toBe(429);
     expect(response.headers.get("retry-after")).toBe("57");
     expect(response.headers.getSetCookie()).toEqual([]);
+  });
+
+  it("registers from an invitation and signs the new account in", async () => {
+    const api = fakeApi({
+      "POST /auth/register": () => json(pair("9"), 201),
+      "GET /auth/me": () => json({ ...ME, roles: { p1: "analyst" } }),
+      "GET /projects": () => json(PROJECTS),
+    });
+    const response = await register(
+      browserRequest("/api/auth/register", {
+        method: "POST",
+        body: { token: "tok", password: "Bienvenue-2026x", name: "  Nora Nouvelle " },
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ redirect: "/projects/p1/home" });
+    const cookies = setCookies(response);
+    expect(cookies.forja_at).toMatch(/HttpOnly/);
+    expect(cookies.forja_rt).toMatch(/Max-Age/);
+    const sent = (await api.calls[0]!.request.json()) as { name: string; token: string };
+    expect(sent).toMatchObject({ token: "tok", name: "Nora Nouvelle" });
+  });
+
+  it("relays a refused registration and an invitation's status", async () => {
+    fakeApi({
+      "POST /auth/register": () => apiError(401, "unauthorized", "invitation revoked"),
+      "POST /auth/invitations/lookup": () =>
+        json({ status: "expired", project_name: "Démo e-commerce" }),
+    });
+    const refused = await register(
+      browserRequest("/api/auth/register", {
+        method: "POST",
+        body: { token: "tok", password: "x" },
+      }),
+    );
+    expect(refused.status).toBe(401);
+    expect(refused.headers.getSetCookie()).toEqual([]);
+    const status = await lookupInvitation(
+      browserRequest("/api/auth/invitation", { method: "POST", body: { token: "tok" } }),
+    );
+    expect(await status.json()).toEqual({ status: "expired", project_name: "Démo e-commerce" });
+    const missing = await lookupInvitation(
+      browserRequest("/api/auth/invitation", { method: "POST", body: {} }),
+    );
+    expect(missing.status).toBe(422);
   });
 
   it("refuses a sign-in without the CSRF token", async () => {

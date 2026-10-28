@@ -2,6 +2,7 @@
 
 import { ApiError, WEB_ERROR_CODES } from "@/lib/api/errors";
 import { CSRF_HEADER, readCsrfToken } from "./csrf-client";
+import type { InvitationStatus } from "./invitation";
 
 /** POSTs JSON to one of the web server's own auth routes. */
 export async function postAuth<T>(path: string, body?: unknown): Promise<T> {
@@ -47,4 +48,12 @@ export function changePassword(input: { current_password: string; new_password: 
 
 export function signOut() {
   return postAuth<null>("/api/auth/logout");
+}
+
+export function lookupInvitation(token: string) {
+  return postAuth<InvitationStatus>("/api/auth/invitation", { token });
+}
+
+export function register(input: { token: string; password: string; name: string }) {
+  return postAuth<{ redirect: string }>("/api/auth/register", input);
 }

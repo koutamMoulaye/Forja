@@ -47,7 +47,8 @@ import { toast } from "@/components/ui/toast";
 import { api, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/cn";
-import { formatAgo, formatWhen } from "@/lib/format";
+import { invitationLink } from "@/lib/auth/invitation";
+import { formatAgo, formatDateTime, formatWhen } from "@/lib/format";
 import {
   keys,
   useApiKeys,
@@ -259,7 +260,11 @@ function Members({ highlighted }: { highlighted: boolean }) {
             <p className="m-0 py-2 text-ui text-tx3">Aucune invitation en attente.</p>
           ) : null}
           {pending.map((invitation) => (
-            <div key={invitation.id} className="flex items-center gap-3 py-2.5">
+            <div
+              key={invitation.id}
+              data-testid={`invitation-${invitation.email}`}
+              className="flex items-center gap-3 py-2.5"
+            >
               <span className="flex size-9 flex-none items-center justify-center rounded-full text-tx3 shadow-[inset_0_0_0_1.5px_var(--edge)]">
                 <EnvelopeSimple size={17} />
               </span>
@@ -299,8 +304,10 @@ function Members({ highlighted }: { highlighted: boolean }) {
         open={created !== null}
         onOpenChange={(open) => !open && setCreated(null)}
         title="Invitation créée"
-        description={`Transmettez ce jeton à ${created?.email ?? ""} : il lui permet de créer son compte. Il ne sera plus affiché.`}
-        secret={created?.token ?? ""}
+        description={`Envoyez ce lien à ${created?.email ?? ""} : il lui permet de créer son compte${
+          created ? ` jusqu’au ${formatDateTime(created.expires_at)}` : ""
+        }. Il ne sera plus affiché.`}
+        secret={created?.token ? invitationLink(created.token) : ""}
       />
     </>
   );
@@ -325,7 +332,7 @@ function InviteDialog({
         <DialogHeader>
           <DialogTitle>Inviter dans le projet</DialogTitle>
           <DialogDescription>
-            Un compte existant est ajouté tout de suite ; sinon, un jeton d’inscription est créé.
+            Un compte existant est ajouté tout de suite ; sinon, un lien d’inscription est créé.
           </DialogDescription>
         </DialogHeader>
         <DialogBody className="flex flex-col gap-3">

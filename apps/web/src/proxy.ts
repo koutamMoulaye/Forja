@@ -5,6 +5,7 @@ import { designSystemEnabled } from "@/lib/design-system-flag";
 
 const LOGIN = "/auth/login";
 const CHANGE_PASSWORD = "/auth/change-password";
+const INVITE = "/auth/invite/";
 
 /**
  * Page routing before rendering: signed-out visitors go to the login screen, a user who
@@ -26,7 +27,8 @@ export function proxy(request: NextRequest) {
       : NextResponse.next();
   } else if (pathname === CHANGE_PASSWORD) {
     response = signedIn ? NextResponse.next() : NextResponse.redirect(new URL(LOGIN, request.url));
-  } else if (pathname === "/design-system") {
+  } else if (pathname === "/design-system" || pathname.startsWith(INVITE)) {
+    // An invitation link opens signed out (a new account) as well as signed in.
     response = NextResponse.next();
   } else if (!signedIn) {
     const login = new URL(LOGIN, request.url);
