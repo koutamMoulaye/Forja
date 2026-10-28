@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { LayoutGroup } from "motion/react";
+import { AgentWatcher } from "@/components/agent/agent-watcher";
 import { toast } from "@/components/ui/toast";
 import { signOut as signOutRequest } from "@/lib/auth/auth-client";
 import { COOKIES } from "@/lib/auth/cookies";
@@ -276,6 +277,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {children}
           </main>
           <CommandPalette />
+          <AgentWatcher />
           <SharedTransitionLayer />
           <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
         </div>

@@ -14,6 +14,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/cn";
 import { sectionHref } from "@/lib/navigation";
+import { useConversations } from "@/lib/agent/queries";
+import { conversationOutcome, type MartRequest } from "@/lib/agent/view";
 import { JOB_TEXT, runDuration, useProjectRuns, type Job } from "@/lib/project/use-runs";
 import { useShell } from "./shell-context";
 
@@ -60,6 +62,38 @@ export function runNotifications(runs: Job[], projectId: string, now = Date.now(
         },
       } satisfies Notification;
     });
+}
+
+/**
+ * The analyst's notices: a question waiting, a preview ready, a mart published or
+ * rejected, in the last two days; what is still being prepared is not a notice yet.
+ */
+export function agentNotifications(
+  requests: MartRequest[],
+  projectId: string,
+  now = Date.now(),
+): Notification[] {
+  return requests
+    .filter((request) => now - Date.parse(request.updated_at) < 2 * DAY)
+    .map((request) => ({ request, outcome: conversationOutcome(request) }))
+    .filter(({ outcome }) => outcome.state !== "working")
+    .slice(0, 8)
+    .map(({ request, outcome }) => ({
+      id: `agent:${request.id}:${outcome.state}:${request.iterations?.length ?? 0}`,
+      kind: outcome.tone === "error" ? "failure" : outcome.state === "published" ? "run" : "mart",
+      title: outcome.title,
+      detail: outcome.detail,
+      at: outcome.state === "question" ? null : request.updated_at,
+      action: {
+        label:
+          outcome.state === "question"
+            ? "Répondre"
+            : outcome.state === "ready"
+              ? "Vérifier"
+              : "Ouvrir",
+        href: outcome.href(projectId),
+      },
+    }));
 }
 
 export function dayGroup(at: string | null, now = new Date()): "today" | "yesterday" | "pending" {
@@ -127,6 +161,7 @@ export function Notifications() {
   const open = params.get("panel") === "notifications";
   const engineer = shell.role !== "analyst";
   const runs = useProjectRuns(shell.project.id, engineer);
+  const conversations = useConversations(shell.project.id, shell.view === "analyst");
   const { ids: readIds, markRead } = useReadIds(shell.me.user.id);
 
   const items = useMemo(() => {
@@ -154,7 +189,7 @@ export function Notifications() {
           action: { label: "Revoir", href: sectionHref(shell.project.id, "model") },
         });
       }
-      const marts = shell.counters.serving?.count ?? 0;
+      const marts = shell.counters.approvals?.count ?? 0;
       if (marts) {
         list.push({
           id: `marts:${marts}`,
@@ -165,26 +200,24 @@ export function Notifications() {
               : "Un data mart attend votre approbation",
           detail: "Aperçus validés par les analysts",
           at: null,
-          action: { label: "Approuver", href: sectionHref(shell.project.id, "serving") },
+          action: { label: "Approuver", href: sectionHref(shell.project.id, "approvals") },
         });
       }
       list.push(...runNotifications(runs.data ?? [], shell.project.id));
     } else {
-      const previews = shell.counters.marts?.count ?? 0;
-      if (previews) {
-        list.push({
-          id: `previews:${previews}`,
-          kind: "mart",
-          title:
-            previews > 1 ? `${previews} aperçus prêts à vérifier` : "Un aperçu prêt à vérifier",
-          detail: "Vérifiez avant toute publication",
-          at: null,
-          action: { label: "Vérifier", href: sectionHref(shell.project.id, "marts") },
-        });
-      }
+      const mine = (conversations.data ?? []).filter((r) => r.owner_id === shell.me.user.id);
+      list.push(...agentNotifications(mine, shell.project.id));
     }
     return list;
-  }, [engineer, shell.view, shell.counters, shell.project.id, runs.data]);
+  }, [
+    engineer,
+    shell.view,
+    shell.counters,
+    shell.project.id,
+    shell.me.user.id,
+    runs.data,
+    conversations.data,
+  ]);
 
   const unread = items.filter((item) => !readIds.has(item.id));
   const groups = (["pending", "today", "yesterday"] as const)

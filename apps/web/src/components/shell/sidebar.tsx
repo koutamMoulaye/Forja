@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { useHealth } from "@/components/auth/auth-screen";
 import { Monogram, Wordmark } from "@/components/brand/logo";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useConversations } from "@/lib/agent/queries";
+import { martBadge, martTitle, recentConversations } from "@/lib/agent/view";
 import { cn } from "@/lib/cn";
 import { durations, easeSoft } from "@/lib/motion";
 import { NAVIGATION, SECTIONS, canOpen, sectionHref, type SectionId } from "@/lib/navigation";
@@ -76,6 +79,43 @@ function NavItem({ id, onNavigate }: { id: SectionId; onNavigate?: () => void })
   );
 }
 
+/** Analyst view: the latest conversations under the navigation, to pick one up (C4). */
+function RecentConversations({ onNavigate }: { onNavigate?: () => void }) {
+  const shell = useShell();
+  const pathname = usePathname();
+  const conversations = useConversations(shell.project.id);
+  const mine = (conversations.data ?? []).filter((r) => r.owner_id === shell.me.user.id);
+  const recent = recentConversations(mine, 6);
+  if (recent.length === 0) return null;
+  return (
+    <div className="flex min-h-0 flex-col gap-0.5 px-3 pt-3" data-testid="recent-conversations">
+      <div className="px-2.5 pb-1 text-[12.5px] font-semibold text-tx3">Récemment</div>
+      <div className="flex min-h-0 flex-col gap-0.5 overflow-auto">
+        {recent.map((request) => {
+          const href = `/projects/${shell.project.id}/ask/${request.id}`;
+          const active = pathname === href;
+          const badge = martBadge(request);
+          return (
+            <Link
+              key={request.id}
+              href={href}
+              onClick={onNavigate}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex flex-col gap-px rounded-[10px] px-2.5 py-2 text-tx no-underline transition-colors hover:bg-sunk hover:no-underline",
+                active && "bg-sunk",
+              )}
+            >
+              <span className="truncate text-[13.5px] font-medium">{martTitle(request)}</span>
+              <span className="truncate text-[12px] text-tx3">{badge.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const shell = useShell();
   const open = shell.sidebarOpen || shell.tablet;
@@ -101,6 +141,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <NavItem key={id} id={id} onNavigate={onNavigate} />
         ))}
       </nav>
+      {open && shell.view === "analyst" ? <RecentConversations onNavigate={onNavigate} /> : null}
       <div
         className={cn("mt-auto flex flex-col gap-2 p-3", open ? "items-stretch" : "items-center")}
       >

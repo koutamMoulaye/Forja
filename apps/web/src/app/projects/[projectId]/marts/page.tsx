@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Placeholder } from "@/components/shell/placeholders";
+import { MartsScreen } from "@/components/agent/marts-screen";
 
 export const metadata: Metadata = { title: "Mes data marts" };
 
 export default function Page() {
-  return <Placeholder screen="marts" />;
+  return <MartsScreen />;
 }

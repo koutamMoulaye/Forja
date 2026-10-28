@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
-import { Placeholder } from "@/components/shell/placeholders";
+import { PreviewScreen } from "@/components/agent/preview-screen";
 
 export const metadata: Metadata = { title: "Aperçu de vérification" };
 
-export default function Page() {
-  return <Placeholder screen="mart-preview" />;
+export default async function Page({
+  params,
+}: PageProps<"/projects/[projectId]/marts/[martId]/preview">) {
+  const { martId } = await params;
+  return <PreviewScreen key={martId} martId={martId} />;
 }

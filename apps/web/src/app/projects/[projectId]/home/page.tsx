@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Placeholder } from "@/components/shell/placeholders";
+import { HomeScreen } from "@/components/agent/home-screen";
 
 export const metadata: Metadata = { title: "Accueil" };
 
 export default function Page() {
-  return <Placeholder screen="home" />;
+  return <HomeScreen />;
 }

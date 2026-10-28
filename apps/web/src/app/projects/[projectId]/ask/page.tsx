@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Placeholder } from "@/components/shell/placeholders";
+import { ConversationScreen } from "@/components/agent/conversation-screen";
 
 export const metadata: Metadata = { title: "Poser une question" };
 
 export default function Page() {
-  return <Placeholder screen="ask" />;
+  return <ConversationScreen />;
 }

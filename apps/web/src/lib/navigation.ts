@@ -10,6 +10,7 @@ import {
   GearSix,
   Graph,
   House,
+  SealCheck,
   ShieldCheck,
   type Icon,
 } from "@phosphor-icons/react";
@@ -22,6 +23,7 @@ export type SectionId =
   | "cleaning"
   | "model"
   | "serving"
+  | "approvals"
   | "runs"
   | "semantic"
   | "governance"
@@ -29,10 +31,10 @@ export type SectionId =
   | "home"
   | "ask"
   | "marts"
-  | "metrics";
+  | "indicators";
 
 /** Counters of items to review shown next to a section. */
-export type CounterKey = "cleaning" | "model" | "serving" | "runs" | "marts";
+export type CounterKey = "cleaning" | "model" | "approvals" | "runs" | "marts";
 
 export type Section = {
   id: SectionId;
@@ -56,12 +58,13 @@ export const SECTIONS: Record<SectionId, Section> = {
     counter: "cleaning",
   },
   model: { id: "model", label: "Modèle", icon: Cube, view: "engineer", counter: "model" },
-  serving: {
-    id: "serving",
-    label: "Diffusion",
-    icon: Broadcast,
+  serving: { id: "serving", label: "Diffusion", icon: Broadcast, view: "engineer" },
+  approvals: {
+    id: "approvals",
+    label: "À approuver",
+    icon: SealCheck,
     view: "engineer",
-    counter: "serving",
+    counter: "approvals",
   },
   runs: {
     id: "runs",
@@ -82,16 +85,16 @@ export const SECTIONS: Record<SectionId, Section> = {
     view: "analyst",
     counter: "marts",
   },
-  metrics: { id: "metrics", label: "Indicateurs", icon: BookOpenText, view: "analyst" },
+  indicators: { id: "indicators", label: "Indicateurs", icon: BookOpenText, view: "analyst" },
 };
 
 /** Sidebar groups by view, in the mockups' order. */
 export const NAVIGATION: Record<View, { main: SectionId[]; secondary: SectionId[] }> = {
   engineer: {
-    main: ["pipeline", "sources", "cleaning", "model", "serving", "runs"],
+    main: ["pipeline", "sources", "cleaning", "model", "serving", "approvals", "runs"],
     secondary: ["semantic", "governance"],
   },
-  analyst: { main: ["home", "ask", "marts", "metrics"], secondary: [] },
+  analyst: { main: ["home", "ask", "marts", "indicators"], secondary: [] },
 };
 
 export function sectionHref(projectId: string, section: SectionId): string {
@@ -137,6 +140,8 @@ export function breadcrumb(section: SectionId | null, rest: string[]): string[] 
       return rest[0] ? ["Runs", `run_${rest[0].slice(0, 6)}`] : [base];
     case "marts":
       return rest[1] === "preview" ? [base, "Aperçu de vérification"] : [base];
+    case "approvals":
+      return ["Data marts à approuver"];
     case "ask":
       return rest[0] ? [base, "Conversation"] : [base];
     default:

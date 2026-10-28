@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
-import { Placeholder } from "@/components/shell/placeholders";
+import { ConversationScreen } from "@/components/agent/conversation-screen";
 
-export const metadata: Metadata = { title: "Poser une question" };
+export const metadata: Metadata = { title: "Conversation" };
 
-export default function Page() {
-  return <Placeholder screen="ask" />;
+export default async function Page({
+  params,
+}: PageProps<"/projects/[projectId]/ask/[conversationId]">) {
+  const { conversationId } = await params;
+  return <ConversationScreen key={conversationId} conversationId={conversationId} />;
 }

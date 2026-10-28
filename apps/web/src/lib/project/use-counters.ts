@@ -73,8 +73,12 @@ export function useCounters(projectId: string, role: Role | null): Counters {
   return {
     cleaning: counter(draftPlans),
     model: counter(gold.data?.status === "draft" ? 1 : 0),
-    serving: engineer
-      ? counter((marts.data ?? []).filter((mart) => mart.status === "validated").length)
+    approvals: engineer
+      ? counter(
+          (marts.data ?? []).filter(
+            (mart) => mart.status === "validated" && !mart.approved_at && !mart.publish_job_id,
+          ).length,
+        )
       : undefined,
     runs: counter((runs.data ?? []).filter((run) => isActive(run.status)).length, "run"),
     marts: counter((marts.data ?? []).filter((mart) => mart.status === "previewed").length),
