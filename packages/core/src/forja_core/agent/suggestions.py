@@ -20,15 +20,29 @@ def _lower_first(text: str) -> str:
 
 
 def _candidates(layer: SemanticLayer, year: int) -> Iterator[str]:
+    # Business metrics first: the default ones, then those named without a technical
+    # qualifier (« Nombre de lignes (lignes commande) » is a modelling detail).
     metrics: list[Metric] = sorted(
-        layer.metrics, key=lambda m: (not m.default, m.kind != "aggregate", m.name)
+        layer.metrics,
+        key=lambda m: (not m.default, "(" in m.label, m.kind != "aggregate", m.name),
     )
+    # Axes people name: a dimension's display attribute, or an attribute with synonyms;
+    # codes and identifiers stay out of the suggestions.
     axes: list[tuple[str, str]] = []  # (label, plural of the dimension)
     for dim in layer.dimensions:
         if dim.kind != "standard":
             continue
         for attribute in dim.attributes:
-            if attribute.filterable and not attribute.pii:
+            display = attribute.name == dim.display_attribute and not attribute.name.startswith(
+                ("id_", "code_")
+            )
+            named = display or bool(attribute.synonyms)
+            if (
+                attribute.filterable
+                and not attribute.pii
+                and named
+                and attribute.data_type == "text"
+            ):
                 label = dim.label if attribute.name == dim.display_attribute else attribute.label
                 axes.append((label.lower(), dim.label.lower() + "s"))
     first = metrics[0] if metrics else None
