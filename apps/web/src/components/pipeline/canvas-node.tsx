@@ -9,7 +9,7 @@ import { HatchGlyph } from "@/components/ui/spinner";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { springs } from "@/lib/motion";
-import type { GraphNode, NodeLook } from "@/lib/pipeline/model";
+import { stacksInfo, type GraphNode, type NodeLook } from "@/lib/pipeline/model";
 import { NodeIcon } from "./node-icon";
 
 export type ZoomLevel = "far" | "standard" | "near";
@@ -92,6 +92,8 @@ function CanvasNodeView({ data }: NodeProps<CanvasNodeType>) {
   ].filter(Boolean);
   const running = node.state === "running" && node.run?.percent != null;
   const quality = node.type === "source" && node.state === "applied" ? node.quality_score : null;
+  // A lasting badge (to review, error) keeps its line; the info goes under it, never cut.
+  const stacked = look.loud && stacksInfo(node);
 
   if (far) {
     // Far zoom: the compartments' counters speak; nodes are light, plain cards.
@@ -185,10 +187,18 @@ function CanvasNodeView({ data }: NodeProps<CanvasNodeType>) {
               ) : (
                 <CheckCircle size={16} className="flex-none text-tx3" aria-hidden />
               )}
-              {info ? (
+              {info && !stacked ? (
                 <span className="truncate text-[15.5px] text-tx3 tabular-nums">{info}</span>
               ) : null}
             </div>
+            {stacked ? (
+              <span
+                data-testid="node-info"
+                className="truncate text-[15.5px] leading-[21px] text-tx3 tabular-nums"
+              >
+                {info}
+              </span>
+            ) : null}
           </div>
           {node.pii_count > 0 ? (
             <span title="Colonnes pseudonymisées" className="flex pt-1 text-pii-fg">

@@ -6,7 +6,7 @@ import { api } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { useProjectRuns, isActive } from "@/lib/project/use-runs";
 import { placeLanes, rankGraph, type Layout, type LayoutInput, type Ranked } from "./layout";
-import type { Lane, ProjectGraph } from "./model";
+import { stacksInfo, type Lane, type ProjectGraph } from "./model";
 
 export const graphKey = (projectId: string) => ["graph", projectId] as const;
 
@@ -92,10 +92,10 @@ export async function rank(input: LayoutInput): Promise<Ranked> {
   });
 }
 
-/** Only what moves nodes: ids, compartments, names (heights) and links. */
+/** Only what moves nodes: ids, compartments, names and stacked infos (heights), links. */
 function structureKey(input: LayoutInput): string {
   return JSON.stringify([
-    input.nodes.map((n) => [n.id, n.lane, n.type, n.name.length > 18]),
+    input.nodes.map((n) => [n.id, n.lane, n.type, n.name.length > 18, Boolean(n.stacked)]),
     input.edges.map((e) => [e.source, e.target]),
   ]);
 }
@@ -108,7 +108,13 @@ export function useLayout(
 ): Layout | null {
   const input = useMemo<LayoutInput>(
     () => ({
-      nodes: (graph?.nodes ?? []).map(({ id, type, lane, name }) => ({ id, type, lane, name })),
+      nodes: (graph?.nodes ?? []).map((node) => ({
+        id: node.id,
+        type: node.type,
+        lane: node.lane,
+        name: node.name,
+        stacked: stacksInfo(node),
+      })),
       edges: (graph?.edges ?? []).map(({ source, target }) => ({ source, target })),
     }),
     [graph],

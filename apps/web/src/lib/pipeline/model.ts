@@ -105,6 +105,15 @@ export function nodeInfo(node: GraphNode): string {
   return "";
 }
 
+/**
+ * A node to review or in error shows its badge, then its info on a line of its own: « À
+ * revoir » and « 3 règles » never share a line where one would be cut. Only these lasting
+ * states stack, so a run never moves the nodes.
+ */
+export function stacksInfo(node: Pick<GraphNode, "state" | "type" | "counts" | "message">) {
+  return (node.state === "review" || node.state === "error") && nodeInfo(node as GraphNode) !== "";
+}
+
 export const TYPE_LABELS: Record<NodeType, string> = {
   source: "Source",
   silver: "Table nettoyée",

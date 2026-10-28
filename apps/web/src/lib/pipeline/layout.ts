@@ -12,7 +12,8 @@ import { LANES, type Lane, type NodeType } from "./model";
  */
 
 export type LayoutInput = {
-  nodes: { id: string; type: NodeType; lane: Lane; name: string }[];
+  /** stacked: badge and info on two lines (see stacksInfo). */
+  nodes: { id: string; type: NodeType; lane: Lane; name: string; stacked?: boolean }[];
   edges: { source: string; target: string }[];
 };
 
@@ -28,6 +29,8 @@ export const GEOMETRY = {
   columnGap: { sources: 56, cleaning: 56, star_schema: 80, serving: 56 } as Record<Lane, number>,
   nodeHeight: 72,
   tallNodeHeight: 94,
+  /** Second line under the badge of a node to review or in error. */
+  stackedExtra: 24,
   /** Extra height of a node zoomed in (key columns, quality); reserved by the layout. */
   nearExtra: 52,
   rowGap: 12,
@@ -38,9 +41,10 @@ export function nodeWidth(type: NodeType): number {
   return type === "destination" ? GEOMETRY.narrowColumn : GEOMETRY.column;
 }
 
-/** Names over 18 characters take two lines, as in the mockup. */
-export function nodeHeight(name: string): number {
-  return name.length > 18 ? GEOMETRY.tallNodeHeight : GEOMETRY.nodeHeight;
+/** Names over 18 characters take two lines, as in the mockup; a stacked info one more. */
+export function nodeHeight(name: string, stacked = false): number {
+  const base = name.length > 18 ? GEOMETRY.tallNodeHeight : GEOMETRY.nodeHeight;
+  return stacked ? base + GEOMETRY.stackedExtra : base;
 }
 
 export type Ranked = {
@@ -79,7 +83,7 @@ export async function rankGraph(
     children: input.nodes.map((node) => ({
       id: node.id,
       width: nodeWidth(node.type),
-      height: nodeHeight(node.name) + GEOMETRY.nearExtra,
+      height: nodeHeight(node.name, node.stacked) + GEOMETRY.nearExtra,
       layoutOptions: { "elk.partitioning.partition": String(LANES.indexOf(node.lane)) },
     })),
     edges: input.edges
@@ -212,7 +216,7 @@ export function placeLanes(
     );
     for (const node of members) {
       const rank = ranked.nodes[node.id] ?? { column: 0, y: 0 };
-      const height = nodeHeight(node.name);
+      const height = nodeHeight(node.name, node.stacked);
       const y = GEOMETRY.top + rank.y;
       nodes[node.id] = open
         ? {
