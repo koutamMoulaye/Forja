@@ -125,6 +125,7 @@ def _normalize_email(value: str) -> str:
 class User(BaseModel):
     id: str
     email: str
+    name: str | None = Field(default=None, description="Name shown in the interface")
     is_admin: bool = Field(default=False, description="Instance administrator")
     must_change_password: bool = False
     disabled: bool = False
@@ -230,6 +231,7 @@ class Invitation(BaseModel):
     created_at: datetime
     expires_at: datetime
     accepted_at: datetime | None = None
+    revoked_at: datetime | None = None
     token: str | None = Field(default=None, description="Registration token, shown once")
 
 
@@ -238,6 +240,23 @@ class Registration(BaseModel):
 
     token: str
     password: str = Field(max_length=1024)
+    name: str | None = Field(default=None, max_length=120)
+
+
+class InvitationLookup(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: str = Field(max_length=200)
+
+
+class InvitationStatus(BaseModel):
+    """What a registration link leads to, before the account is created."""
+
+    status: Literal["valid", "expired", "revoked", "used", "unknown"]
+    email: str | None = None
+    role: Role | None = None
+    project_name: str | None = None
+    expires_at: datetime | None = None
 
 
 class MembershipUpdate(BaseModel):

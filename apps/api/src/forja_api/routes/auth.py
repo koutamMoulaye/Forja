@@ -11,6 +11,8 @@ from forja_core.auth.models import (
     ApiKey,
     ApiKeyCreate,
     CreatedApiKey,
+    InvitationLookup,
+    InvitationStatus,
     LoginRequest,
     PasswordChange,
     RefreshRequest,
@@ -72,8 +74,19 @@ def me(principal: AnyPrincipalDep, state: StateDep) -> Me:
 )
 def register(payload: Registration, request: Request, state: StateDep) -> TokenPair:
     return state.auth.register(
-        payload.token, payload.password, ip=client_ip(request, state.settings)
+        payload.token, payload.password, name=payload.name, ip=client_ip(request, state.settings)
     )
+
+
+@router.post(
+    "/invitations/lookup",
+    summary="What a registration link leads to (valid, expired, revoked, used, unknown); "
+    "the token goes in the body, never in a URL the logs would keep",
+)
+def lookup_invitation(
+    payload: InvitationLookup, request: Request, state: StateDep
+) -> InvitationStatus:
+    return state.auth.invitation_status(payload.token, ip=client_ip(request, state.settings))
 
 
 @router.get("/api-keys", summary="Personal API keys (prefixes only)")

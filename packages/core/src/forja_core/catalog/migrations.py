@@ -331,6 +331,13 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         );
         """,
     ),
+    (
+        14,
+        """
+        ALTER TABLE users ADD COLUMN name VARCHAR;
+        ALTER TABLE invitations ADD COLUMN revoked_at TIMESTAMP;
+        """,
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]

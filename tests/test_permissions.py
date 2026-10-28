@@ -188,6 +188,7 @@ MATRIX: list[tuple[str, str, Any, set[str]]] = [
     ("POST", "/synonym-proposals/{proposal_id}/reject", None, {"engineer", "admin"}),
     ("POST", "/projects/{project_id}/mart-requests", {"question": "CA par ville"}, set(ROLES)),
     ("GET", "/projects/{project_id}/mart-requests", None, set(ROLES)),
+    ("GET", "/projects/{project_id}/agent/overview", None, set(ROLES)),
     ("GET", "/mart-requests/{mart_id}", None, set(ROLES)),
     ("POST", "/mart-requests/{mart_id}/approve", None, {"engineer", "admin"}),
     ("GET", "/settings/llm", None, set(ROLES)),
@@ -199,11 +200,12 @@ MATRIX: list[tuple[str, str, Any, set[str]]] = [
 OWN_ROUTES = {
     ("POST", "/mart-requests/{mart_id}/answer"),
     ("POST", "/mart-requests/{mart_id}/refine"),
+    ("POST", "/mart-requests/{mart_id}/correct"),
     ("POST", "/mart-requests/{mart_id}/validate"),
     ("POST", "/mart-requests/{mart_id}/reject"),
 }
 PUBLIC = {("GET", "/health"), ("POST", "/auth/login"), ("POST", "/auth/refresh"),
-          ("POST", "/auth/register")}  # fmt: skip
+          ("POST", "/auth/register"), ("POST", "/auth/invitations/lookup")}  # fmt: skip
 ACCOUNT = {
     ("POST", "/auth/logout"), ("POST", "/auth/password"), ("GET", "/auth/me"),
     ("GET", "/auth/api-keys"), ("POST", "/auth/api-keys"), ("DELETE", "/auth/api-keys/{key_id}"),

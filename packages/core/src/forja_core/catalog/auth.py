@@ -28,9 +28,13 @@ from forja_core.catalog.gold_plans import GoldPlansMixin
 from forja_core.errors import ConflictError, NotFoundError
 from forja_core.utils import utcnow
 
-_USER_COLUMNS = "id, email, is_admin, must_change_password, disabled, identity_provider, created_at"
+_USER_COLUMNS = (
+    "id, email, is_admin, must_change_password, disabled, identity_provider, created_at, name"
+)
 _KEY_COLUMNS = "id, user_id, name, prefix, created_at, last_used_at, revoked_at"
-_INVITATION_COLUMNS = "id, project_id, email, role, invited_by, created_at, expires_at, accepted_at"
+_INVITATION_COLUMNS = (
+    "id, project_id, email, role, invited_by, created_at, expires_at, accepted_at, revoked_at"
+)
 
 
 class UserNotFoundError(NotFoundError):
@@ -46,6 +50,7 @@ def _user(row: tuple[Any, ...]) -> User:
         disabled=bool(row[4]),
         identity_provider=row[5],
         created_at=from_db_timestamp_required(row[6]),
+        name=row[7],
     )
 
 
@@ -71,6 +76,7 @@ def _invitation(row: tuple[Any, ...]) -> Invitation:
         created_at=from_db_timestamp_required(row[5]),
         expires_at=from_db_timestamp_required(row[6]),
         accepted_at=from_db_timestamp(row[7]),
+        revoked_at=from_db_timestamp(row[8]),
     )
 
 
@@ -86,7 +92,9 @@ class AuthMixin(GoldPlansMixin):
             if self.find_user_by_email(user.email) is not None:
                 raise ConflictError(f"a user with email '{user.email}' already exists")
             self._execute(
-                "INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)",
+                "INSERT INTO users (id, email, password_hash, is_admin, must_change_password, "
+                "disabled, identity_provider, external_subject, created_at, name) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)",
                 [
                     user.id,
                     user.email,
@@ -96,6 +104,7 @@ class AuthMixin(GoldPlansMixin):
                     user.disabled,
                     user.identity_provider,
                     to_db_timestamp(user.created_at),
+                    user.name,
                 ],
             )
         return user
@@ -280,7 +289,8 @@ class AuthMixin(GoldPlansMixin):
 
     def add_invitation(self, invitation: Invitation, token_hash: str) -> Invitation:
         self._execute(
-            "INSERT INTO invitations VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)",
+            "INSERT INTO invitations (id, project_id, email, role, token_hash, invited_by, "
+            "created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 invitation.id,
                 invitation.project_id,
@@ -306,8 +316,9 @@ class AuthMixin(GoldPlansMixin):
             [to_db_timestamp(utcnow()), invitation_id],
         )
 
-    def delete_pending_invitation(self, project_id: str, invitation_id: str) -> Invitation | None:
-        """Remove an invitation not accepted yet; its registration token stops working."""
+    def revoke_pending_invitation(self, project_id: str, invitation_id: str) -> Invitation | None:
+        """Revoke an invitation not accepted yet: its registration token stops working, and
+        the link says it was revoked."""
         pending = next(
             (
                 i
@@ -317,13 +328,16 @@ class AuthMixin(GoldPlansMixin):
             None,
         )
         if pending is not None:
-            self._execute("DELETE FROM invitations WHERE id = ?", [invitation_id])
+            self._execute(
+                "UPDATE invitations SET revoked_at = ? WHERE id = ?",
+                [to_db_timestamp(utcnow()), invitation_id],
+            )
         return pending
 
     def list_invitations(self, project_id: str) -> list[Invitation]:
         rows = self._fetchall(
-            f"SELECT {_INVITATION_COLUMNS} FROM invitations WHERE project_id = ? "
-            "ORDER BY created_at",
+            f"SELECT {_INVITATION_COLUMNS} FROM invitations "
+            "WHERE project_id = ? AND revoked_at IS NULL ORDER BY created_at",
             [project_id],
         )
         return [_invitation(row) for row in rows]

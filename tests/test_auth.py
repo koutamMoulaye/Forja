@@ -260,3 +260,53 @@ def test_audit_log(multi: TestClient) -> None:
     assert invite["user_email"] == ADMIN_EMAIL and invite["details"]["role"] == "analyst"
     instance = {e["action"] for e in multi.get("/audit").json()}
     assert {"auth.login", "auth.login_failed", "user.bootstrap"} <= instance
+
+
+def test_invitation_link_says_what_it_leads_to(multi: TestClient) -> None:
+    project_id = _project(multi, "Démo")
+    invite = multi.post(
+        f"/projects/{project_id}/invitations", json={"email": "d@exemple.fr", "role": "analyst"}
+    ).json()
+    fresh = TestClient(multi.app)
+    lookup = fresh.post("/auth/invitations/lookup", json={"token": invite["token"]}).json()
+    assert lookup["status"] == "valid" and lookup["email"] == "d@exemple.fr"
+    assert lookup["role"] == "analyst" and lookup["project_name"] == "Démo"
+
+    registered = fresh.post(
+        "/auth/register",
+        json={"token": invite["token"], "password": USER_PASSWORD, "name": "  Claire Martin "},
+    )
+    assert registered.status_code == 201, registered.text
+    me = bearer(fresh, registered.json()["access_token"]).get("/auth/me").json()
+    assert me["user"]["name"] == "Claire Martin" and me["roles"] == {project_id: "analyst"}
+    used = fresh.post("/auth/invitations/lookup", json={"token": invite["token"]}).json()
+    assert used["status"] == "used" and used["email"] is None
+
+    revoked = multi.post(
+        f"/projects/{project_id}/invitations", json={"email": "e@exemple.fr", "role": "analyst"}
+    ).json()
+    multi.delete(f"/projects/{project_id}/invitations/{revoked['id']}")
+    status = TestClient(multi.app).post(
+        "/auth/invitations/lookup", json={"token": revoked["token"]}
+    )
+    assert status.json()["status"] == "revoked"
+    refused = TestClient(multi.app).post(
+        "/auth/register", json={"token": revoked["token"], "password": USER_PASSWORD}
+    )
+    assert refused.status_code == 401 and "revoked" in refused.json()["error"]["message"]
+
+    expired = multi.post(
+        f"/projects/{project_id}/invitations", json={"email": "f@exemple.fr", "role": "engineer"}
+    ).json()
+    catalog = multi.app.state.forja.catalog
+    catalog._execute(
+        "UPDATE invitations SET expires_at = TIMESTAMP '2020-01-01' WHERE id = ?", [expired["id"]]
+    )
+    status = TestClient(multi.app).post(
+        "/auth/invitations/lookup", json={"token": expired["token"]}
+    )
+    assert status.json()["status"] == "expired" and status.json()["project_name"] == "Démo"
+    unknown = TestClient(multi.app).post("/auth/invitations/lookup", json={"token": "forged"})
+    assert unknown.json() == {
+        "status": "unknown", "email": None, "role": None, "project_name": None, "expires_at": None,
+    }  # fmt: skip

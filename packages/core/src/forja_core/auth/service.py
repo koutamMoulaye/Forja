@@ -17,7 +17,7 @@ import os
 import secrets
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import jwt
 
@@ -28,6 +28,7 @@ from forja_core.auth.models import (
     CreatedApiKey,
     Invitation,
     InvitationCreate,
+    InvitationStatus,
     Membership,
     Principal,
     Role,
@@ -351,7 +352,7 @@ class AuthService:
         return invitation.model_copy(update={"token": token})
 
     def revoke_invitation(self, principal: Principal, project_id: str, invitation_id: str) -> None:
-        invitation = self.catalog.delete_pending_invitation(project_id, invitation_id)
+        invitation = self.catalog.revoke_pending_invitation(project_id, invitation_id)
         if invitation is None:
             raise NotFoundError(
                 "no pending invitation with this id", details={"invitation_id": invitation_id}
@@ -365,13 +366,42 @@ class AuthService:
             details={"email": invitation.email},
         )
 
-    def register(self, token: str, password: str, *, ip: str | None = None) -> TokenPair:
+    def invitation_status(self, token: str, *, ip: str | None = None) -> InvitationStatus:
+        """What a registration link leads to; unknown tokens count as failed attempts."""
+        limits = self.throttle.ip_limits("register", ip)
+        self._guard(limits, "auth.register", {"ip": ip})
+        invitation = self.catalog.find_invitation(_digest(token))
+        if invitation is None:
+            self._failed(limits, "auth.register", {"ip": ip})
+            return InvitationStatus(status="unknown")
+        status: Literal["valid", "expired", "revoked", "used"] = "valid"
+        if invitation.revoked_at is not None:
+            status = "revoked"
+        elif invitation.accepted_at is not None:
+            status = "used"
+        elif invitation.expires_at < utcnow():
+            status = "expired"
+        valid = status == "valid"
+        return InvitationStatus(
+            status=status,
+            email=invitation.email if valid else None,
+            role=invitation.role if valid else None,
+            project_name=self.catalog.get_project(invitation.project_id).name,
+            expires_at=invitation.expires_at,
+        )
+
+    def register(
+        self, token: str, password: str, *, name: str | None = None, ip: str | None = None
+    ) -> TokenPair:
         limits = self.throttle.ip_limits("register", ip)
         self._guard(limits, "auth.register", {"ip": ip})
         invitation = self.catalog.find_invitation(_digest(token))
         if invitation is None or invitation.accepted_at is not None:
             self._failed(limits, "auth.register", {"ip": ip})
             raise UnauthorizedError("invalid or already used invitation")
+        if invitation.revoked_at is not None:
+            self._failed(limits, "auth.register", {"ip": ip})
+            raise UnauthorizedError("invitation revoked")
         if invitation.expires_at < utcnow():
             self._failed(limits, "auth.register", {"ip": ip})
             raise UnauthorizedError("invitation expired")
@@ -379,7 +409,12 @@ class AuthService:
             raise ConflictError("this email already has an account: log in instead")
         self.check_password_policy(password, invitation.email)
         user = self.catalog.add_user(
-            User(id=new_id(), email=invitation.email, created_at=utcnow()),
+            User(
+                id=new_id(),
+                email=invitation.email,
+                name=(name or "").strip() or None,
+                created_at=utcnow(),
+            ),
             hash_password(password),
         )
         self.catalog.set_membership(invitation.project_id, user.id, invitation.role)
