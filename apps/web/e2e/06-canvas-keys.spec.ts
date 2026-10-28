@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { capture, credentials, expectShell, signIn } from "./helpers";
+import { credentials, expectShell, signIn } from "./helpers";
 
 const node = (page: Page, id: string) => page.getByTestId(`node-${id}`);
 
