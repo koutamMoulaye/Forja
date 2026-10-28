@@ -7,7 +7,7 @@ test.describe("sign-in", () => {
     await expect(page).toHaveURL(/\/auth\/login\?next=%2Fprojects%2Fany%2Fruns$/);
     await expect(page.getByRole("heading", { name: "Connexion" })).toBeVisible();
     await expect(page.getByText("Demandez à votre administrateur")).toBeVisible();
-    await expect(page.getByText(/poste local · licence Apache 2\.0/)).toBeVisible();
+    await expect(page.getByText(/instance partagée · licence Apache 2\.0/)).toBeVisible();
   });
 
   test("captures of the login screen in both themes", async ({ page }) => {

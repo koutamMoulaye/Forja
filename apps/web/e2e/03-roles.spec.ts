@@ -7,6 +7,7 @@ const ENGINEER_NAV = [
   "Nettoyage",
   "Modèle",
   "Diffusion",
+  "À approuver",
   "Runs",
   "Couche sémantique",
   "Gouvernance",

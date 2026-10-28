@@ -20,7 +20,11 @@ export default defineConfig({
     baseURL: web,
     locale: "fr-FR",
     viewport: { width: 1440, height: 900 },
+    // Traces and screenshots of failures only; no video. The comparison captures go to
+    // test-results/captures, emptied at the start of each run.
     trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+    video: "off",
   },
   projects: [
     {
