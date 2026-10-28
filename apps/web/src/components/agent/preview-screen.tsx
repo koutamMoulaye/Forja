@@ -46,6 +46,7 @@ import {
   martBadge,
   martTitle,
   previewedIteration,
+  publicationSteps,
   refineSuggestions,
   summaryParts,
   type Destination,
@@ -352,6 +353,41 @@ function LineageCard({ node }: { node: ReturnType<typeof lineage>[number] }) {
         <span className="truncate text-[12px] text-tx3">{node.detail}</span>
       </span>
     </div>
+  );
+}
+
+function PublicationHistory({ request }: { request: MartRequest }) {
+  const steps = publicationSteps(request);
+  if (!steps.length) return null;
+  return (
+    <Card className="flex flex-col gap-3 px-5 py-[18px]" data-testid="publication-steps">
+      <h2 className="m-0 text-section font-semibold">Publication</h2>
+      <ol className="m-0 flex list-none flex-col gap-2.5 p-0">
+        {steps.map((step) => (
+          <li key={step.id} className="flex items-start gap-2.5" data-step={step.id}>
+            <span className="mt-0.5 flex size-[18px] flex-none items-center justify-center">
+              {step.state === "current" ? (
+                <Hourglass size={17} className="text-tx3" aria-hidden />
+              ) : step.state === "fail" ? (
+                <XCircle size={17} weight="fill" className="text-err-fg" aria-hidden />
+              ) : (
+                <CheckCircle size={17} weight="fill" className="text-val-fg" aria-hidden />
+              )}
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="text-ui text-tx">{step.label}</span>
+              {step.detail || step.at ? (
+                <span className="truncate text-meta text-tx3">
+                  {[step.detail, step.at ? formatDateTime(step.at) : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </Card>
   );
 }
 
@@ -847,6 +883,7 @@ export function PreviewScreen({ martId }: { martId: string }) {
         <div className="flex min-w-0 flex-col gap-5">
           <TotalCard iteration={iteration} format={format} />
           <Lineage iteration={iteration} />
+          <PublicationHistory request={data} />
           <Destinations
             value={destination}
             onChange={setChosen}

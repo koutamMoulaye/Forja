@@ -25,6 +25,7 @@ import {
   martTitle,
   pathLabel,
   pickSuggestions,
+  publicationSteps,
   refineSuggestions,
   type Control,
   type MartIteration,
@@ -243,6 +244,45 @@ describe("data marts", () => {
       "Data mart rejeté",
     ]);
     expect(notices[0]!.action).toEqual({ label: "Vérifier", href: "/projects/p1/marts/a/preview" });
+  });
+});
+
+describe("publication steps", () => {
+  const T1 = "2026-10-28T10:00:00Z";
+  const T2 = "2026-10-28T11:00:00Z";
+  const ids = (r: MartRequest) => publicationSteps(r).map((step) => `${step.id}:${step.state}`);
+
+  it("shows the wait whenever it took place", () => {
+    expect(publicationSteps(request({ status: "previewed" }))).toEqual([]);
+    const waiting = request({ status: "validated", validated_at: T1 });
+    expect(ids(waiting)).toEqual(["validated:done", "pending:current"]);
+    const approved = request({
+      status: "published",
+      validated_at: T1,
+      approved_at: T2,
+      approved_by_email: "eng@exemple.fr",
+      published_at: T2,
+      destination: "csv",
+    });
+    expect(ids(approved)).toEqual([
+      "validated:done",
+      "pending:done",
+      "approved:done",
+      "published:done",
+    ]);
+    expect(publicationSteps(approved)[2]!.detail).toBe("eng@exemple.fr");
+    const rejected = request({ status: "rejected", validated_at: T1, rejection_reason: "doublon" });
+    expect(ids(rejected)).toEqual(["validated:done", "pending:done", "rejected:fail"]);
+  });
+
+  it("leaves the wait out when the author approved at validation", () => {
+    const own = request({
+      status: "validated",
+      validated_at: T1,
+      approved_at: T1,
+      publish_job_id: "j",
+    });
+    expect(ids(own)).toEqual(["validated:done", "published:current"]);
   });
 });
 

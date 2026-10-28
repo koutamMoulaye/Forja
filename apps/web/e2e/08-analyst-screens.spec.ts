@@ -93,7 +93,7 @@ test("home: greeting, freshness, suggestions the agent answers at once", async (
   await expect(page.getByTestId("recent-conversations")).toBeVisible();
 });
 
-test("an engineer's simple question: preview, CSV destination, published at once", async ({
+test("an engineer's simple question: preview, CSV destination, approved by another, published", async ({
   page,
 }) => {
   test.setTimeout(150_000);
@@ -104,8 +104,27 @@ test("an engineer's simple question: preview, CSV destination, published at once
   await openPreview(page);
   await page.getByRole("radio", { name: /Fichier CSV/ }).click();
   await page.getByRole("button", { name: "Valider et publier" }).click();
-  // Engineers approve their own requests: no wait for anyone.
+  // Shared instance: an engineer's own request waits for someone else
+  // (FORJA_MART_ALLOW_SELF_APPROVAL is false in multi mode); the administrator approves.
+  await expect(page.getByTestId("awaiting-approval")).toBeVisible();
+  const martId = /marts\/([^/]+)\/preview/.exec(page.url())![1]!;
+  const api = await request.newContext({ baseURL: API });
+  try {
+    const login = await api.post("/auth/login", {
+      data: { email: E2E.admin.email, password: await adminPassword() },
+    });
+    const token = (await login.json()).access_token as string;
+    const approved = await api.post(`/mart-requests/${martId}/approve`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(approved.ok()).toBe(true);
+  } finally {
+    await api.dispose();
+  }
   await expect(page.getByTestId("published")).toContainText("Fichier CSV", { timeout: 90_000 });
+  const steps = page.getByTestId("publication-steps");
+  await expect(steps).toContainText("En attente d’approbation");
+  await expect(steps.locator("[data-step=approved]")).toContainText(E2E.admin.email);
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "CSV", exact: true }).click();
   expect((await download).suggestedFilename()).toMatch(/^mart_.*\.csv$/);

@@ -43,6 +43,80 @@ export function isPublishing(request: MartRequest): boolean {
   return request.status === "validated" && Boolean(request.publish_job_id);
 }
 
+export type PublicationStep = {
+  id: "validated" | "pending" | "approved" | "rejected" | "published";
+  label: string;
+  detail: string | null;
+  at: string | null;
+  state: "done" | "current" | "fail";
+};
+
+/**
+ * What happened after the author validated: the wait for an engineer is shown whenever
+ * it took place (approved later than validated, rejected, or still waiting), and is
+ * left out when the author approved their own request at validation.
+ */
+export function publicationSteps(request: MartRequest): PublicationStep[] {
+  if (!request.validated_at) return [];
+  const steps: PublicationStep[] = [
+    {
+      id: "validated",
+      label: "Validé",
+      detail: request.owner_email ?? null,
+      at: request.validated_at,
+      state: "done",
+    },
+  ];
+  const selfApproved =
+    Boolean(request.approved_at) && request.approved_at === request.validated_at;
+  if (!selfApproved) {
+    steps.push({
+      id: "pending",
+      label: "En attente d’approbation",
+      detail: null,
+      at: request.validated_at,
+      state: awaitsApproval(request) ? "current" : "done",
+    });
+  }
+  if (request.status === "rejected") {
+    steps.push({
+      id: "rejected",
+      label: "Rejeté",
+      detail: request.rejection_reason || null,
+      at: request.updated_at,
+      state: "fail",
+    });
+    return steps;
+  }
+  if (request.approved_at && !selfApproved) {
+    steps.push({
+      id: "approved",
+      label: "Approuvé",
+      detail: request.approved_by_email ?? null,
+      at: request.approved_at,
+      state: "done",
+    });
+  }
+  if (request.status === "published") {
+    steps.push({
+      id: "published",
+      label: "Publié",
+      detail: request.destination ? destinationLabel(request.destination) : null,
+      at: request.published_at ?? null,
+      state: "done",
+    });
+  } else if (isPublishing(request)) {
+    steps.push({
+      id: "published",
+      label: request.publish_error ? "Échec de publication" : "Publication en cours",
+      detail: request.publish_error ?? null,
+      at: null,
+      state: request.publish_error ? "fail" : "current",
+    });
+  }
+  return steps;
+}
+
 function sentence(text: string): string {
   return text.replace(/\.\s*$/, "");
 }

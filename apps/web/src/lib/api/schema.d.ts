@@ -2746,6 +2746,8 @@ export type components = {
             approved_at?: string | null;
             /** Approved By */
             approved_by?: string | null;
+            /** Approved By Email */
+            approved_by_email?: string | null;
             /**
              * Bindings
              * @description Terms resolved by the user's answers
