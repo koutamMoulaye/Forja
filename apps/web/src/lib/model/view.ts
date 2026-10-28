@@ -162,7 +162,7 @@ export function starLayout(
   width: number,
   fact: { width: number; height: number },
   card: { width: number; height: number },
-  gap = { x: 56, y: 18, pad: 24 },
+  gap = { x: 40, y: 18, pad: 16 },
 ): StarGeometry {
   const perSide = [Math.ceil(count / 2), Math.floor(count / 2)];
   const column = (n: number) => n * card.height + Math.max(0, n - 1) * gap.y;

@@ -70,8 +70,8 @@ type View = "schema" | "relations" | "versions";
 type Selection =
   { kind: "fact"; name: string } | { kind: "dimension"; name: string } | { kind: "date" };
 
-const CARD = { width: 200, height: 146 };
-const FACT_WIDTH = 272;
+const CARD = { width: 192, height: 146 };
+const FACT_WIDTH = 256;
 
 /** /projects/[id]/model: the star schema under review (v2 V6). */
 export function ModelScreen() {

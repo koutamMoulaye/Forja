@@ -199,9 +199,7 @@ export function RuleCard({
           ))}
         </div>
       ) : summary ? (
-        <div className="rounded-lg bg-sunk px-3 py-2.5 font-mono text-[12.5px] text-tx2">
-          {summary}
-        </div>
+        <div className="rounded-lg bg-sunk px-3 py-2.5 text-ui text-tx2">{summary}</div>
       ) : examplesLoading && rule.columns.length && rule.kind !== "primary_key" ? (
         <div className="h-[76px] animate-shimmer rounded-lg bg-[linear-gradient(90deg,var(--sunk)_0%,var(--hair)_50%,var(--sunk)_100%)] bg-[length:840px_100%]" />
       ) : null}
