@@ -15,9 +15,15 @@ function cell(value: unknown): string {
   return JSON.stringify(value);
 }
 
+/** Keys and identifiers (`client_id`, `id_commande`, `produit_sk`): their values read in mono. */
+export function isIdentifierColumn(column: string): boolean {
+  return /(^|_)(id|sk|key|cle)$|^id_/i.test(column);
+}
+
 /**
  * DataTable of the inventory: 38 px rows, tabular figures, pseudonymized columns hatched.
- * Numbers align right; long values are cut with an ellipsis, the full value in a title.
+ * Headers in the interface font, identifier values in mono. Numbers align right; long
+ * values are cut with an ellipsis, the full value in a title.
  */
 export function DataTable({
   columns,
@@ -69,7 +75,7 @@ export function DataTable({
                       <HatchGlyph size={11} />
                     </span>
                   ) : null}
-                  <span className="font-mono text-mono">{column}</span>
+                  <span>{column}</span>
                 </span>
               </th>
             ))}
@@ -96,6 +102,7 @@ export function DataTable({
                         "max-w-[240px] truncate px-3",
                         typeof value === "number" && "text-right",
                         value === null && "text-tx3",
+                        isIdentifierColumn(column) && "font-mono text-mono",
                         hatched.has(column) && "font-mono text-mono text-pii-fg hatch-pii",
                       )}
                     >
