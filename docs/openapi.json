@@ -3277,6 +3277,17 @@
             ],
             "title": "Approved By"
           },
+          "approved_by_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By Email"
+          },
           "bindings": {
             "additionalProperties": {
               "type": "string"

@@ -128,6 +128,11 @@ class Settings(BaseSettings):
     mart_require_approval: bool = Field(
         default=False, description="An engineer approves a data mart before it is published"
     )
+    mart_allow_self_approval: bool | None = Field(
+        default=None,
+        description="An engineer may approve their own data mart; unset: true in local mode, "
+        "false in multi mode (another engineer approves)",
+    )
     mart_preview_rows: int = Field(default=50, gt=0, le=1000)
     mart_max_rows: int = Field(default=1_000_000, gt=0)
     agent_today: str | None = Field(
@@ -137,6 +142,12 @@ class Settings(BaseSettings):
     @property
     def catalog_path(self) -> Path:
         return self.meta_db_path or self.data_dir / "forja_meta.duckdb"
+
+    @property
+    def mart_self_approval(self) -> bool:
+        if self.mart_allow_self_approval is not None:
+            return self.mart_allow_self_approval
+        return self.auth_mode == "local"
 
     @property
     def max_upload_bytes(self) -> int:

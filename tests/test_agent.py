@@ -28,7 +28,7 @@ from forja_core.agent.spec import FilterOperator, MartFilter, MartSpec, Period
 from forja_core.agent.validate import validate_spec
 from forja_core.agent.vocabulary import Vocabulary
 from forja_core.auth.models import Principal, User
-from forja_core.errors import ConflictError, PlanStateError, PlanValidationError
+from forja_core.errors import ConflictError, ForbiddenError, PlanStateError, PlanValidationError
 from forja_core.jobs.models import JobStatus
 from forja_core.models import Project
 from forja_core.semantic.models import SemanticLayer
@@ -501,3 +501,29 @@ def test_destination_and_engineer_self_approval(shop: tuple[AppState, Project]) 
         assert waiting.status is MartStatus.VALIDATED and waiting.destination == "powerbi"
     finally:
         state.settings.mart_require_approval = False
+
+
+def test_self_approval_follows_the_mode(shop: tuple[AppState, Project]) -> None:
+    state, project = shop
+    assert state.settings.auth_mode == "local" and state.settings.mart_self_approval
+    other = Principal(
+        user=User(id="eng2", email="eng2@exemple.fr", is_admin=True, created_at=utcnow()),
+        via="password",
+    )
+    state.settings.mart_require_approval = True
+    state.settings.mart_allow_self_approval = False
+    try:
+        own = _ask(state, project, "Quantité vendue par segment", who=ENGINEER)
+        waiting, job = state.marts.validate(own.id, ENGINEER)
+        assert job is None and waiting.approved_at is None
+        with pytest.raises(ForbiddenError):
+            state.marts.approve(own.id, ENGINEER)
+        approved, publish = state.marts.approve(own.id, other)
+        assert approved.approved_by == "eng2" and approved.approved_by_email == "eng2@exemple.fr"
+        assert approved.approved_at is not None and approved.validated_at is not None
+        assert approved.approved_at > approved.validated_at
+        assert state.catalog.get_job(publish.id).status is JobStatus.SUCCEEDED
+    finally:
+        state.settings.mart_require_approval = False
+        state.settings.mart_allow_self_approval = None
+    assert state.settings.model_copy(update={"auth_mode": "multi"}).mart_self_approval is False

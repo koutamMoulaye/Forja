@@ -4,7 +4,8 @@ Lifecycle: ``drafted`` (being understood, or waiting for an answer to a question
 → ``previewed`` (a verification preview is ready) → ``validated`` (the user checked
 it) → ``published`` (dbt model built, served and exported); ``rejected`` at any
 point before publication. With ``FORJA_MART_REQUIRE_APPROVAL=true``, an engineer
-approves a validated request before it is published.
+approves a validated request before it is published; an engineer's own request is
+approved at validation when ``FORJA_MART_ALLOW_SELF_APPROVAL`` allows it.
 """
 
 from __future__ import annotations
@@ -150,6 +151,7 @@ class MartRequest(BaseModel):
     )
     validated_at: datetime | None = None
     approved_by: str | None = None
+    approved_by_email: str | None = None
     approved_at: datetime | None = None
     rejected_by: str | None = None
     rejection_reason: str | None = None

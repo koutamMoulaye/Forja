@@ -248,7 +248,7 @@ class MartService:
             created_at=utcnow(),
         )
         request.validated_at = request.approved_at = None
-        request.approved_by = None
+        request.approved_by = request.approved_by_email = None
         job = self._queue(request, iteration, principal)
         self._record(principal, "agent.refine", request, instruction=instruction)
         return self.catalog.get_mart_request(mart_id), job
@@ -290,7 +290,7 @@ class MartService:
             created_at=utcnow(),
         )
         request.validated_at = request.approved_at = None
-        request.approved_by = None
+        request.approved_by = request.approved_by_email = None
         job = self._queue(request, iteration, principal)
         self._record(
             principal, "agent.correct", request, term=was.term.kind, was=was.text, chosen=label
@@ -314,11 +314,15 @@ class MartService:
         request.validated_at = utcnow()
         if choice is not None and choice.destination is not None:
             request.destination = choice.destination
-        # Someone who may approve marts does not wait for another engineer.
-        if self.settings.mart_require_approval and principal.can(
-            request.project_id, Action.MART_APPROVE
+        # An engineer approves their own request at once, unless another engineer must
+        # (FORJA_MART_ALLOW_SELF_APPROVAL, false by default in multi mode).
+        if (
+            self.settings.mart_require_approval
+            and self.settings.mart_self_approval
+            and principal.can(request.project_id, Action.MART_APPROVE)
         ):
             request.approved_by = principal.id
+            request.approved_by_email = principal.user.email
             request.approved_at = request.validated_at
         self.catalog.save_mart_request(request)
         self._record(
@@ -339,7 +343,10 @@ class MartService:
             )
         if request.approved_at is not None:
             raise ConflictError("the request is already approved")
+        if request.owner_id == principal.id and not self.settings.mart_self_approval:
+            raise ForbiddenError("another engineer approves this data mart")
         request.approved_by = principal.id
+        request.approved_by_email = principal.user.email
         request.approved_at = utcnow()
         self.catalog.save_mart_request(request)
         self._record(principal, "mart.approve", request)
