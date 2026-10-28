@@ -189,6 +189,19 @@ Un projet vide propose de déposer des fichiers. Pour vérifier la fluidité,
 `?synthetic=200` dessine un pipeline généré de 200 nœuds (développement, ou
 `FORJA_WEB_DESIGN_SYSTEM=true`).
 
+**Écrans engineer** : *Sources* (fichiers, qualité, données personnelles, versions
+et dérive de schéma, nouvelle version, aperçu de la table nettoyée) ; *revue du plan
+Silver* (`/sources/<id>/plan` : règles avec explication, confiance et valeurs avant et
+après, Valider, Rejeter, Modifier, « Valider les règles à confiance élevée », approbation
+puis nettoyage, versions comparées, quarantaine) ; *Modèle* (schéma en étoile, « À
+résoudre » branché sur la validation réelle, relations, proposition par IA suivie pas à
+pas, édition latérale, « Valider le modèle » puis « Construire ») ; *Runs* (filtres,
+étapes table par table, métriques, tests dbt, journal) ; *Diffusion* (tables publiées,
+exports, connexion Power BI, Superset, Metabase) ; *Couche sémantique*
+(`?metric=chiffre_affaires` ouvre l'édition, synonymes proposés par les analysts) ;
+*Réglages* (membres, invitations, fournisseur IA, clés API) et *Gouvernance* (colonnes
+personnelles par couche, journal d'audit filtrable).
+
 La page interne <http://localhost:3000/design-system> montre tous les tokens et
 composants dans les deux thèmes, pour comparaison avec les maquettes.
 
@@ -269,7 +282,8 @@ et relations, jamais de valeurs).
    ```bash
    ollama pull qwen3.5:9b
    ```
-3. **Configurer Forja** dans `.env` :
+3. **Configurer Forja** depuis *Réglages du projet → Fournisseur IA* (administrateur
+   de l'instance : modèle, adresse, « Tester la connexion »), ou dans `.env` :
 
    ```bash
    FORJA_LLM_PROVIDER=ollama
@@ -304,6 +318,7 @@ sur ses règles déterministes : le résultat est toujours un plan valide.
 | `GET` | `/projects` | Projets dont on est membre |
 | `GET` `PUT` `DELETE` | `/projects/{id}/members[/{user_id}]` | Membres et rôles |
 | `POST` `GET` | `/projects/{id}/invitations` | Inviter par email (mode `multi`) |
+| `DELETE` | `/projects/{id}/invitations/{invitation_id}` | Révoquer une invitation en attente |
 | `GET` | `/projects/{id}/audit` · `/audit` | Journal d'audit |
 | `POST` | `/projects/{id}/sources?mode=auto\|new_source\|new_version` | Charger un fichier (multipart, champ `file`) ; une source par feuille Excel |
 | `GET` | `/projects/{id}/sources` | Lister les sources, avec version courante et score qualité |
@@ -315,7 +330,10 @@ sur ses règles déterministes : le résultat est toujours un plan valide.
 | `GET` | `/sources/{id}/plan?version=` | Plan de transformation Silver |
 | `GET` | `/sources/{id}/plans` | Historique des versions du plan |
 | `PATCH` | `/sources/{id}/plan` | Modifier une règle, exclure une colonne, changer un type… (nouvelle version `draft`) |
-| `POST` | `/sources/{id}/plan/approve` | Approuver la dernière version |
+| `POST` | `/sources/{id}/plan/approve` | Approuver la dernière version (les règles rejetées sont retirées d'abord) |
+| `GET` `POST` | `/sources/{id}/plan/review` | Le plan en règles, et les décisions Valider / Rejeter (sans nouvelle version) |
+| `GET` | `/sources/{id}/plan/samples` | Valeurs avant et après sur un échantillon (données personnelles masquées) |
+| `GET` | `/sources/{id}/rejects?run_id=` | Lignes en quarantaine, par motif |
 | `GET` | `/projects/{id}/relations?status=` | Relations entre sources |
 | `POST` | `/projects/{id}/relations/detect` | Relancer la détection |
 | `POST` | `/projects/{id}/relations` | Déclarer une relation manuellement |
@@ -324,6 +342,9 @@ sur ses règles déterministes : le résultat est toujours un plan valide.
 | `GET` | `/projects/{id}/gold-plan?version=` · `/projects/{id}/gold-plans` | Plan Gold et historique |
 | `PATCH` | `/projects/{id}/gold-plan` | Modifier le plan Gold (nouvelle version `draft`) |
 | `POST` | `/projects/{id}/gold-plan/approve` | Approuver (refusé tant qu'il reste des erreurs) |
+| `GET` | `/projects/{id}/gold-plan/issues` | Contrôles du plan Gold recalculés avec les relations actuelles |
+| `GET` `PUT` | `/settings/llm` | Fournisseur IA en service ; le changer (administrateur de l'instance) |
+| `POST` | `/settings/llm/test` | Tester la connexion au fournisseur, sans envoyer de donnée |
 | `POST` | `/projects/{id}/runs` | Lancer un run `profile`, `build_silver`, `build_gold`, `build_all` ou `export` |
 | `GET` | `/projects/{id}/runs` | Runs du projet |
 | `GET` | `/runs/{id}` | Statut et métriques d'un run |

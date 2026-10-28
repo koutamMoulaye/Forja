@@ -232,5 +232,26 @@ gérés dans Forja.
 - La limitation des tentatives est stockée dans le catalogue de l'instance : plusieurs
   instances derrière un répartiteur ne partagent pas leurs compteurs.
 - Pas d'envoi d'email : le jeton d'invitation est renvoyé à l'admin, qui le transmet.
+  Une invitation non acceptée se révoque (`DELETE /projects/{id}/invitations/{id}`) :
+  son jeton cesse de fonctionner.
 - Garder `FORJA_API_HOST=127.0.0.1` ou un proxy HTTPS : les jetons circulent en clair sur
   HTTP.
+
+## Fournisseur IA choisi depuis l'interface
+
+L'administrateur de l'instance choisit le fournisseur (Ollama, Anthropic, OpenAI ou
+aucun), le modèle et la clé API dans *Réglages du projet* (`PUT /settings/llm`). Le choix
+est écrit dans `FORJA_SECRETS_DIR/llm.json`, hors du dépôt et du dossier de données, avec
+des droits réservés à l'utilisateur courant (0600), et prime sur les variables
+`FORJA_LLM_*`. Une clé n'est jamais renvoyée par l'API ni écrite au journal d'audit :
+`GET /settings/llm` indique seulement si elle est enregistrée. « Tester la connexion »
+(`POST /settings/llm/test`) consulte le modèle chez le fournisseur sans envoyer de donnée.
+
+## Revue des plans et quarantaine
+
+L'aperçu avant et après d'une règle (`GET /sources/{id}/plan/samples`) lit un échantillon
+du Bronze brut : les colonnes personnelles y sont masquées pour un engineer et
+pseudonymisées pour les autres rôles ; elles ne sont en clair qu'avec
+`FORJA_ALLOW_BRONZE_PREVIEW=true` et le droit `bronze.preview`. Les lignes en quarantaine
+(`GET /sources/{id}/rejects`) gardent leurs valeurs brutes et sont lues comme un export :
+traitement du plan, ou pseudonymisation stricte sans `data.unmasked`.
