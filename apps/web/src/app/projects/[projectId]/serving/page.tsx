@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Placeholder } from "@/components/shell/placeholders";
+import { ServingScreen } from "@/components/serving/serving-screen";
 
 export const metadata: Metadata = { title: "Diffusion" };
 
 export default function Page() {
-  return <Placeholder screen="serving" />;
+  return <ServingScreen />;
 }
