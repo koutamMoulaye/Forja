@@ -131,9 +131,10 @@ export function breadcrumb(section: SectionId | null, rest: string[]): string[] 
     case "model":
       return ["Modèle", "Revue du modèle en étoile"];
     case "sources":
-      return rest[1] === "plan" ? ["Sources", "Revue du plan Silver"] : [base];
+      if (rest[1] === "plan") return ["Sources", "Revue du plan Silver"];
+      return rest[0] ? [base, "Détail de la source"] : [base];
     case "runs":
-      return rest[0] ? ["Runs", rest[0]] : [base];
+      return rest[0] ? ["Runs", `run_${rest[0].slice(0, 6)}`] : [base];
     case "marts":
       return rest[1] === "preview" ? [base, "Aperçu de vérification"] : [base];
     case "ask":

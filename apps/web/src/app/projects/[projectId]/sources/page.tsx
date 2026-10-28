@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Placeholder } from "@/components/shell/placeholders";
+import { SourcesScreen } from "@/components/sources/sources-screen";
 
 export const metadata: Metadata = { title: "Sources" };
 
 export default function Page() {
-  return <Placeholder screen="sources" />;
+  return <SourcesScreen />;
 }
