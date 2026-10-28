@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Placeholder } from "@/components/shell/placeholders";
+import { CleaningScreen } from "@/components/silver/cleaning-screen";
 
 export const metadata: Metadata = { title: "Nettoyage" };
 
 export default function Page() {
-  return <Placeholder screen="cleaning" />;
+  return <CleaningScreen />;
 }

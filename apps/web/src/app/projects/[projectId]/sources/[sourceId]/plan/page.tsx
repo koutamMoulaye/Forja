@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
-import { Placeholder } from "@/components/shell/placeholders";
+import { PlanReviewScreen } from "@/components/silver/plan-review";
 
 export const metadata: Metadata = { title: "Revue du plan Silver" };
 
-export default function Page() {
-  return <Placeholder screen="silver-plan" />;
+export default async function Page({
+  params,
+}: PageProps<"/projects/[projectId]/sources/[sourceId]/plan">) {
+  const { sourceId } = await params;
+  return <PlanReviewScreen key={sourceId} sourceId={sourceId} />;
 }
