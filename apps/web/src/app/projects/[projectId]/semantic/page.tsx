@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Placeholder } from "@/components/shell/placeholders";
+import { SemanticScreen } from "@/components/semantic/semantic-screen";
 
 export const metadata: Metadata = { title: "Couche sémantique" };
 
 export default function Page() {
-  return <Placeholder screen="semantic" />;
+  return <SemanticScreen />;
 }
