@@ -1,4 +1,4 @@
-"""Command line: ``forja demo``, ``forja openapi``, ``forja serve``.
+"""Command line: ``forja init``, ``forja demo``, ``forja openapi``, ``forja serve``.
 
 ``forja demo`` works on the configured workspace (FORJA_DATA_DIR): stop the API
 first, DuckDB allows a single process on the catalog.
@@ -7,8 +7,11 @@ first, DuckDB allows a single process on the catalog.
 from __future__ import annotations
 
 import argparse
+import secrets
 import sys
 from pathlib import Path
+
+from pydantic import SecretStr
 
 from forja_api.demo import build_demo, demo_settings
 from forja_api.state import AppState
@@ -39,6 +42,37 @@ def _demo(args: argparse.Namespace) -> int:
             print(f"  {email:<32} {password}")
     else:
         print("\nComptes de démo déjà créés ; --reset-passwords pour en générer de nouveaux.")
+    return 0
+
+
+def _init(args: argparse.Namespace) -> int:
+    """First start: the administrator, whose credentials are printed here once (never in
+    the logs), and the demo project if asked."""
+    settings = get_settings()
+    password = secrets.token_urlsafe(15)
+    if settings.auth_bootstrap_password is None:
+        settings = settings.model_copy(update={"auth_bootstrap_password": SecretStr(password)})
+    else:
+        password = settings.auth_bootstrap_password.get_secret_value()
+    configure_logging("ERROR", "console")
+    if args.demo:
+        settings = demo_settings(settings)
+    state = AppState.build(settings)
+    try:
+        admin = state.auth.bootstrap()
+        result = build_demo(state, reset_passwords=False) if args.demo else None
+    finally:
+        state.close()
+    if admin is None:
+        print("Forja est déjà initialisé : l'administrateur existe.")
+    else:
+        print("Administrateur créé. Notez ces identifiants, ils ne seront plus affichés :")
+        print(f"  adresse       {admin.email}")
+        print(f"  mot de passe  {password}   (à changer à la première connexion)")
+    if result is not None:
+        print(f"\nProjet de démo « {result.project.name} » prêt.")
+        for email, demo_password in result.created_accounts.items():
+            print(f"  {email:<32} {demo_password}")
     return 0
 
 
@@ -73,6 +107,9 @@ def _serve(_args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="forja", description="Forja")
     commands = parser.add_subparsers(dest="command", required=True)
+    init = commands.add_parser("init", help="premier démarrage : créer l'administrateur")
+    init.add_argument("--demo", action="store_true", help="charger aussi le projet de démo")
+    init.set_defaults(handler=_init)
     demo = commands.add_parser("demo", help="créer ou compléter le projet « Démo e-commerce »")
     demo.add_argument(
         "--reset-passwords", action="store_true", help="nouveaux mots de passe de démo"
