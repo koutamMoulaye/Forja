@@ -49,7 +49,8 @@ person in charge of the project says otherwise for that task.
 ```sh
 # Python (root)
 uv sync                                  # dependencies
-uv run pytest -q                         # tests (real dbt builds included)
+FORJA_SKIP_REAL_LLM_TESTS=1 uv run pytest -q   # tests (real dbt builds; without the
+                                         # variable, real Ollama tests run: hours on CPU)
 uv run ruff check . && uv run ruff format --check . && uv run mypy
 uv run forja openapi                     # regenerate docs/openapi.json after an API change
 uv run forja demo                        # demo project (API stopped: one process on DuckDB)
