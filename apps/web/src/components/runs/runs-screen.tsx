@@ -47,7 +47,7 @@ import {
   isActive,
   runKeys,
   useCancelRun,
-  useProjectRuns,
+  useRunHistory,
   type Job,
 } from "@/lib/project/use-runs";
 import {
@@ -73,7 +73,7 @@ export function RunsScreen({ runId }: { runId?: string }) {
   const { project, me } = useShell();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const runs = useProjectRuns(project.id);
+  const runs = useRunHistory(project.id);
   const sources = useSources(project.id);
   const [filter, setFilter] = useState<RunFilter>("all");
   const names = useMemo(
@@ -100,7 +100,8 @@ export function RunsScreen({ runId }: { runId?: string }) {
       }),
   });
 
-  const list = runs.data ?? [];
+  const list = useMemo(() => runs.data?.pages.flatMap((page) => page.items) ?? [], [runs.data]);
+  const total = runs.data?.pages[0]?.total ?? 0;
   const visible = list.filter((run) => matchesRunFilter(filter, run));
   const selectedId = runId ?? list[0]?.id ?? null;
   const active = list.filter((run) => isActive(run.status)).length;
@@ -128,7 +129,7 @@ export function RunsScreen({ runId }: { runId?: string }) {
         title="Runs"
         subtitle={
           runs.data
-            ? `${plural(list.length, "run", "runs")}${active ? ` · ${active} en cours` : ""}`
+            ? `${plural(total, "run", "runs")}${active ? ` · ${active} en cours` : ""}`
             : "Historique des exécutions"
         }
         actions={
@@ -228,6 +229,18 @@ export function RunsScreen({ runId }: { runId?: string }) {
               );
             })}
           </div>
+          {runs.hasNextPage ? (
+            <div className="border-t border-sunk px-5 py-3">
+              <Button
+                variant="tonal"
+                size="md"
+                loading={runs.isFetchingNextPage}
+                onClick={() => void runs.fetchNextPage()}
+              >
+                Runs plus anciens ({total - list.length})
+              </Button>
+            </div>
+          ) : null}
         </Card>
       )}
     </ScreenBody>

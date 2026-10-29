@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { components } from "@/lib/api/schema";
 import { formatClock, formatRatio, formatWhen, matchesQuery, plural, shortValue } from "./format";
-import { NO_FILTER, auditFacets, filterAudit, personalDataMap } from "./governance/view";
+import { NO_FILTER, auditQuery, personalDataMap } from "./governance/view";
 import { diffGold, issueTarget, originView, starLayout } from "./model/view";
 import { logLines, matchesRunFilter, runFigures, runSteps, runTests } from "./runs/view";
 import { synonymWarnings, metricRows } from "./semantic/view";
@@ -385,35 +385,27 @@ describe("semantic layer", () => {
 });
 
 describe("governance", () => {
-  const entry = (over: Partial<S["AuditEntry"]>) =>
-    ({
-      id: "1",
-      at: "2026-10-27T10:00:00Z",
-      action: "source.upload",
-      user_email: "a@x.fr",
-      details: {},
-      ...over,
-    }) as S["AuditEntry"];
-  it("filters the audit log", () => {
-    const entries = [
-      entry({ details: { filename: "clients.csv" } }),
-      entry({
-        id: "2",
-        action: "table.export",
-        user_email: null,
-        object_type: "table",
-        at: "2026-09-01T10:00:00Z",
-      }),
-    ];
-    const now = Date.parse("2026-10-27T12:00:00Z");
-    expect(filterAudit(entries, { ...NO_FILTER, query: "clients" }, now)).toHaveLength(1);
-    expect(filterAudit(entries, { ...NO_FILTER, user: "système" }, now).map((e) => e.id)).toEqual([
-      "2",
-    ]);
-    expect(filterAudit(entries, { ...NO_FILTER, period: "week" }, now).map((e) => e.id)).toEqual([
-      "1",
-    ]);
-    expect(auditFacets(entries).objects).toEqual(["table"]);
+  it("turns the audit filters into the API's query", () => {
+    const now = Date.parse("2026-10-27T12:00:30Z");
+    expect(auditQuery(NO_FILTER, now)).toEqual({});
+    expect(
+      auditQuery(
+        {
+          user: "système",
+          action: "table.export",
+          object: "table",
+          period: "week",
+          query: " clients ",
+        },
+        now,
+      ),
+    ).toEqual({
+      user: "système",
+      action: "table.export",
+      object_type: "table",
+      since: "2026-10-20T12:00:00.000Z",
+      text: "clients",
+    });
   });
   it("maps personal columns by layer", () => {
     const plan = {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/lib/api/client";
 import { keys } from "@/lib/project/queries";
 import { RUN_POLL_MS, isActive, runKeys, type Job } from "@/lib/project/use-runs";
@@ -16,6 +16,8 @@ import { useLiveEvents } from "@/lib/events/live";
 
 export const agentKeys = {
   overview: (projectId: string) => ["agent-overview", projectId] as const,
+  pages: (projectId: string) => ["marts", projectId, "pages"] as const,
+  waiting: (projectId: string) => ["marts", projectId, "validated"] as const,
   request: (martId: string) => ["mart-request", martId] as const,
 };
 
@@ -44,15 +46,58 @@ export function useConversations(projectId: string, enabled = true) {
     queryFn: async () =>
       unwrap(
         await api.GET("/projects/{project_id}/mart-requests", {
-          params: { path: { project_id: projectId } },
+          params: { path: { project_id: projectId }, query: { limit: RECENT_MARTS } },
         }),
-      ),
+      ).items,
     refetchInterval: (query) =>
       stream
         ? false
         : query.state.data?.some((r) => isProcessing(r) || isPublishing(r))
           ? 2500
           : 30_000,
+  });
+}
+
+export const RECENT_MARTS = 50;
+export const MART_PAGE = 30;
+
+/** Every request, most recently updated first, a page at a time (the data marts screen). */
+export function useMartPages(projectId: string) {
+  const stream = useLiveEvents();
+  return useInfiniteQuery({
+    queryKey: agentKeys.pages(projectId),
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) =>
+      unwrap(
+        await api.GET("/projects/{project_id}/mart-requests", {
+          params: {
+            path: { project_id: projectId },
+            query: { limit: MART_PAGE, offset: pageParam },
+          },
+        }),
+      ),
+    getNextPageParam: (last) =>
+      last.offset + last.items.length < last.total ? last.offset + last.items.length : undefined,
+    refetchInterval: stream ? false : 30_000,
+  });
+}
+
+/** Validated requests, waiting for an engineer or being published (approvals queue). */
+export function useValidatedMarts(projectId: string, enabled = true) {
+  const stream = useLiveEvents();
+  return useQuery({
+    queryKey: agentKeys.waiting(projectId),
+    enabled,
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/projects/{project_id}/mart-requests", {
+          params: {
+            path: { project_id: projectId },
+            query: { status: "validated", limit: 200 },
+          },
+        }),
+      ).items,
+    refetchInterval: stream ? false : 30_000,
   });
 }
 

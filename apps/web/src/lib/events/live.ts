@@ -62,6 +62,7 @@ export function applyJob(client: QueryClient, job: Job) {
   const started = job.status !== previous?.status;
   if (started || ended) {
     void client.invalidateQueries({ queryKey: ["graph", job.project_id] });
+    void client.invalidateQueries({ queryKey: runKeys.history(job.project_id) });
   }
   if (!ended) return;
   void client.invalidateQueries({ queryKey: ["counters", job.project_id] });

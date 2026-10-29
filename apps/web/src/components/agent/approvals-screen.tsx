@@ -13,7 +13,7 @@ import {
 } from "@/components/screens/screen";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
-import { useConversations } from "@/lib/agent/queries";
+import { useValidatedMarts } from "@/lib/agent/queries";
 import {
   awaitsApproval,
   controlsSummary,
@@ -31,7 +31,7 @@ const COLUMNS = "lg:grid-cols-[minmax(0,1.6fr)_200px_140px_150px_150px]";
  */
 export function ApprovalsScreen() {
   const shell = useShell();
-  const conversations = useConversations(shell.project.id);
+  const conversations = useValidatedMarts(shell.project.id);
   const waiting = (conversations.data ?? [])
     .filter(awaitsApproval)
     .sort((a, b) => (a.validated_at ?? a.updated_at).localeCompare(b.validated_at ?? b.updated_at));

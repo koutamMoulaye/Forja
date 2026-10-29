@@ -26,13 +26,13 @@ import { HatchGlyph } from "@/components/ui/spinner";
 import { Segmented } from "@/components/ui/tabs";
 import { cn } from "@/lib/cn";
 import { formatDateTime, plural } from "@/lib/format";
+import { useDebounced } from "@/lib/use-debounced";
 import {
   NO_FILTER,
   OBJECT_LABELS,
   actionLabel,
-  auditFacets,
+  auditQuery,
   auditSummary,
-  filterAudit,
   personalDataMap,
   type AuditFilters,
   type AuditPeriod,
@@ -184,8 +184,10 @@ const PERIODS: { value: AuditPeriod; label: string }[] = [
 ];
 
 function AuditLog({ projectId, allowed }: { projectId: string; allowed: boolean }) {
-  const audit = useAudit(projectId, allowed);
   const [filters, setFilters] = useState<AuditFilters>(NO_FILTER);
+  // The text is sent once the user pauses typing.
+  const text = useDebounced(filters.query, 300);
+  const audit = useAudit(projectId, auditQuery({ ...filters, query: text }), allowed);
   if (!allowed) {
     return (
       <EmptyState
@@ -198,8 +200,10 @@ function AuditLog({ projectId, allowed }: { projectId: string; allowed: boolean 
   if (audit.isPending) return <ListSkeleton rows={8} height={52} />;
   if (audit.isError)
     return <ScreenError error={audit.error} onRetry={() => void audit.refetch()} />;
-  const facets = auditFacets(audit.data);
-  const rows = filterAudit(audit.data, filters);
+  const pages = audit.data.pages;
+  const facets = pages[0]?.facets ?? { users: [], actions: [], objects: [] };
+  const rows = pages.flatMap((page) => page.items);
+  const total = pages[0]?.total ?? 0;
   const set = (change: Partial<AuditFilters>) => setFilters((f) => ({ ...f, ...change }));
   const menu = (
     label: string,
@@ -242,19 +246,19 @@ function AuditLog({ projectId, allowed }: { projectId: string; allowed: boolean 
         {menu(
           "Utilisateur",
           filters.user,
-          facets.users.map((u) => ({ value: u, label: u })),
+          (facets.users ?? []).map((u) => ({ value: u, label: u })),
           (user) => set({ user }),
         )}
         {menu(
           "Action",
           filters.action,
-          facets.actions.map((a) => ({ value: a, label: actionLabel(a) })),
+          (facets.actions ?? []).map((a) => ({ value: a, label: actionLabel(a) })),
           (action) => set({ action }),
         )}
         {menu(
           "Objet",
           filters.object,
-          facets.objects.map((o) => ({ value: o, label: OBJECT_LABELS[o] ?? o })),
+          (facets.objects ?? []).map((o) => ({ value: o, label: OBJECT_LABELS[o] ?? o })),
           (object) => set({ object }),
         )}
         <Segmented<AuditPeriod>
@@ -269,7 +273,7 @@ function AuditLog({ projectId, allowed }: { projectId: string; allowed: boolean 
           </Button>
         ) : null}
       </div>
-      <SectionTitle count={`${rows.length} sur ${audit.data.length}`}>Événements</SectionTitle>
+      <SectionTitle count={plural(total, "événement", "événements")}>Événements</SectionTitle>
       <Card role="table" aria-label="Journal d’audit" className="overflow-x-auto">
         <div className="min-w-[760px]">
           <ListHead
@@ -281,7 +285,7 @@ function AuditLog({ projectId, allowed }: { projectId: string; allowed: boolean 
               Aucun événement ne correspond à ces filtres.
             </p>
           ) : null}
-          {rows.slice(0, 300).map((entry) => (
+          {rows.map((entry) => (
             <div
               role="row"
               key={entry.id}
@@ -311,10 +315,17 @@ function AuditLog({ projectId, allowed }: { projectId: string; allowed: boolean 
               </span>
             </div>
           ))}
-          {rows.length > 300 ? (
-            <p className="m-0 border-t border-sunk px-5 py-3 text-meta text-tx3">
-              300 premiers événements affichés : affinez les filtres.
-            </p>
+          {audit.hasNextPage ? (
+            <div className="border-t border-sunk px-5 py-3">
+              <Button
+                variant="tonal"
+                size="md"
+                loading={audit.isFetchingNextPage}
+                onClick={() => void audit.fetchNextPage()}
+              >
+                Événements plus anciens ({total - rows.length})
+              </Button>
+            </div>
           ) : null}
         </div>
       </Card>

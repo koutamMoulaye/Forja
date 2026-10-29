@@ -1,10 +1,11 @@
 "use client";
 
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 import { API_PROXY_PREFIX, api, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import type { components } from "@/lib/api/schema";
 import { CSRF_HEADER, readCsrfToken } from "@/lib/auth/csrf-client";
+import type { AuditQuery } from "@/lib/governance/view";
 
 type S = components["schemas"];
 export type Source = S["Source"];
@@ -29,6 +30,7 @@ export type SemanticDimension = S["SemanticDimension"];
 export type SynonymProposal = S["SynonymProposal"];
 export type MartRequest = S["MartRequest"];
 export type AuditEntry = S["AuditEntry"];
+export type AuditPage = S["AuditPage"];
 export type Membership = S["Membership"];
 export type Invitation = S["Invitation"];
 export type ApiKey = S["ApiKey"];
@@ -298,20 +300,35 @@ export function useMartRequests(projectId: string) {
   return useQuery({
     queryKey: keys.marts(projectId),
     queryFn: async () =>
-      unwrap(await api.GET("/projects/{project_id}/mart-requests", project(projectId))),
+      unwrap(
+        await api.GET("/projects/{project_id}/mart-requests", {
+          params: { path: { project_id: projectId }, query: { limit: 200 } },
+        }),
+      ).items,
   });
 }
 
-export function useAudit(projectId: string, enabled = true) {
-  return useQuery({
-    queryKey: keys.audit(projectId),
+export const AUDIT_PAGE = 100;
+
+/** The audit log filtered by the API, newest first, a page at a time. */
+export function useAudit(projectId: string, filters: AuditQuery, enabled = true) {
+  return useInfiniteQuery({
+    queryKey: [...keys.audit(projectId), filters],
     enabled,
-    queryFn: async () =>
+    initialPageParam: 0,
+    // The rows stay while a new filter loads.
+    placeholderData: keepPreviousData,
+    queryFn: async ({ pageParam }): Promise<AuditPage> =>
       unwrap(
         await api.GET("/projects/{project_id}/audit", {
-          params: { path: { project_id: projectId }, query: { limit: 1000 } },
+          params: {
+            path: { project_id: projectId },
+            query: { ...filters, limit: AUDIT_PAGE, offset: pageParam },
+          },
         }),
       ),
+    getNextPageParam: (last) =>
+      last.offset + last.items.length < last.total ? last.offset + last.items.length : undefined,
   });
 }
 

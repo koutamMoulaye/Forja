@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -26,7 +27,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Segmented } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/errors";
-import { useConversations } from "@/lib/agent/queries";
+import { useMartPages } from "@/lib/agent/queries";
 import {
   MART_FILTERS,
   awaitsApproval,
@@ -170,9 +171,13 @@ export function MartsScreen() {
   const shell = useShell();
   const router = useRouter();
   const params = useSearchParams();
-  const conversations = useConversations(shell.project.id);
+  const conversations = useMartPages(shell.project.id);
   const filter = (params.get("filtre") as MartFilter | null) ?? "all";
-  const all = conversations.data ?? [];
+  const all = useMemo(
+    () => conversations.data?.pages.flatMap((page) => page.items) ?? [],
+    [conversations.data],
+  );
+  const total = conversations.data?.pages[0]?.total ?? 0;
   const counts = countByFilter(all);
   const rows = filterMarts(all, filter);
   const pending = all.filter(awaitsApproval).length;
@@ -198,7 +203,7 @@ export function MartsScreen() {
         title="Mes data marts"
         subtitle={
           conversations.data
-            ? `${plural(all.length, "data mart", "data marts")}${
+            ? `${plural(total, "data mart", "data marts")}${
                 pending ? ` · ${pending} en attente d’approbation` : ""
               }`
             : "Brouillons, aperçus et publications"
@@ -261,6 +266,18 @@ export function MartsScreen() {
               />
             ))}
           </div>
+          {conversations.hasNextPage ? (
+            <div className="border-t border-sunk px-5 py-3">
+              <Button
+                variant="tonal"
+                size="md"
+                loading={conversations.isFetchingNextPage}
+                onClick={() => void conversations.fetchNextPage()}
+              >
+                Data marts plus anciens ({total - all.length})
+              </Button>
+            </div>
+          ) : null}
         </Card>
       )}
     </ScreenBody>

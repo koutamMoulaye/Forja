@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { useLiveEvents } from "@/lib/events/live";
@@ -12,6 +12,7 @@ export type JobStatus = components["schemas"]["JobStatus"];
 
 export const runKeys = {
   list: (projectId: string) => ["runs", projectId] as const,
+  history: (projectId: string) => ["runs", projectId, "history"] as const,
   detail: (runId: string) => ["run", runId] as const,
 };
 
@@ -47,6 +48,30 @@ export const JOB_TEXT: Record<JobType, { label: string; done: string; failed: st
   },
 };
 
+export const RECENT_RUNS = 50;
+export const RUN_PAGE = 50;
+
+/** Every run of the project, newest first, a page at a time (the runs screen). */
+export function useRunHistory(projectId: string) {
+  const stream = useLiveEvents();
+  return useInfiniteQuery({
+    queryKey: runKeys.history(projectId),
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) =>
+      unwrap(
+        await api.GET("/projects/{project_id}/runs", {
+          params: {
+            path: { project_id: projectId },
+            query: { limit: RUN_PAGE, offset: pageParam },
+          },
+        }),
+      ),
+    getNextPageParam: (last) =>
+      last.offset + last.items.length < last.total ? last.offset + last.items.length : undefined,
+    refetchInterval: stream ? false : LIST_POLL_IDLE_MS,
+  });
+}
+
 export function isActive(status: JobStatus): boolean {
   return status === "queued" || status === "running";
 }
@@ -63,12 +88,14 @@ export function useProjectRuns(projectId: string, enabled = true) {
   return useQuery({
     queryKey: runKeys.list(projectId),
     enabled,
+    // The latest runs: what is running and what just ended. The runs screen pages
+    // through the rest (useRunHistory).
     queryFn: async (): Promise<Job[]> =>
       unwrap(
         await api.GET("/projects/{project_id}/runs", {
-          params: { path: { project_id: projectId } },
+          params: { path: { project_id: projectId }, query: { limit: RECENT_RUNS } },
         }),
-      ),
+      ).items,
     select: (runs) => [...runs].sort((a, b) => b.created_at.localeCompare(a.created_at)),
     refetchInterval: (query) =>
       stream

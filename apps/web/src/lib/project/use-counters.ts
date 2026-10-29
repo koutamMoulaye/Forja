@@ -61,12 +61,19 @@ export function useCounters(projectId: string, role: Role | null): Counters {
     queryFn: () =>
       orNull(async () => unwrap(await api.GET("/projects/{project_id}/gold-plan", path))),
   });
-  const marts = useQuery({
-    queryKey: ["counters", projectId, "marts"],
-    enabled: role !== null,
+  const martsQuery = (status: "validated" | "previewed") => ({
+    queryKey: ["counters", projectId, "marts", status],
+    enabled: role !== null && (status === "previewed" || engineer),
     staleTime: STALE,
-    queryFn: async () => unwrap(await api.GET("/projects/{project_id}/mart-requests", path)),
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/projects/{project_id}/mart-requests", {
+          params: { path: { project_id: projectId }, query: { status, limit: 200 } },
+        }),
+      ),
   });
+  const validated = useQuery(martsQuery("validated"));
+  const previewed = useQuery(martsQuery("previewed"));
   const runs = useProjectRuns(projectId, engineer);
 
   const draftPlans = plans.filter((plan) => plan.data?.status === "draft").length;
@@ -75,12 +82,11 @@ export function useCounters(projectId: string, role: Role | null): Counters {
     model: counter(gold.data?.status === "draft" ? 1 : 0),
     approvals: engineer
       ? counter(
-          (marts.data ?? []).filter(
-            (mart) => mart.status === "validated" && !mart.approved_at && !mart.publish_job_id,
-          ).length,
+          (validated.data?.items ?? []).filter((mart) => !mart.approved_at && !mart.publish_job_id)
+            .length,
         )
       : undefined,
     runs: counter((runs.data ?? []).filter((run) => isActive(run.status)).length, "run"),
-    marts: counter((marts.data ?? []).filter((mart) => mart.status === "previewed").length),
+    marts: counter(previewed.data?.total ?? 0),
   };
 }

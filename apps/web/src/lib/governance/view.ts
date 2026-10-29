@@ -1,4 +1,3 @@
-import { normalizeText } from "@/lib/format";
 import type { AuditEntry, GoldPlan, TransformationPlan } from "@/lib/project/queries";
 
 /** French labels of the audited actions; unknown ones are shown as they are. */
@@ -113,47 +112,29 @@ export function auditSummary(entry: AuditEntry): string {
   return parts.join(" · ");
 }
 
-export function filterAudit(
-  entries: AuditEntry[],
-  filters: AuditFilters,
-  now: number = Date.now(),
-): AuditEntry[] {
-  return entries.filter((entry) => {
-    if (filters.user && (entry.user_email ?? "système") !== filters.user) return false;
-    if (filters.action && entry.action !== filters.action) return false;
-    if (filters.object && entry.object_type !== filters.object) return false;
-    if (now - Date.parse(entry.at) > PERIOD_MS[filters.period]) return false;
-    if (filters.query.trim()) {
-      const haystack = normalizeText(
-        [
-          entry.user_email,
-          entry.action,
-          actionLabel(entry.action),
-          entry.object_type,
-          entry.object_id,
-          auditSummary(entry),
-        ]
-          .filter(Boolean)
-          .join(" "),
-      );
-      if (!haystack.includes(normalizeText(filters.query.trim()))) return false;
-    }
-    return true;
-  });
-}
+export type AuditQuery = {
+  user?: string;
+  action?: string;
+  object_type?: string;
+  since?: string;
+  text?: string;
+};
 
-/** Distinct values of the entries for the filter menus, most frequent first. */
-export function auditFacets(entries: AuditEntry[]) {
-  const count = (values: string[]) => {
-    const map = new Map<string, number>();
-    for (const v of values) map.set(v, (map.get(v) ?? 0) + 1);
-    return [...map.entries()].sort((a, b) => b[1] - a[1]).map(([value]) => value);
-  };
-  return {
-    users: count(entries.map((e) => e.user_email ?? "système")),
-    actions: count(entries.map((e) => e.action)),
-    objects: count(entries.map((e) => e.object_type).filter((o): o is string => Boolean(o))),
-  };
+/**
+ * The filters as the API reads them (GET /projects/{id}/audit). The period starts at
+ * the minute, so that the query stays the same while the user reads.
+ */
+export function auditQuery(filters: AuditFilters, now: number = Date.now()): AuditQuery {
+  const query: AuditQuery = {};
+  if (filters.user) query.user = filters.user;
+  if (filters.action) query.action = filters.action;
+  if (filters.object) query.object_type = filters.object;
+  if (filters.period !== "all") {
+    const minute = Math.floor(now / 60_000) * 60_000;
+    query.since = new Date(minute - PERIOD_MS[filters.period]).toISOString();
+  }
+  if (filters.query.trim()) query.text = filters.query.trim();
+  return query;
 }
 
 const TREATMENTS: Record<string, string> = {
