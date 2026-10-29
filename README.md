@@ -13,8 +13,11 @@ Open source et *local-first* : tout tourne sur votre machine, avec ou sans modè
 
 ## Ce que fait Forja
 
-- **Ingestion** de fichiers CSV, Excel, Parquet et JSON, versionnés, avec détection de
-  la dérive de schéma.
+- **Ingestion** de fichiers CSV, Excel, Parquet et JSON (jusqu'à 10 Go, envoi
+  reprenable, lecture en flux par DuckDB), de tables PostgreSQL, MySQL/MariaDB et SQL
+  Server (complètes ou incrémentales) et d'API REST paginées ; chaque chargement est une
+  version, avec détection de la dérive de schéma. Chargements **planifiés** (« tous les
+  jours à 6 h ») jusqu'aux data marts publiés.
 - **Profilage** de chaque colonne : types (dates et décimales à la française compris),
   valeurs manquantes, clés, doublons, données personnelles (email, téléphone, IBAN,
   noms) et score qualité.
@@ -100,7 +103,7 @@ Elles valent quel que soit le fournisseur, et des tests les vérifient :
                     ▲   Server-Sent Events (runs, notifications)  │
                     └─────────────────────────────────────────────┤
                                                                   ▼
-  fichiers ─► Bronze (Parquet) ─► Silver ─► Gold (étoile) ─► base de diffusion, exports
+  fichiers, bases, API ─► Bronze (Parquet) ─► Silver ─► Gold (étoile) ─► diffusion, exports
               profilage          dbt + DuckDB, plans relus           │
                                                                      ▼
   couche sémantique ◄── issue du Gold ──► agent : analyseur d'abord, modèle d'IA
@@ -116,6 +119,7 @@ métadonnées et l'entrepôt ; dbt exécute les transformations. Plus de détail
 | | |
 |---|---|
 | [Guide engineer](docs/guide-engineer.md) | D'un fichier à un modèle en étoile publié |
+| [Connecteurs](docs/connectors.md) | Bases de données, API, planification, gros volumes |
 | [Guide analyst](docs/guide-analyst.md) | Demander un data mart et le vérifier |
 | [Architecture](docs/architecture.md) · [Décisions](docs/decisions.md) | Comment c'est construit, et pourquoi |
 | [Sécurité](docs/security.md) | Comptes, rôles, sessions, CSP, pseudonymisation |
@@ -125,10 +129,8 @@ métadonnées et l'entrepôt ; dbt exécute les transformations. Plus de détail
 
 ## État du projet
 
-Version **0.1.0**, une première version. Les fichiers sont pour l'instant les seules
-sources ; les connecteurs de bases de données et d'API, et les gros volumes, sont la
-prochaine étape. Une seule instance : un processus d'API, son bus d'événements en
-mémoire et un catalogue DuckDB. Retours et tickets bienvenus.
+Version **0.1.0**. Une seule instance : un processus d'API, son planificateur, son bus
+d'événements en mémoire et un catalogue DuckDB. Retours et tickets bienvenus.
 
 ## Licence
 

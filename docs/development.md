@@ -425,6 +425,17 @@ uv run python -m tests.agent_eval           # évaluer l'agent (modèle simulé)
 uv run python -m tests.agent_eval --provider ollama --subset   # 5 questions, Ollama
 ```
 
+Connecteurs et volumes :
+
+```bash
+# Les tests des connecteurs de bases démarrent PostgreSQL et MySQL dans Docker
+# (docker/compose.test-db.yml) puis les suppriment ; sans Docker, ils sont ignorés.
+FORJA_TEST_DATABASES=skip uv run pytest       # sans les conteneurs
+FORJA_TEST_SQLSERVER=1 uv run pytest tests/test_connectors_db.py   # SQL Server (lourd)
+uv run python -m tests.fake_api --port 8766   # fausse API REST (jeton secret-token-456)
+FORJA_VOLUME_ROWS=5000000 uv run pytest -s tests/test_volume.py    # mesures de volume
+```
+
 Front (`apps/web`) :
 
 ```bash

@@ -4,12 +4,28 @@ Ce guide suit le parcours d'un engineer dans l'interface, sur le projet de démo
 vos propres fichiers. Connexion : <http://localhost:3000>, avec un compte engineer ou
 administrateur ; l'arrivée se fait sur le **Pipeline**.
 
-## 1. Charger des fichiers
+## 1. Charger des fichiers, des tables ou une API
 
-*Sources › Ajouter* (ou glisser des fichiers sur le canvas d'un projet vide). CSV,
-Excel (toutes les feuilles), Parquet, JSON. Recharger un fichier du même nom crée une
-**nouvelle version** de la source ; la dérive de schéma (colonnes ajoutées, retirées,
-retypées) est signalée sans bloquer.
+*Sources › Ajouter une source* (ou glisser des fichiers sur le canvas d'un projet vide).
+
+- **Fichier** : CSV, Excel (toutes les feuilles), Parquet, JSON, jusqu'à 10 Go. Au-delà
+  de 8 Mo, l'envoi se fait par morceaux et reprend après une coupure (rechoisir le même
+  fichier reprend là où il s'était arrêté).
+- **Base de données** : PostgreSQL, MySQL/MariaDB ou SQL Server. L'assistant teste la
+  connexion (un compte en lecture seule est recommandé), liste les tables avec leur
+  taille estimée, propose pour chacune un chargement complet ou incrémental sur une
+  colonne curseur détectée (`updated_at`, identifiant croissant), puis la planification.
+- **API** : URL de base, authentification, endpoint, pagination, chemin des
+  enregistrements ; l'aperçu de la première page montre les colonnes aplaties et les
+  tables enfants des listes imbriquées avant d'enregistrer.
+
+Les connexions se suivent dans *Sources › Connexions* : état, dernier et prochain
+chargement, « Charger », « Planifier » (« tous les jours à 6 h »). Détails :
+[connectors.md](connectors.md).
+
+Recharger un fichier du même nom, ou recharger une table, crée une **nouvelle version**
+de la source ; la dérive de schéma (colonnes ajoutées, retirées, retypées) est signalée
+sans bloquer.
 
 Chaque version est profilée : types, valeurs manquantes, clés candidates, doublons,
 données personnelles détectées (colonnes hachurées) et score qualité. La fiche d'une

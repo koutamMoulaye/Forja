@@ -444,3 +444,143 @@ Un test de bout en bout échoue sur toute violation signalée dans la console.
 prérendues. `cacheComponents` et le préchargement partiel sont désactivés, toutes les
 pages sont rendues à la demande. Le coût est faible ici : les écrans sont derrière une
 session et leurs données se chargent côté client.
+
+
+## D28 — Connecteurs de bases : SQLAlchemy plutôt que dlt ou les extensions DuckDB
+
+**Contexte.** Trois candidats pour lire PostgreSQL, MySQL/MariaDB et SQL Server : la
+source `sql_database` de dlt, les extensions `postgres_scanner` et `mysql_scanner` de
+DuckDB, SQLAlchemy avec les pilotes de chaque base.
+
+**Décision.** SQLAlchemy 2 (psycopg 3, PyMySQL, pymssql).
+
+- **Une seule API pour les trois bases** : introspection (`inspect` : schémas, tables,
+  vues, colonnes, clés primaires), types réfléchis, citation des identifiants selon le
+  dialecte (`quoted_name(..., quote=True)` : toujours quotés), paramètres liés pour la
+  valeur du curseur. Aucune requête n'est construite depuis une saisie libre : les noms
+  viennent du catalogue de la base, et une table ou une colonne absente de
+  l'introspection est refusée (404, 422).
+- **Lecture en flux** : curseur côté serveur (`stream_results`, `yield_per`), lots de
+  50 000 lignes convertis en lots Arrow, écrits en Parquet par DuckDB (`COPY` d'un
+  `RecordBatchReader`). La mémoire ne dépend pas de la taille de la table.
+- **Lecture seule doublée** : en plus du compte en lecture seule recommandé, les
+  sessions PostgreSQL sont ouvertes avec `default_transaction_read_only=on` et MySQL avec
+  `SET SESSION TRANSACTION READ ONLY`. Le test de connexion dit si le compte peut écrire.
+- **dlt écarté** : il tient son propre état, ses fichiers normalisés et sa destination,
+  qui feraient doublon avec Bronze (versions, `_row_hash`, dérive de schéma, profil) ;
+  il ajoute une quarantaine de dépendances. **Extensions DuckDB écartées** : pas de SQL
+  Server, téléchargement de l'extension au premier usage (poste hors ligne), version liée
+  à celle de DuckDB.
+
+**Incrémental.** Une colonne curseur est proposée par l'exploration : une date de
+modification (`updated_at`, `modifie_le`…) d'abord, puis une date de création, puis un
+identifiant entier croissant (clé primaire simple). Un chargement lit `curseur >
+dernière valeur`, trié par le curseur, et retient la plus grande valeur vue. Une date
+de création ou un identifiant ne reprennent pas les modifications (affiché dans
+l'assistant). Limite connue : une ligne validée plus tard avec une valeur de curseur
+déjà dépassée est manquée ; un chargement complet périodique la rattrape.
+
+**Correspondance des types** (Bronze) : entiers → `int64`, numériques de précision ≤ 38
+→ `decimal128(p, s)` (sinon texte), réels → `float64`, booléens et `BIT` → `bool`,
+dates → `date32`, horodatages → `timestamp[us]` (avec fuseau : UTC), heures →
+`time64[us]`, binaires → texte hexadécimal, JSON et tableaux → texte JSON, le reste
+(UUID, intervalles, énumérations) → texte. Le profil infère ensuite les types fins comme
+pour un fichier.
+
+## D29 — Connecteur API REST : httpx et un garde SSRF plutôt que dlt `rest_api`
+
+**Décision.** Un client httpx propre à Forja : authentification (clé en en-tête ou en
+paramètre, Bearer, Basic, OAuth2 client credentials avec renouvellement du jeton),
+pagination (numéro de page, décalage, curseur, en-tête `Link`, URL suivante), chemin des
+enregistrements donné ou détecté, paramètre incrémental, limite de débit, nouvelles
+tentatives sur 429 (en-tête `Retry-After` respecté), 5xx et erreurs réseau avec un
+backoff exponentiel plafonné à 60 s.
+
+**Pourquoi.** Chaque requête, chaque page suivante et chaque redirection doit passer par
+le garde SSRF (`forja_core.connectors.ssrf`) : la source `rest_api` de dlt utilise sa
+propre session et suit les redirections. Les pages suivantes doivent rester sur le site
+de l'API (sinon les identifiants partiraient ailleurs) ; l'authentification n'est jamais
+envoyée à une autre origine.
+
+**Garde SSRF.** Avant chaque requête, l'hôte est résolu ; une adresse privée, de
+bouclage, lien-local, multicast, réservée ou non globale (IPv4 mappée en IPv6 comprise)
+est refusée, sauf si l'administrateur de l'instance l'autorise (hôte, IP ou plage CIDR,
+dans Réglages > Connecteurs, ou `FORJA_CONNECTOR_ALLOWED_HOSTS`). Les redirections sont
+suivies à la main et revérifiées. Après la connexion, l'adresse du pair est vérifiée à
+nouveau avant de lire la réponse (rebinding DNS). Limite : la requête elle-même est
+partie quand ce second contrôle échoue ; seule la réponse n'est pas lue.
+
+**Aplatissement.** Les objets imbriqués deviennent des colonnes `a.b` ; les listes
+imbriquées deviennent des tables enfants (`commandes__lignes`), liées au parent par une
+colonne `<parent>_<clé>` (l'`id` de l'enregistrement, ou une empreinte `_forja_key`),
+avec la position `_position`. Le détecteur de relations propose ensuite ces liens comme
+pour des fichiers. Les enregistrements sont écrits en JSON lines puis lus par DuckDB :
+le schéma s'unifie sur tous les enregistrements, sans tout garder en mémoire.
+
+## D30 — Identifiants chiffrés au repos, jamais renvoyés
+
+**Décision.** Les secrets d'une connexion (mot de passe, jeton, clé, secret client) sont
+chiffrés en AES-256-GCM avec une clé aléatoire de 32 octets, `connections.key`, créée
+dans `FORJA_SECRETS_DIR` (lisible par l'utilisateur seul, hors du dépôt et du dossier de
+données). L'identifiant de la connexion sert de donnée associée : un chiffré recopié sur
+une autre connexion ne se déchiffre pas. L'API ne renvoie que la liste des champs
+renseignés (`secrets_set`) ; les messages d'erreur des bases et des API sont expurgés des
+valeurs secrètes avant d'être renvoyés ou journalisés ; le journal d'audit ne note que
+les noms des champs modifiés. Le modèle de langage ne voit jamais une connexion.
+
+**Conséquence.** Perdre `connections.key` oblige à ressaisir les identifiants
+(message explicite) ; il se sauvegarde avec les sels de pseudonymisation.
+
+## D31 — Planificateur dans le processus de l'API, une seule instance
+
+**Décision.** Un fil du processus de l'API vérifie toutes les 30 s
+(`FORJA_SCHEDULER_TICK_SECONDS`) les planifications échues et lance un run `load` avec
+`chain` : extraction → profil → Silver (sources dont le plan approuvé s'applique) →
+Gold → data marts publiés → serving. Les plans ne sont jamais modifiés : une nouvelle
+version crée au besoin un plan à revoir, et le build utilise le dernier plan approuvé.
+Une **dérive bloquante** (colonne supprimée, type physique changé) écarte la source de
+la reconstruction et notifie les engineers ; une colonne ajoutée ne bloque pas.
+
+- **Pas de chevauchement** : si un chargement de la connexion est en file ou en cours, la
+  planification est sautée jusqu'à sa prochaine échéance (`last_status: skipped`).
+- **Rattrapage** : après un arrêt, une échéance passée déclenche un seul run, puis le
+  rythme normal reprend ; les occurrences manquées ne sont pas rejouées une à une.
+- **Notifications** : un chargement planifié réussi ne notifie personne ; un échec
+  notifie les engineers et admins du projet.
+- **Saisie** : en français (« tous les jours à 6 h », « du lundi au vendredi à 7h30 »,
+  « le 1er de chaque mois à 5 h », « toutes les 15 minutes ») par une grammaire
+  déterministe, ou en cron à cinq champs ; fuseau `FORJA_TIMEZONE` (Europe/Paris), heures
+  sautées au changement d'heure exécutées juste après.
+- **Horloge injectable** : les tests avancent le temps à la main.
+
+**Pourquoi dans l'API.** DuckDB n'admet qu'un processus écrivain par fichier : le
+catalogue et les entrepôts sont déjà propres au processus de l'API. Un ordonnanceur
+externe (cron, Dagster) devrait passer par l'API. **Il faut une seule instance d'API**
+(sinon chaque instance lancerait les chargements) ; `FORJA_SCHEDULER_ENABLED=false`
+désactive le fil, par exemple pour une instance de secours.
+
+## D32 — Gros volumes : DuckDB en flux, profil échantillonné, envoi reprenable
+
+- **Ingestion** : DuckDB lit lui-même CSV, Parquet et JSON et écrit Bronze par `COPY`,
+  colonnes techniques et `_row_hash` compris (SHA-256 du JSON compact des valeurs,
+  identique octet pour octet au calcul Python précédent pour du texte : les nouvelles
+  lignes restent bien comptées d'une version à l'autre). Le lecteur strict et parallèle
+  de DuckDB prend les CSV conformes ; ceux qu'il refuse (lignes de largeurs inégales,
+  guillemets mal fermés) passent par le module `csv` de Python, en deux passes en flux
+  et par lots Arrow. Les encodages mono-octets sont transcodés en flux. Aucun pandas.
+- **Profil** : comptes exacts (lignes, valeurs vides, distinctes, doublons) en un
+  parcours de la table ; au-delà d'un million de lignes, inférence de type, valeurs
+  fréquentes et statistiques sur un échantillon reproductible de 200 000 lignes. La durée
+  est enregistrée et affichée.
+- **DuckDB** : `memory_limit` 6 Go, 4 threads, `temp_directory` `<data_dir>/_tmp` par
+  défaut (une machine de 16 Go garde de la place pour l'API, le front et un navigateur),
+  appliqués à toutes les connexions et au profil dbt.
+- **Envoi** : au-delà d'un morceau (`FORJA_UPLOAD_CHUNK_MB`, 8 Mo), le navigateur envoie
+  le fichier par morceaux à l'offset où s'arrête la copie du serveur ; après une coupure
+  ou une page rouverte, le même fichier (nom, taille, date) reprend sa session. Limite
+  10 Go (`FORJA_MAX_UPLOAD_MB`). Le fichier complet est ingéré par un run `ingest`, puis
+  supprimé ; une session inachevée expire après 48 h.
+- **Front** : le canvas (React Flow) se charge après la page (`next/dynamic`), ELK dans
+  un worker à la demande ; aucun autre écran ne les embarque.
+
+Mesures : `docs/connectors.md`.

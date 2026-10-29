@@ -278,6 +278,24 @@ des droits réservés à l'utilisateur courant (0600), et prime sur les variable
 `GET /settings/llm` indique seulement si elle est enregistrée. « Tester la connexion »
 (`POST /settings/llm/test`) consulte le modèle chez le fournisseur sans envoyer de donnée.
 
+## Connexions aux bases de données et aux API
+
+- **Identifiants** : chiffrés en AES-256-GCM avec la clé `FORJA_SECRETS_DIR/connections.key`
+  (0600), liés à leur connexion ; jamais renvoyés (l'API indique seulement les champs
+  renseignés), jamais journalisés (les erreurs des bases et des API sont expurgées),
+  jamais transmis au modèle de langage (D30).
+- **Lecture seule** : un compte en lecture seule est recommandé dans l'interface ; Forja
+  ouvre ses sessions PostgreSQL et MySQL en lecture seule et signale un compte qui peut
+  écrire.
+- **Pas de SQL libre** : les noms de schémas, tables et colonnes viennent de
+  l'introspection de la base et sont toujours quotés ; la valeur du curseur est un
+  paramètre lié.
+- **SSRF** : une API sur une adresse privée, locale ou réservée est refusée, à chaque
+  requête, page et redirection, sauf autorisation de l'administrateur de l'instance
+  (`PUT /settings/connectors`, `FORJA_CONNECTOR_ALLOWED_HOSTS`). Les identifiants ne
+  partent jamais vers une autre origine que l'API (D29).
+- **Droits** : `connection.manage` (admin, engineer).
+
 ## Revue des plans et quarantaine
 
 L'aperçu avant et après d'une règle (`GET /sources/{id}/plan/samples`) lit un échantillon

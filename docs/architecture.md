@@ -220,10 +220,30 @@ ingestion), data marts à approuver, approuvés, rejetés ou publiés viennent d
 concernés. Un flux ne reçoit que ce que son utilisateur peut voir ; il se ferme avec le
 jeton d'accès. Le bus suppose une seule instance d'API ([D26](decisions.md)).
 
+## Connecteurs et chargements
+
+`forja_core.connectors` : une **connexion** (base de données ou API REST) par projet,
+ses paramètres en clair et ses identifiants chiffrés (`vault.py`, D30). Chaque table ou
+endpoint choisi est un **flux** (`source_feeds`) : le lien entre un objet de la connexion
+et une source Forja, créée au premier chargement. Un run `load` extrait les flux d'une
+connexion (`database.py` : SQLAlchemy, curseur côté serveur ; `rest.py` : httpx,
+pagination, garde SSRF `ssrf.py`) et ajoute une version à chaque source par
+`IngestionService.ingest`, exactement comme un fichier. Avec `chain`, le run reconstruit
+ensuite Silver, Gold, les data marts publiés et le serving (`JobExecutor.build_after_load`).
+
+`forja_core.scheduling` : planifications d'une connexion ou d'une source (cron, phrases
+en français), lancées par un fil du processus de l'API (D31). Un envoi de fichier par
+morceaux (`ingestion/uploads.py`) se termine par un run `ingest`.
+
+Bronze s'écrit en flux (`ingestion/landing.py`, D32) : DuckDB lit les fichiers et écrit
+le Parquet avec `COPY`, ou reçoit des lots Arrow (Excel, bases de données, CSV
+irréguliers) ; toutes les connexions DuckDB partagent `memory_limit`, `threads` et
+`temp_directory` (`forja_core.duck`).
+
 ## Jobs
 
 Table `jobs` du catalogue : type (`profile`, `build_silver`, `build_gold`, `export`,
-`gold_proposal`, `mart_request`, `publish_mart`), statut (`queued` → `running` →
+`gold_proposal`, `mart_request`, `publish_mart`, `load`, `ingest`), statut (`queued` → `running` →
 `succeeded` | `failed` | `cancelled`), auteur, horodatages, logs, métriques, progression
 (`progress`), résultat (`result`, par exemple la version du plan Gold proposé) et nombre
 d'exécutions (`attempts`).
