@@ -84,7 +84,8 @@ def wait_ready(url: str, timeout: float = 240) -> None:
 
 
 def ask_through_the_web(url: str, email: str, password: str) -> str:
-    with httpx.Client(base_url=url, timeout=30) as web:
+    # The proxy wants mutations from its own origin, with the CSRF cookie echoed.
+    with httpx.Client(base_url=url, timeout=30, headers={"Origin": url}) as web:
         web.get("/auth/login")  # the CSRF cookie
         csrf = {"X-CSRF-Token": web.cookies.get("forja_csrf") or ""}
         login = web.post(
@@ -121,6 +122,24 @@ def image_sizes() -> dict[str, str]:
     return dict(line.split(" ", 1) for line in out.splitlines() if line.strip())
 
 
+def report(folder: Path, current: str, error: BaseException) -> None:
+    """What failed, and the end of the containers' logs, as a CI annotation too."""
+    detail = str(error)
+    if isinstance(error, subprocess.CalledProcessError):
+        detail = f"{error.cmd}: exit {error.returncode}\n{error.stdout or ''}{error.stderr or ''}"
+    logs = subprocess.run(
+        ["docker", "compose", "-p", PROJECT, "-f", "docker-compose.yml",
+         "-f", "docker/compose.install-test.yml", "logs", "--no-color", "--tail", "60"],
+        cwd=folder, env={**_env(), "FORJA_VERSION": TAG}, text=True, capture_output=True,
+        check=False,
+    )  # fmt: skip
+    text = f"{current} failed: {detail}\n--- logs ---\n{logs.stdout}{logs.stderr}"
+    print(text, file=sys.stderr)
+    if os.environ.get("GITHUB_ACTIONS"):
+        body = text[-6000:].replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+        print(f"::error title=install test, {current}::{body}")
+
+
 def main() -> int:
     free = shutil.disk_usage(ROOT).free / 1024**3
     print(f"free space: {free:.1f} GB")
@@ -129,26 +148,35 @@ def main() -> int:
         return 1
     folder = Path(tempfile.mkdtemp(prefix="forja-install-"))
     started = time.time()
+    current = "start"
     try:
+        current = "clean copy"
         step(f"clean copy in {folder}")
         clean_copy(folder)
+        current = "build"
         step("build")
         compose(folder, "build")
         print(image_sizes())
+        current = "forja init --demo"
         step("first start: administrator and demo project")
         out = compose(folder, "run", "--rm", "--no-deps", "api", "forja", "init", "--demo",
                       capture=True)  # fmt: skip
         print(re.sub(r"(mot de passe\s+)\S+", r"\1********", out))
         accounts = dict(re.findall(r"^\s+(\S+@\S+)\s+(\S+)\s*$", out, re.MULTILINE))
         analyst = next(email for email in accounts if email.startswith("analyste"))
+        current = "docker compose up"
         step("start")
         compose(folder, "up", "-d")
         url = f"http://localhost:{PORT}"
         wait_ready(url)
+        current = "sign in and ask the agent"
         step("sign in and ask the agent, through the web container")
         print(ask_through_the_web(url, analyst, accounts[analyst]))
         print(f"\ninstall test passed in {time.time() - started:.0f} s")
         return 0
+    except BaseException as error:
+        report(folder, current, error)
+        raise
     finally:
         step("clean-up")
         subprocess.run(
