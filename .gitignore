@@ -31,3 +31,6 @@ pytest-report.xml
 
 # Design previews
 design/**/.thumbnail
+
+# Agent instructions (local copy of CLAUDE.md)
+AGENTS.md
