@@ -1,23 +1,81 @@
+# Forja in two containers: the API and the web interface, on http://localhost:3000.
+#
+#   docker compose up -d                     # Ollama of the host machine, if any
+#   docker compose --profile ollama up -d    # an Ollama container (several GB of models)
+#
+# The install scripts (install.sh, install.ps1) build the images, create the
+# administrator, optionally load the demo project, then start everything.
+# Settings: a .env file next to this one (see .env.example).
+
+name: forja
+
+x-version: &version ${FORJA_VERSION:-0.1.0}
+
 services:
   api:
-    build: .
-    image: forja-api:local
-    ports:
-      - "8000:8000"
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      args:
+        FORJA_VERSION: *version
+    image: forja-api:${FORJA_VERSION:-0.1.0}
     env_file:
       - path: .env
         required: false
     environment:
-      FORJA_DATA_DIR: /app/data
-      FORJA_SECRETS_DIR: /home/forja/.forja/secrets
+      # Fixed inside the container, whatever .env says (it may come from a local setup).
+      FORJA_DATA_DIR: /data
+      FORJA_SECRETS_DIR: /secrets
       FORJA_API_HOST: 0.0.0.0
       FORJA_API_PORT: "8000"
+      FORJA_AUTH_MODE: ${FORJA_AUTH_MODE:-local}
+      FORJA_LOG_FORMAT: ${FORJA_LOG_FORMAT:-console}
+      # The web container calls the API on the internal network only.
+      FORJA_CORS_ORIGINS: '["http://localhost:${FORJA_WEB_PORT:-3000}"]'
+      # Ollama: the host's by default; http://ollama:11434 with the "ollama" profile.
+      FORJA_LLM_OLLAMA_BASE_URL: ${FORJA_OLLAMA_URL:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      - ./data:/app/data
-      # Pseudonymization salts: outside the repository, and kept across container
-      # rebuilds so that published pseudonyms stay stable.
-      - forja-secrets:/home/forja/.forja/secrets
+      - forja-data:/data
+      # Pseudonymization salts, signing key and AI provider keys: kept across upgrades
+      # so that published pseudonyms stay stable.
+      - forja-secrets:/secrets
+    # Not published: the browser reaches the API through the web container's proxy.
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        FORJA_VERSION: *version
+    image: forja-web:${FORJA_VERSION:-0.1.0}
+    environment:
+      FORJA_API_URL: http://api:8000
+      # Plain HTTP on localhost; set to true behind HTTPS.
+      FORJA_WEB_SECURE_COOKIES: ${FORJA_WEB_SECURE_COOKIES:-false}
+    ports:
+      - "${FORJA_WEB_BIND:-127.0.0.1}:${FORJA_WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Optional: `docker compose --profile ollama up -d`, with FORJA_OLLAMA_URL set to
+  # http://ollama:11434. The image is about 4 GB and each model several more.
+  ollama:
+    image: ollama/ollama:0.12.6
+    profiles: ["ollama"]
+    volumes:
+      - forja-ollama:/root/.ollama
+    expose:
+      - "11434"
     restart: unless-stopped
 
 volumes:
+  forja-data:
   forja-secrets:
+  forja-ollama:

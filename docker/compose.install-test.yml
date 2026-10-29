@@ -1,0 +1,10 @@
+# Install test only (scripts/test_install.py): the API runs with the simulated language
+# model of the end-to-end tests, so that a question takes the agent's deep path without
+# any provider, key or network. Never used by a real installation.
+services:
+  api:
+    command: ["python", "-m", "tests.e2e_server"]
+    environment:
+      FORJA_E2E_LLM_DELAY_SECONDS: "1"
+    volumes:
+      - ./tests:/home/forja/tests:ro

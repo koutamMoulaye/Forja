@@ -8,6 +8,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // The Docker image runs the standalone server (docker/web.Dockerfile).
+  output: process.env.FORJA_WEB_STANDALONE === "true" ? "standalone" : undefined,
   cacheComponents: true,
   partialPrefetching: true,
   agentRules: false,
