@@ -157,7 +157,10 @@ def main() -> int:
         current = "build"
         step("build")
         compose(folder, "build")
-        print(image_sizes())
+        sizes = ", ".join(f"{name} {size}" for name, size in image_sizes().items())
+        print(sizes)
+        if os.environ.get("GITHUB_ACTIONS"):
+            print(f"::notice title=Image sizes::{sizes}")
         current = "forja init --demo"
         step("first start: administrator and demo project")
         out = compose(folder, "run", "--rm", "--no-deps", "api", "forja", "init", "--demo",
