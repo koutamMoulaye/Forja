@@ -1,0 +1,64 @@
+# Databases of the connector tests, started and removed by tests/databases.py.
+#
+#   docker compose -f docker/compose.test-db.yml --profile test-db up -d --wait
+#   docker compose -f docker/compose.test-db.yml --profile test-db down -v
+#
+# SQL Server (a heavy image, about 1.5 GB) has its own profile, used in CI only:
+#   docker compose -f docker/compose.test-db.yml --profile test-sqlserver up -d --wait
+#
+# Throwaway credentials, local ports only: nothing here is a secret.
+
+name: forja-test-db
+
+services:
+  postgres:
+    image: postgres:16.6-alpine
+    profiles: ["test-db"]
+    environment:
+      POSTGRES_USER: forja_admin
+      POSTGRES_PASSWORD: forja-test-admin
+      POSTGRES_DB: shop
+    ports:
+      - "127.0.0.1:${FORJA_TEST_POSTGRES_PORT:-55432}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forja_admin -d shop"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  mysql:
+    image: mysql:8.4.3
+    profiles: ["test-db"]
+    environment:
+      MYSQL_ROOT_PASSWORD: forja-test-admin
+      MYSQL_DATABASE: shop
+    ports:
+      - "127.0.0.1:${FORJA_TEST_MYSQL_PORT:-53306}:3306"
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pforja-test-admin"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-CU16-ubuntu-22.04
+    profiles: ["test-sqlserver"]
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Forja-Test-Admin-1"
+      MSSQL_PID: Developer
+    ports:
+      - "127.0.0.1:${FORJA_TEST_SQLSERVER_PORT:-51433}:1433"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P Forja-Test-Admin-1 -Q 'SELECT 1' || exit 1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 40

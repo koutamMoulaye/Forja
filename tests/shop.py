@@ -21,6 +21,7 @@ def shop_settings(root: Path, **overrides: object) -> Settings:
         log_level="WARNING",
         job_runner="inline",
         auto_approve_silver=True,
+        scheduler_enabled=False,
         **overrides,  # type: ignore[arg-type]
     )
 

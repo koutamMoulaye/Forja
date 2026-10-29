@@ -34,7 +34,7 @@ def test_health(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
     assert response.json()["auth_mode"] == "local"
-    assert response.json()["max_upload_mb"] == 200
+    assert response.json()["max_upload_mb"] == 10 * 1024
     assert "x-request-id" in response.headers
 
 

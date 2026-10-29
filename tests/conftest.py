@@ -44,6 +44,8 @@ def settings(tmp_path: Path) -> Settings:
         secrets_dir=tmp_path / "secrets",
         log_format="console",
         log_level="WARNING",
+        # Scheduled loads are tested with a simulated clock (test_scheduling.py).
+        scheduler_enabled=False,
     )
 
 

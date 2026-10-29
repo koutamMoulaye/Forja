@@ -20,8 +20,9 @@ from fastapi.testclient import TestClient
 
 from forja_api.state import AppState
 from forja_core.auth.models import ACTION_DESCRIPTIONS, ROLE_ACTIONS, Action, Role
+from forja_core.connectors.models import ConnectionCreate, ConnectionType
 from forja_core.jobs.models import JobType, RunRequest
-from forja_core.models import ProjectCreate
+from forja_core.models import ProjectCreate, UploadCreate
 from forja_core.silver.plan import ColumnPatch, PiiTreatment, PlanPatch
 from tests.auth import api_client, user_client
 from tests.fixtures import ecommerce as ec
@@ -43,6 +44,7 @@ def world(tmp_path_factory: pytest.TempPathFactory, ecommerce_dir: Path) -> Iter
         tmp_path_factory.mktemp("permissions"),
         auth_mode="multi",
         allow_bronze_preview=True,
+        connector_allowed_hosts=["api.example.invalid"],
     )
     state = AppState.build(settings)
     project = state.catalog.create_project(ProjectCreate(name="Boutique"))
@@ -64,6 +66,23 @@ def world(tmp_path_factory: pytest.TempPathFactory, ecommerce_dir: Path) -> Iter
     run(state, project, RunRequest(type=JobType.BUILD_GOLD))
     tables = {t.name: t.id for t in state.catalog.list_tables(project.id)}
     relation_id = state.catalog.list_relations(project.id)[0].id
+    api = {
+        "base_url": "http://api.example.invalid",
+        "max_retries": 0,
+        "timeout_seconds": 2,
+        "endpoints": [{"name": "orders", "path": "/orders"}],
+    }
+    connections = [
+        state.connectors.create(
+            project.id,
+            ConnectionCreate(name=name, type=ConnectionType.REST_API, params=api),
+            created_by=None,
+        )
+        for name in ("API", "API à supprimer")
+    ]
+    upload = state.uploads.create(
+        project.id, UploadCreate(filename="gros.csv", size=10), created_by=None
+    )
     state.close()
 
     with ExitStack() as stack:
@@ -92,6 +111,9 @@ def world(tmp_path_factory: pytest.TempPathFactory, ecommerce_dir: Path) -> Iter
             "agent_run": asked["run"]["id"],
             "victim_id": victim_id,
             "invitation_id": "absente",
+            "connection_id": connections[0].id,
+            "doomed_connection": connections[1].id,
+            "upload_id": upload.id,
         }
         for _ in range(3):
             proposal = analyst.post(
@@ -194,6 +216,47 @@ MATRIX: list[tuple[str, str, Any, set[str]]] = [
     ("GET", "/settings/llm", None, set(ROLES)),
     ("PUT", "/settings/llm", {"provider": "none"}, {"admin"}),
     ("POST", "/settings/llm/test", None, {"admin"}),
+    ("GET", "/settings/connectors", None, set(ROLES)),
+    ("PUT", "/settings/connectors", {"allowed_hosts": ["api.example.invalid"]}, {"admin"}),
+    ("GET", "/projects/{project_id}/connections", None, {"engineer", "admin"}),
+    ("POST", "/projects/{project_id}/connections", {"name": "x"}, {"engineer", "admin"}),
+    ("POST", "/projects/{project_id}/connections/test", {"name": "x"}, {"engineer", "admin"}),
+    ("POST", "/projects/{project_id}/connections/preview", {}, {"engineer", "admin"}),
+    ("GET", "/connections/{connection_id}", None, {"engineer", "admin"}),
+    ("PATCH", "/connections/{connection_id}", {"name": "API 2"}, {"engineer", "admin"}),
+    ("POST", "/connections/{connection_id}/test", None, {"engineer", "admin"}),
+    ("GET", "/connections/{connection_id}/explore", None, {"engineer", "admin"}),
+    ("POST", "/connections/{connection_id}/import", {"endpoints": []}, {"engineer", "admin"}),
+    ("POST", "/connections/{connection_id}/load", {"chain": False}, {"engineer", "admin"}),
+    ("GET", "/connections/{connection_id}/schedule", None, {"engineer", "admin"}),
+    (
+        "PUT",
+        "/connections/{connection_id}/schedule",
+        {"text": "tous les jours à 6 h"},
+        {"engineer", "admin"},
+    ),
+    ("DELETE", "/connections/{connection_id}/schedule", None, {"engineer", "admin"}),
+    ("DELETE", "/connections/{doomed_connection}", None, {"engineer", "admin"}),
+    ("GET", "/sources/{source_id}/schedule", None, {"engineer", "admin"}),
+    ("PUT", "/sources/{source_id}/schedule", {"text": "manuel"}, {"engineer", "admin"}),
+    ("DELETE", "/sources/{source_id}/schedule", None, {"engineer", "admin"}),
+    ("GET", "/projects/{project_id}/schedules", None, {"engineer", "admin"}),
+    (
+        "POST",
+        "/projects/{project_id}/schedules/interpret",
+        {"text": "toutes les heures"},
+        {"engineer", "admin"},
+    ),
+    (
+        "POST",
+        "/projects/{project_id}/uploads",
+        {"filename": "a.csv", "size": 10},
+        {"engineer", "admin"},
+    ),
+    ("GET", "/uploads/{upload_id}", None, {"engineer", "admin"}),
+    ("PUT", "/uploads/{upload_id}/chunks?offset=0", None, {"engineer", "admin"}),
+    ("POST", "/uploads/{upload_id}/complete", None, {"engineer", "admin"}),
+    ("DELETE", "/uploads/{upload_id}", None, {"engineer", "admin"}),
 ]
 
 # Routes acting on the caller's own request: allowed to its author only (analyst here).
@@ -242,7 +305,13 @@ def test_every_route_is_in_the_matrix(world: World) -> None:
         (m, re.sub(r"\{(silver|gold|fact)_table\}", "{table_id}", p)) for m, p, _, _ in MATRIX
     }
     covered = {
-        (m, p.replace("{victim_id}", "{user_id}").replace("{agent_run}", "{run_id}"))
+        (
+            m,
+            p.split("?")[0]
+            .replace("{victim_id}", "{user_id}")
+            .replace("{agent_run}", "{run_id}")
+            .replace("{doomed_connection}", "{connection_id}"),
+        )
         for m, p in covered
     }
     missing = routes - covered - OWN_ROUTES - PUBLIC - ACCOUNT
