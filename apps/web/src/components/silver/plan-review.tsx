@@ -46,7 +46,7 @@ import {
   type ProfileReport,
   type TransformationPlan,
 } from "@/lib/project/queries";
-import { isActive, runKeys, RUN_POLL_MS, type Job } from "@/lib/project/use-runs";
+import { isActive, runKeys, RUN_DEFAULTS, RUN_POLL_MS, type Job } from "@/lib/project/use-runs";
 import {
   PLAN_STATUS,
   countRules,
@@ -183,8 +183,7 @@ export function PlanReviewScreen({ sourceId }: { sourceId: string }) {
           body: {
             type: "build_silver",
             source_ids: [sourceId],
-            full_refresh: false,
-            use_llm: false,
+            ...RUN_DEFAULTS,
           },
         }),
       ),

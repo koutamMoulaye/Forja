@@ -13,6 +13,8 @@ export const FORMAT_LABELS: Record<Source["format"], string> = {
   excel: "Excel",
   parquet: "Parquet",
   json: "JSON",
+  database: "Base de données",
+  api: "API",
 };
 
 /** Status of a source's Silver plan, as a badge. */

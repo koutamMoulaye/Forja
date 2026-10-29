@@ -45,6 +45,7 @@ export function notificationTone(notification: AppNotification): NotificationTon
     case "mart_approved":
       return "success";
     case "plan_review":
+    case "schema_drift":
       return "review";
     default:
       return "mart";

@@ -43,6 +43,7 @@ import { formatWhen, plural } from "@/lib/format";
 import { springs } from "@/lib/motion";
 import { keys, useSources } from "@/lib/project/queries";
 import {
+  RUN_DEFAULTS,
   RUN_POLL_MS,
   isActive,
   runKeys,
@@ -148,9 +149,7 @@ export function RunsScreen({ runId }: { runId?: string }) {
               variant="primary"
               size="lg"
               loading={launch.isPending}
-              onClick={() =>
-                launch.mutate({ type: "build_all", full_refresh: false, use_llm: false })
-              }
+              onClick={() => launch.mutate({ type: "build_all", ...RUN_DEFAULTS })}
             >
               <Play size={14} weight="fill" />
               Lancer un run

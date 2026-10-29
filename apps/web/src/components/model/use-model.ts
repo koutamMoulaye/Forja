@@ -6,7 +6,14 @@ import { api, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import type { GoldPlanPatch } from "@/lib/model/view";
 import { keys } from "@/lib/project/queries";
-import { RUN_POLL_MS, isActive, runKeys, useProjectRuns, type Job } from "@/lib/project/use-runs";
+import {
+  RUN_DEFAULTS,
+  RUN_POLL_MS,
+  isActive,
+  runKeys,
+  useProjectRuns,
+  type Job,
+} from "@/lib/project/use-runs";
 import { useLiveEvents } from "@/lib/events/live";
 
 function failure(title: string) {
@@ -155,7 +162,7 @@ export function useStartRun(projectId: string) {
       unwrap(
         await api.POST("/projects/{project_id}/runs", {
           ...path,
-          body: { type: "build_gold", full_refresh: false, use_llm: false },
+          body: { type: "build_gold", ...RUN_DEFAULTS },
         }),
       ),
     onSuccess: (job) => {

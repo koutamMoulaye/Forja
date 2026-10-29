@@ -37,7 +37,7 @@ import {
   type ProjectGraph,
 } from "@/lib/pipeline/model";
 import { graphKey, useLayout } from "@/lib/pipeline/use-graph";
-import { JOB_TEXT, isActive, runKeys, useProjectRuns } from "@/lib/project/use-runs";
+import { JOB_TEXT, RUN_DEFAULTS, isActive, runKeys, useProjectRuns } from "@/lib/project/use-runs";
 import { CanvasEdge, type CanvasEdgeType } from "./canvas-edge";
 import { CanvasMinimap } from "./canvas-minimap";
 import { CanvasNode, zoomLevel, type CanvasNodeType, type ZoomLevel } from "./canvas-node";
@@ -451,7 +451,7 @@ function Canvas({ projectId, graph, synthetic = false }: Props) {
       unwrap(
         await api.POST("/projects/{project_id}/runs", {
           params: { path: { project_id: projectId } },
-          body: { type, full_refresh: false, use_llm: true },
+          body: { type, ...RUN_DEFAULTS, use_llm: true },
         }),
       ),
     onSuccess: (job) => {

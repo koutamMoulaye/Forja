@@ -46,7 +46,21 @@ export const JOB_TEXT: Record<JobType, { label: string; done: string; failed: st
     done: "Data mart publié",
     failed: "Échec de la publication du data mart",
   },
+  load: { label: "Chargement", done: "Chargement terminé", failed: "Échec du chargement" },
+  ingest: {
+    label: "Chargement d’un fichier",
+    done: "Fichier chargé",
+    failed: "Échec du chargement du fichier",
+  },
 };
+
+/** Fields of a run request the API reads as required; each launch overrides what it needs. */
+export const RUN_DEFAULTS = {
+  full_refresh: false,
+  use_llm: false,
+  chain: false,
+  trigger: "manual",
+} as const;
 
 export const RECENT_RUNS = 50;
 export const RUN_PAGE = 50;

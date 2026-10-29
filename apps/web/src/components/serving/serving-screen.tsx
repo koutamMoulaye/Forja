@@ -41,7 +41,7 @@ import {
   useTables,
   type WarehouseTable,
 } from "@/lib/project/queries";
-import { runKeys, useProjectRuns, isActive } from "@/lib/project/use-runs";
+import { RUN_DEFAULTS, runKeys, useProjectRuns, isActive } from "@/lib/project/use-runs";
 import {
   LAYER_LABELS,
   connectSteps,
@@ -93,7 +93,7 @@ export function ServingScreen() {
       unwrap(
         await api.POST("/projects/{project_id}/runs", {
           params: { path: { project_id: project.id } },
-          body: { type: "export", full_refresh: false, use_llm: false },
+          body: { type: "export", ...RUN_DEFAULTS },
         }),
       ),
     onSuccess: (job) => {
