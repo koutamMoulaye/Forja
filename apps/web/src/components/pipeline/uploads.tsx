@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { ViewportPortal } from "@xyflow/react";
 import { motion, useReducedMotion } from "motion/react";
 import {
@@ -25,64 +25,31 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toast } from "@/components/ui/toast";
-import { API_PROXY_PREFIX } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
-import { CSRF_HEADER, readCsrfToken } from "@/lib/auth/csrf-client";
 import { cn } from "@/lib/cn";
 import { GEOMETRY, type Layout } from "@/lib/pipeline/layout";
 import { sourceSlug, type GraphNode, type Lane, type ProjectGraph } from "@/lib/pipeline/model";
 import { graphKey } from "@/lib/pipeline/use-graph";
 import { springs } from "@/lib/motion";
+import {
+  formatLimit,
+  progressLabel,
+  sendSourceFile,
+  useUploadSettings,
+  type UploadMode,
+  type UploadProgress,
+} from "@/lib/uploads/send";
 
 export const ACCEPTED = ".csv,.tsv,.txt,.xlsx,.xls,.parquet,.json,.jsonl,.ndjson";
 const ACCEPTED_EXTENSIONS = new Set(ACCEPTED.split(",").map((e) => e.slice(1)));
 
 type Choice = { file: File; existing: GraphNode };
-type Mode = { mode: "new_source" } | { mode: "new_version"; sourceId: string };
-
-function useUploadLimit(): number | null {
-  const health = useQuery({
-    queryKey: ["health"],
-    staleTime: Infinity,
-    queryFn: async () => (await (await fetch("/api/health")).json()) as { max_upload_mb?: number },
-  });
-  return health.data?.max_upload_mb ?? null;
-}
-
-export function formatLimit(megabytes: number): string {
-  return megabytes >= 1024
-    ? `${String(Math.round((megabytes / 1024) * 10) / 10).replace(".", ",")} Go`
-    : `${megabytes} Mo`;
-}
-
-async function sendFile(projectId: string, file: File, mode: Mode | null) {
-  const query = new URLSearchParams();
-  if (mode?.mode === "new_source") query.set("mode", "new_source");
-  if (mode?.mode === "new_version") {
-    query.set("mode", "new_version");
-    query.set("source_id", mode.sourceId);
-  }
-  const body = new FormData();
-  body.append("file", file, file.name);
-  const headers = new Headers();
-  const token = readCsrfToken();
-  if (token) headers.set(CSRF_HEADER, token);
-  const suffix = query.size ? `?${query}` : "";
-  const response = await fetch(`${API_PROXY_PREFIX}/projects/${projectId}/sources${suffix}`, {
-    method: "POST",
-    body,
-    headers,
-  });
-  if (!response.ok) {
-    const payload: unknown = await response.json().catch(() => null);
-    throw ApiError.from(response.status, payload, response.headers.get("Retry-After"));
-  }
-}
+type Mode = UploadMode;
 
 /**
  * Files dropped or chosen: one upload at a time (each is profiled by the API before it
  * answers), so sources appear one by one. A name already used asks whether the file is
- * a new source or a new version.
+ * a new source or a new version. Files larger than a chunk are sent in resumable chunks.
  */
 export function useUploads(
   projectId: string,
@@ -90,8 +57,9 @@ export function useUploads(
   input: React.RefObject<HTMLInputElement | null>,
 ) {
   const queryClient = useQueryClient();
-  const limit = useUploadLimit();
+  const { maxMb: limit, chunkMb } = useUploadSettings();
   const [queue, setQueue] = useState<string[]>([]);
+  const [progress, setProgress] = useState<Record<string, UploadProgress>>({});
   const [total, setTotal] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [choice, setChoice] = useState<{
@@ -144,7 +112,9 @@ export function useUploads(
           }
         }
         try {
-          await sendFile(projectId, file, mode);
+          await sendSourceFile(projectId, file, mode, chunkMb, (next) =>
+            setProgress((current) => ({ ...current, [file.name]: next })),
+          );
           done += 1;
           await queryClient.invalidateQueries({ queryKey: graphKey(projectId) });
         } catch (error) {
@@ -154,6 +124,7 @@ export function useUploads(
           });
         } finally {
           setQueue((q) => q.filter((name) => name !== file.name));
+          setProgress(({ [file.name]: _, ...rest }) => rest);
         }
       }
       if (done) {
@@ -165,7 +136,7 @@ export function useUploads(
       }
       setTotal(0);
     },
-    [ask, limit, projectId, queryClient, sources],
+    [ask, limit, chunkMb, projectId, queryClient, sources],
   );
 
   const choose = useCallback(() => input.current?.click(), [input]);
@@ -176,6 +147,7 @@ export function useUploads(
     () => ({
       limit,
       queue,
+      progress,
       total,
       active,
       dragging,
@@ -211,7 +183,7 @@ export function useUploads(
         void upload([...event.dataTransfer.files]);
       },
     }),
-    [limit, queue, total, active, dragging, choice, upload, choose, sourceCount],
+    [limit, queue, progress, total, active, dragging, choice, upload, choose, sourceCount],
   );
 }
 
@@ -425,7 +397,11 @@ export function ProfilingGhosts({
           <div className="flex min-w-0 flex-col gap-[3px]">
             <span className="truncate text-[16.5px] font-semibold">{name}</span>
             {index === 0 ? (
-              <StatusBadge kind="run" label="Profilage" size={14.5} />
+              <StatusBadge
+                kind="run"
+                label={progressLabel(uploads.progress[name]) ?? "Profilage"}
+                size={14.5}
+              />
             ) : (
               <span className="flex items-center gap-1.5 text-[15.5px] text-tx3">
                 <Spinner size={12} className="opacity-0" />
