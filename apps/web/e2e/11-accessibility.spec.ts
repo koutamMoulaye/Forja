@@ -70,6 +70,7 @@ test("engineer screens", async ({ page }) => {
   const screens: [string, string][] = [
     ["pipeline", `${base}/pipeline`],
     ["sources", `${base}/sources`],
+    ["connections", `${base}/sources/connections`],
     ["source", `${base}/sources/${ids.sourceId}`],
     ["plan", `${base}/sources/${ids.sourceId}/plan`],
     ["cleaning", `${base}/cleaning`],
@@ -84,6 +85,15 @@ test("engineer screens", async ({ page }) => {
   for (const [name, path] of screens) {
     await visit(page, path, () => expectShell(page));
     await audit(page, name);
+  }
+  // The add-source wizards, on their first step.
+  await visit(page, `${base}/sources`, () => expectShell(page));
+  for (const kind of ["database", "api"]) {
+    await page.getByTestId("add-source").click();
+    await page.getByTestId(`add-source-${kind}`).click();
+    await expect(page.getByRole("button", { name: "Tester la connexion" })).toBeVisible();
+    await audit(page, `wizard-${kind}`, '[data-testid="add-source-dialog"]');
+    await page.keyboard.press("Escape");
   }
   await visit(page, "/page-inconnue", () => expect(page.getByTestId("status-404")).toBeVisible());
   await audit(page, "404");

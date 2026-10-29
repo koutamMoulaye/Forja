@@ -9,6 +9,8 @@ const web = `http://localhost:${E2E.webPort}`;
  */
 export default defineConfig({
   testDir: "./e2e",
+  // Removes the test PostgreSQL of the connector tests (e2e/start-api.mjs).
+  globalTeardown: "./e2e/teardown.mjs",
   fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),

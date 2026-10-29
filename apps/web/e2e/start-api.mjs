@@ -3,6 +3,10 @@
 // model for the business agent (tests/e2e_server.py). Shared-instance mode, so that
 // invitations work, and data marts wait for an engineer's approval. The accounts created
 // by the demo are written to e2e/.data/credentials.json for the tests.
+//
+// The connector tests get a fake REST API (tests/fake_api.py) and, when Docker answers, the
+// PostgreSQL container of docker/compose.test-db.yml, seeded, then removed when the run
+// ends; e2e/.data/services.json says what is available.
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -28,9 +32,41 @@ const env = {
   FORJA_LLM_PROVIDER: "",
   FORJA_LOG_FORMAT: "console",
   FORJA_LOG_LEVEL: "WARNING",
+  // The fake API listens on 127.0.0.1, a local address refused unless allowed.
+  FORJA_CONNECTOR_ALLOWED_HOSTS: '["127.0.0.1"]',
+  // Files above 1 MB go through the resumable upload, in 1 MB chunks.
+  FORJA_UPLOAD_CHUNK_MB: "1",
   PYTHONIOENCODING: "utf-8",
   PYTHONUTF8: "1",
 };
+
+const compose = ["compose", "-f", "docker/compose.test-db.yml", "--profile", "test-db"];
+const dockerUp = spawnSync("docker", ["info"], { stdio: "ignore", timeout: 30_000 }).status === 0;
+let postgres = false;
+if (dockerUp && process.env.E2E_SKIP_DATABASES !== "1") {
+  const up = spawnSync("docker", [...compose, "up", "-d", "--wait", "postgres"], {
+    cwd: repo,
+    encoding: "utf8",
+    timeout: 600_000,
+  });
+  const seeded =
+    up.status === 0 &&
+    spawnSync(
+      "uv",
+      ["run", "python", "-c", "from tests import databases as db; db.seed(db.POSTGRES)"],
+      { cwd: repo, env, encoding: "utf8", timeout: 300_000 },
+    ).status === 0;
+  postgres = seeded;
+  if (!seeded) process.stderr.write(`test PostgreSQL not available: ${up.stderr ?? ""}\n`);
+}
+mkdirSync(dataDir, { recursive: true });
+writeFileSync(`${dataDir}services.json`, JSON.stringify({ postgres }, null, 2));
+
+const fakeApi = spawn(
+  "uv",
+  ["run", "python", "-m", "tests.fake_api", "--port", String(E2E.fakeApiPort), "--orders", "12"],
+  { cwd: repo, env, stdio: "ignore" },
+);
 
 const demo = spawnSync("uv", ["run", "forja", "demo"], { cwd: repo, env, encoding: "utf8" });
 if (demo.status !== 0) {
@@ -64,4 +100,6 @@ const api = spawn("uv", ["run", "python", "-m", "tests.e2e_server"], {
 const stop = () => api.kill();
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);
+// The fake API goes with the run; the test database is removed by e2e/teardown.mjs.
+process.on("exit", () => fakeApi.kill());
 api.on("exit", (code) => process.exit(code ?? 0));
