@@ -20,6 +20,8 @@ class JobType(StrEnum):
     MART_REQUEST = "mart_request"
     PUBLISH_MART = "publish_mart"
     BUILD_ALL = "build_all"
+    LOAD = "load"
+    INGEST = "ingest"
 
     @property
     def uses_llm(self) -> bool:
@@ -64,6 +66,19 @@ class RunRequest(BaseModel):
     )
     mart_request_id: str | None = Field(
         default=None, description="mart_request and publish_mart: the request processed"
+    )
+    connection_id: str | None = Field(
+        default=None, description="load: the connection whose sources are loaded"
+    )
+    upload_id: str | None = Field(default=None, description="ingest: the completed upload")
+    trigger: Literal["manual", "schedule"] = Field(
+        default="manual", description="load: started by someone or by a schedule"
+    )
+    schedule_id: str | None = None
+    chain: bool = Field(
+        default=False,
+        description="load: then build Silver, Gold, the published data marts and serving, "
+        "with the approved plans",
     )
 
 
@@ -152,6 +167,24 @@ class JobProgress(BaseModel):
     failed: list[str] = Field(default_factory=list, description="Items that failed")
 
 
+class LoadMetrics(BaseModel):
+    """One source loaded from a connection, or from an uploaded file."""
+
+    source_id: str | None = None
+    source_name: str
+    object: str
+    mode: str = "full"
+    rows: int = 0
+    batches: int = 0
+    version: int | None = Field(default=None, description="Version created; None if skipped")
+    cursor_value: str | None = None
+    skipped: str | None = Field(default=None, description="Why no version was created")
+    blocking_drift: bool = Field(
+        default=False, description="Columns of the approved plan changed: Silver not rebuilt"
+    )
+    duration_seconds: float = 0.0
+
+
 class RunMetrics(BaseModel):
     duration_seconds: float = 0.0
     rows_read: int = 0
@@ -167,6 +200,8 @@ class RunMetrics(BaseModel):
     models: list[ModelRunMetrics] = Field(default_factory=list)
     unknown_member_rows: list[UnknownMemberRows] = Field(default_factory=list)
     llm_calls: list[LLMUsage] = Field(default_factory=list)
+    loads: list[LoadMetrics] = Field(default_factory=list)
+    rows_loaded: int = 0
 
     def add_source(self, source: SourceRunMetrics) -> None:
         self.sources.append(source)

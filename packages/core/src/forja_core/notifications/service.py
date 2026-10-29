@@ -32,6 +32,8 @@ _RUN_TEXT: dict[JobType, tuple[str, str]] = {
     JobType.GOLD_PROPOSAL: ("Modèle en étoile proposé", "Échec de la proposition du modèle"),
     JobType.MART_REQUEST: ("Data mart préparé", "Échec de la préparation du data mart"),
     JobType.PUBLISH_MART: ("Data mart publié", "Échec de la publication du data mart"),
+    JobType.LOAD: ("Chargement terminé", "Échec du chargement"),
+    JobType.INGEST: ("Fichier chargé", "Échec du chargement du fichier"),
 }
 
 
@@ -121,6 +123,9 @@ class NotificationService:
     def _run_done(self, job: Job) -> None:
         done, failed = _RUN_TEXT[job.type]
         ok = job.status is JobStatus.SUCCEEDED
+        # Scheduled loads run unattended: only their failures are worth a notification.
+        if ok and job.params.trigger == "schedule":
+            return
         # A run nobody started (resumed, scheduled) concerns the project's engineers.
         users = [job.created_by] if job.created_by else self.engineers(job.project_id)
         if job.type is JobType.GOLD_PROPOSAL:
@@ -197,6 +202,19 @@ class NotificationService:
         )
 
     # --- Plans and data marts ----------------------------------------------------------
+
+    def blocking_drift(
+        self, project_id: str, source_id: str, source_name: str, columns: list[str]
+    ) -> None:
+        """A scheduled load brought a schema the approved plan cannot clean."""
+        self.notify(
+            self.engineers(project_id),
+            project_id=project_id,
+            kind=NotificationKind.SCHEMA_DRIFT,
+            title="Schéma modifié : plan à revoir",
+            detail=f"{source_name} : {', '.join(columns)} ; le nettoyage attend la revue du plan",
+            action=NotificationAction(label="Revoir", target_type="source", target_id=source_id),
+        )
 
     def plan_to_review(self, project_id: str, source_id: str, source_name: str) -> None:
         self.notify(

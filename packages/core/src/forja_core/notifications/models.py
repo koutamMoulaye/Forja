@@ -18,6 +18,7 @@ class NotificationKind(StrEnum):
     MART_REJECTED = "mart_rejected"
     MART_PUBLISHED = "mart_published"
     AI_JOB_DONE = "ai_job_done"
+    SCHEMA_DRIFT = "schema_drift"
 
 
 TargetType = Literal["run", "source", "gold_plan", "mart", "conversation"]

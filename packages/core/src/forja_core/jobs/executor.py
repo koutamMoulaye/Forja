@@ -20,6 +20,7 @@ from forja_core.jobs.models import (
     JobStatus,
     JobType,
     LLMUsage,
+    ModelRunMetrics,
     RunMetrics,
     RunRequest,
 )
@@ -84,6 +85,10 @@ class JobExecutor:
         # Listeners of every status or progress change, and of the end of a run.
         self.on_change: list[Callable[[Job], None]] = []
         self.on_finish: list[Callable[[Job], None]] = []
+        # Set by the application: rebuilds the published data marts after a load.
+        self.refresh_marts: (
+            Callable[[str, str, Callable[[str], None]], list[ModelRunMetrics]] | None
+        ) = None
 
     def _changed(self, job: Job, listeners: list[Callable[[Job], None]] | None = None) -> None:
         for listener in self.on_change if listeners is None else listeners:
@@ -330,6 +335,48 @@ class JobExecutor:
             metrics.serving_path, metrics.exports = served.serving_path, served.exports
         else:
             log_line("no published table: serving skipped")
+        return metrics
+
+    def build_after_load(
+        self, job: Job, source_ids: list[str], log_line: Callable[[str], None]
+    ) -> RunMetrics:
+        """After a load: Silver for the loaded sources whose approved plan still applies,
+        then Gold, the published data marts and serving. Plans are used as approved, never
+        changed; a source without an approved plan (or blocked by a schema change) waits."""
+        metrics = RunMetrics()
+        effective = {p.source_id for p in self.catalog.effective_plans(job.project_id)}
+        selected = [s for s in source_ids if s in effective]
+        if not selected:
+            log_line("no loaded source with an applicable approved plan: nothing rebuilt")
+            return metrics
+        with stage(0, 40):
+            report("silver", "nettoyage des sources chargées", 0)
+            metrics = self.builder.build(
+                job.project_id,
+                run_id=job.id,
+                source_ids=selected,
+                full_refresh=False,
+                log_line=log_line,
+            )
+            metrics.relations_detected = len(self.relations.detect(job.project_id, log_line))
+        if self.gold_builder is not None and gold_inputs(self.catalog, job.project_id):
+            with stage(40, 75):
+                report("gold", "mise à jour du modèle en étoile", 0)
+                gold = self._build_gold(job, log_line)
+            metrics.models = gold.models
+            metrics.unknown_member_rows = gold.unknown_member_rows
+            metrics.dbt_tests = _merge_tests(metrics.dbt_tests, gold.dbt_tests)
+            if self.refresh_marts is not None:
+                with stage(75, 90):
+                    report("marts", "rafraîchissement des data marts publiés", 0)
+                    metrics.models += self.refresh_marts(job.project_id, job.id, log_line)
+        else:
+            log_line("no approved Gold plan matching the Silver tables: model skipped")
+        if self.publisher.published_tables(job.project_id):
+            with stage(90, 100):
+                report("serving", "publication et exports", 0)
+                served = self._export(job, log_line)
+            metrics.serving_path, metrics.exports = served.serving_path, served.exports
         return metrics
 
     def _build_gold(self, job: Job, log_line: Callable[[str], None]) -> RunMetrics:
