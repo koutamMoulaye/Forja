@@ -8,17 +8,27 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 
-import duckdb
 import pyarrow as pa
-import pyarrow.parquet as pq
 
+from forja_core import duck
 from forja_core.catalog import Catalog
 from forja_core.config import Settings
 from forja_core.errors import ForjaError, IngestionError, SourceNotFoundError
 from forja_core.ingestion.detection import detect_format
 from forja_core.ingestion.drift import compute_drift
+from forja_core.ingestion.landing import (
+    Landed,
+    Lander,
+    Technical,
+    guard,
+    land_csv,
+    land_json,
+    land_parquet,
+    land_table,
+)
 from forja_core.ingestion.readers import RawTable, read_source
 from forja_core.logging import get_logger
 from forja_core.models import (
@@ -49,6 +59,28 @@ class IngestedVersion:
 VersionListener = Callable[[IngestedVersion], None]
 
 
+@dataclass(frozen=True)
+class PendingTable:
+    """A table of an uploaded file, landed when its source version is created."""
+
+    sheet_name: str | None
+    land: Lander
+
+
+def _raw_lander(raw: RawTable) -> Lander:
+    def land(target: Path, technical: Technical) -> Landed:
+        rows = land_table(raw.table, target, technical)
+        return Landed(
+            row_count=rows,
+            column_count=raw.table.num_columns,
+            encoding=raw.encoding,
+            delimiter=raw.delimiter,
+            warnings=list(raw.warnings),
+        )
+
+    return land
+
+
 def row_hashes(table: pa.Table) -> list[str]:
     """SHA-256 of each row's values, in column order, serialized as canonical JSON."""
     columns = [column.to_pylist() for column in table.columns]
@@ -60,21 +92,8 @@ def row_hashes(table: pa.Table) -> list[str]:
     ]
 
 
-def add_technical_columns(
-    table: pa.Table, *, batch_id: str, source_file: str, ingested_at: datetime
-) -> pa.Table:
-    rows = table.num_rows
-    hashes = row_hashes(table)
-    table = table.append_column("_batch_id", pa.array([batch_id] * rows, type=pa.string()))
-    table = table.append_column(
-        "_ingested_at", pa.array([ingested_at] * rows, type=pa.timestamp("us", tz="UTC"))
-    )
-    table = table.append_column("_source_file", pa.array([source_file] * rows, type=pa.string()))
-    return table.append_column("_row_hash", pa.array(hashes, type=pa.string()))
-
-
 def describe_parquet(path: Path) -> list[ColumnSchema]:
-    with duckdb.connect() as con:
+    with duck.connect() as con:
         rows = con.execute(
             f"DESCRIBE SELECT * FROM read_parquet({sql_literal(str(path))})"
         ).fetchall()
@@ -86,7 +105,7 @@ def describe_parquet(path: Path) -> list[ColumnSchema]:
 
 def count_new_rows(current: Path, previous: list[Path]) -> int:
     """Rows of ``current`` whose hash does not appear in any earlier version."""
-    with duckdb.connect() as con:
+    with duck.connect() as con:
         if not previous:
             [(count,)] = con.execute(
                 f"SELECT count(*) FROM read_parquet({sql_literal(str(current))})"
@@ -149,54 +168,109 @@ class IngestionService:
         bound.info("ingestion_started")
 
         try:
-            raw_tables = read_source(path, fmt, self.settings.duplicate_columns)
+            pending = self._pending_tables(path, fmt)
         except ForjaError as exc:
             bound.warning("ingestion_rejected", error_code=exc.code, error=exc.message)
             raise
 
         base_name = slugify(Path(filename).stem)
-        named = [(self._logical_name(base_name, raw), raw) for raw in raw_tables]
+        named = [(self._logical_name(base_name, table), table) for table in pending]
         if target is not None:
             named = [self._pick_table_for(target, named)]
 
-        self.workspace.ensure_project(project_id)
-        ingested_at = utcnow()
         sources: list[Source] = []
-        for logical_name, raw in named:
+        for logical_name, table in named:
             existing = target or self.catalog.find_source_by_name(project_id, logical_name)
             if mode is IngestMode.NEW_VERSION and existing is None:
                 raise SourceNotFoundError(
                     f"no source named '{logical_name}' to add a version to",
                     details={"name": logical_name},
                 )
-            if mode is IngestMode.NEW_SOURCE or existing is None:
-                name = unique_name(logical_name, self.catalog.source_names(project_id))
-                ingested = self._create_source(project_id, name, filename, fmt, raw, ingested_at)
-            else:
-                ingested = self._add_version(existing, filename, fmt, raw, ingested_at)
-            for listener in self._listeners:
-                listener(ingested)
-            source = self.catalog.get_source(ingested.source.id)
+            try:
+                source = self.ingest(
+                    project_id,
+                    table.land,
+                    name=logical_name,
+                    filename=filename,
+                    fmt=fmt,
+                    sheet_name=table.sheet_name,
+                    existing=None if mode is IngestMode.NEW_SOURCE else existing,
+                )
+            except ForjaError as exc:
+                bound.warning("ingestion_rejected", error_code=exc.code, error=exc.message)
+                raise
             sources.append(source)
-            bound.info(
-                "source_ingested",
-                source_id=source.id,
-                source=source.name,
-                version=source.version,
-                rows=ingested.version.row_count,
-                new_rows=ingested.version.new_row_count,
-                schema_drift=bool(source.schema_drift and source.schema_drift.has_drift),
-            )
         return sources
 
-    @staticmethod
-    def _logical_name(base_name: str, raw: RawTable) -> str:
-        if raw.sheet_name is None:
-            return base_name
-        return f"{base_name}__{slugify(raw.sheet_name, default='sheet')}"
+    def ingest(
+        self,
+        project_id: str,
+        land: Lander,
+        *,
+        name: str,
+        filename: str,
+        fmt: SourceFormat,
+        sheet_name: str | None = None,
+        existing: Source | None = None,
+        source_id: str | None = None,
+    ) -> Source:
+        """Land one table as the first version of a new source (named after ``name``,
+        with id ``source_id`` if given) or as a new version of ``existing``, profile it and
+        notify the listeners.
+        """
+        self.workspace.ensure_project(project_id)
+        ingested_at = utcnow()
+        if existing is None:
+            unique = unique_name(name, self.catalog.source_names(project_id))
+            ingested = self._create_source(
+                project_id, unique, filename, fmt, sheet_name, land, ingested_at, source_id
+            )
+        else:
+            ingested = self._add_version(existing, filename, fmt, sheet_name, land, ingested_at)
+        for listener in self._listeners:
+            listener(ingested)
+        source = self.catalog.get_source(ingested.source.id)
+        log.info(
+            "source_ingested",
+            project_id=project_id,
+            source_id=source.id,
+            source=source.name,
+            format=fmt.value,
+            version=source.version,
+            rows=ingested.version.row_count,
+            new_rows=ingested.version.new_row_count,
+            schema_drift=bool(source.schema_drift and source.schema_drift.has_drift),
+        )
+        return source
+
+    def _pending_tables(self, path: Path, fmt: SourceFormat) -> list[PendingTable]:
+        policy = self.settings.duplicate_columns
+        match fmt:
+            case SourceFormat.CSV:
+                lander: Lander = partial(land_csv, path, policy)
+            case SourceFormat.PARQUET:
+                lander = partial(land_parquet, path, policy)
+            case SourceFormat.JSON:
+                lander = partial(land_json, path, policy)
+            case SourceFormat.EXCEL:
+                return [
+                    PendingTable(raw.sheet_name, guard(_raw_lander(raw), fmt.value))
+                    for raw in read_source(path, fmt, policy)
+                ]
+            case _:
+                raise IngestionError(f"{fmt.value} sources are not files")
+        return [PendingTable(None, guard(lander, fmt.value))]
 
     @staticmethod
-    def _pick_table_for(target: Source, named: list[tuple[str, RawTable]]) -> tuple[str, RawTable]:
+    def _logical_name(base_name: str, table: PendingTable) -> str:
+        if table.sheet_name is None:
+            return base_name
+        return f"{base_name}__{slugify(table.sheet_name, default='sheet')}"
+
+    @staticmethod
+    def _pick_table_for(
+        target: Source, named: list[tuple[str, PendingTable]]
+    ) -> tuple[str, PendingTable]:
         if len(named) == 1:
             return named[0]
         for candidate in named:
@@ -206,7 +280,7 @@ class IngestionService:
                 return candidate
         raise IngestionError(
             f"the workbook has {len(named)} sheets and none matches source '{target.name}'",
-            details={"sheets": [raw.sheet_name for _, raw in named]},
+            details={"sheets": [table.sheet_name for _, table in named]},
         )
 
     def _create_source(
@@ -215,12 +289,23 @@ class IngestionService:
         name: str,
         filename: str,
         fmt: SourceFormat,
-        raw: RawTable,
+        sheet_name: str | None,
+        land: Lander,
         ingested_at: datetime,
+        source_id: str | None = None,
     ) -> IngestedVersion:
-        source_id = uuid.uuid4().hex
+        source_id = source_id or uuid.uuid4().hex
         version, column_count = self._land(
-            project_id, source_id, name, 1, filename, fmt, raw, ingested_at, previous=[]
+            project_id,
+            source_id,
+            name,
+            1,
+            filename,
+            fmt,
+            sheet_name,
+            land,
+            ingested_at,
+            previous=[],
         )
         profile = self._profile(source_id, name, version)
         source = Source(
@@ -229,9 +314,9 @@ class IngestionService:
             name=name,
             format=fmt,
             original_filename=filename,
-            sheet_name=raw.sheet_name,
-            encoding=raw.encoding,
-            delimiter=raw.delimiter,
+            sheet_name=sheet_name,
+            encoding=version.encoding,
+            delimiter=version.delimiter,
             row_count=version.row_count,
             column_count=column_count,
             columns=version.columns,
@@ -251,7 +336,8 @@ class IngestionService:
         source: Source,
         filename: str,
         fmt: SourceFormat,
-        raw: RawTable,
+        sheet_name: str | None,
+        land: Lander,
         ingested_at: datetime,
     ) -> IngestedVersion:
         history = self.catalog.list_versions(source.id)
@@ -263,7 +349,8 @@ class IngestionService:
             previous.version + 1,
             filename,
             fmt,
-            raw,
+            sheet_name,
+            land,
             ingested_at,
             previous=[self.workspace.resolve(v.bronze_path) for v in history],
         )
@@ -306,23 +393,20 @@ class IngestionService:
         version_number: int,
         filename: str,
         fmt: SourceFormat,
-        raw: RawTable,
+        sheet_name: str | None,
+        land: Lander,
         ingested_at: datetime,
         *,
         previous: list[Path],
     ) -> tuple[SourceVersion, int]:
         batch_id = uuid.uuid4().hex
-        source_file = filename if raw.sheet_name is None else f"{filename}#{raw.sheet_name}"
-        table = add_technical_columns(
-            raw.table, batch_id=batch_id, source_file=source_file, ingested_at=ingested_at
-        )
-
+        source_file = filename if sheet_name is None else f"{filename}#{sheet_name}"
         target_dir = self.workspace.bronze_source_dir(project_id, name)
         target_dir.mkdir(parents=True, exist_ok=True)
         stamp = ingested_at.strftime("%Y%m%dT%H%M%S%fZ")
         stem = slugify(Path(filename).stem, default="data")
         target = target_dir / f"{stamp}_v{version_number:04d}_{stem}.parquet"
-        pq.write_table(table, target, compression="zstd")
+        landed = land(target, Technical(batch_id, ingested_at, source_file))
 
         version = SourceVersion(
             id=batch_id,
@@ -330,17 +414,17 @@ class IngestionService:
             version=version_number,
             format=fmt,
             original_filename=filename,
-            sheet_name=raw.sheet_name,
-            encoding=raw.encoding,
-            delimiter=raw.delimiter,
-            row_count=table.num_rows,
+            sheet_name=sheet_name,
+            encoding=landed.encoding,
+            delimiter=landed.delimiter,
+            row_count=landed.row_count,
             new_row_count=count_new_rows(target, previous),
             columns=describe_parquet(target),
             bronze_path=self.workspace.relative(target),
-            warnings=list(raw.warnings),
+            warnings=list(landed.warnings),
             ingested_at=ingested_at,
         )
-        return version, raw.table.num_columns
+        return version, landed.column_count
 
     def _profile(self, source_id: str, name: str, version: SourceVersion) -> ProfileReport | None:
         try:

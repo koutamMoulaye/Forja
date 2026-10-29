@@ -322,6 +322,8 @@ def read_source(path: Path, fmt: SourceFormat, policy: DuplicateColumnPolicy) ->
                 return [read_parquet(path, policy)]
             case SourceFormat.JSON:
                 return [read_json(path, policy)]
+            case _:
+                raise CorruptedFileError(f"{fmt.value} sources are not files")
     except ForjaError:
         raise
     except Exception as exc:
