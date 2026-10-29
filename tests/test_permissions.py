@@ -79,7 +79,7 @@ def world(tmp_path_factory: pytest.TempPathFactory, ecommerce_dir: Path) -> Iter
         asked = analyst.post(
             f"/projects/{project.id}/mart-requests", json={"question": "CA par mois"}
         ).json()
-        run_id = admin.get(f"/projects/{project.id}/runs").json()[-1]["id"]
+        run_id = admin.get(f"/projects/{project.id}/runs").json()["items"][-1]["id"]
         ids = {
             "project_id": project.id,
             "source_id": clients_source.id,
@@ -307,7 +307,7 @@ def test_analyst_sees_neither_bronze_nor_silver(world: World) -> None:
     assert "silver" not in layers and "gold" in layers
     assert analyst.get(f"/sources/{world.ids['source_id']}/preview").status_code == 403
     assert analyst.get(f"/tables/{world.ids['silver_table']}/preview").status_code == 403
-    runs = analyst.get(f"/projects/{project}/runs").json()
+    runs = analyst.get(f"/projects/{project}/runs").json()["items"]
     assert runs and all(r["type"] == "mart_request" for r in runs)  # only their own
 
 

@@ -8,6 +8,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from forja_core.pagination import Page
+
 
 class JobType(StrEnum):
     PROFILE = "profile"
@@ -192,3 +194,7 @@ class Job(BaseModel):
     )
     attempts: int = Field(default=0, description="Executions started (resumed LLM jobs: > 1)")
     cancel_requested: bool = False
+
+
+class RunPage(Page[Job]):
+    """Runs of a project, newest first."""

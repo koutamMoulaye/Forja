@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 from fastapi.responses import PlainTextResponse
 
 from forja_api.security import Access, require
 from forja_api.state import StateDep
 from forja_core.auth.models import Action
 from forja_core.errors import ForbiddenError, PlanValidationError
-from forja_core.jobs.models import Job, JobType, RunRequest
+from forja_core.jobs.models import Job, JobType, RunPage, RunRequest
+from forja_core.pagination import DEFAULT_LIMIT, MAX_LIMIT
 
 router = APIRouter(tags=["runs"])
 
@@ -55,8 +56,21 @@ def create_run(
 
 
 @router.get("/projects/{project_id}/runs", summary="Runs of a project, most recent first")
-def list_runs(project_id: str, state: StateDep, access: ProjectAccess) -> list[Job]:
-    return [job for job in state.catalog.list_jobs(project_id) if _visible(access, job)]
+def list_runs(
+    project_id: str,
+    state: StateDep,
+    access: ProjectAccess,
+    limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> RunPage:
+    # Analysts see the runs they started only (their agent requests).
+    mine = None if access.can(Action.RUN_READ) else access.principal.id
+    return RunPage(
+        items=state.catalog.list_jobs(project_id, created_by=mine, limit=limit, offset=offset),
+        total=state.catalog.count_jobs(project_id, created_by=mine),
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.get("/runs/{run_id}")

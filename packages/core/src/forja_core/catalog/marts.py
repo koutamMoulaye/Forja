@@ -42,12 +42,28 @@ class MartsMixin(SemanticMixin):
         *,
         owner_id: str | None = None,
         status: MartStatus | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        recent_first: bool = False,
     ) -> list[MartRequest]:
+        """Requests of a project, newest first; most recently updated first with
+        ``recent_first`` (the lists of the interface)."""
         self.get_project(project_id)
+        order = "updated_at" if recent_first else "created_at"
         rows = self._fetchall(
             "SELECT data FROM mart_requests WHERE project_id = ? "
             "AND (? IS NULL OR owner_id = ?) AND (? IS NULL OR status = ?) "
-            "ORDER BY created_at DESC",
-            [project_id, owner_id, owner_id, status, status],
+            f"ORDER BY {order} DESC, id LIMIT ? OFFSET ?",
+            [project_id, owner_id, owner_id, status, status, limit, offset],
         )
         return [MartRequest.model_validate_json(r[0]) for r in rows]
+
+    def count_mart_requests(
+        self, project_id: str, *, owner_id: str | None = None, status: MartStatus | None = None
+    ) -> int:
+        row = self._fetchone(
+            "SELECT count(*) FROM mart_requests WHERE project_id = ? "
+            "AND (? IS NULL OR owner_id = ?) AND (? IS NULL OR status = ?)",
+            [project_id, owner_id, owner_id, status, status],
+        )
+        return int(row[0]) if row else 0

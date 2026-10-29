@@ -10,7 +10,8 @@ from forja_api.security import Access, AdminDep, PrincipalDep, require
 from forja_api.state import StateDep
 from forja_core.auth.models import (
     Action,
-    AuditEntry,
+    AuditPage,
+    AuditQuery,
     Invitation,
     InvitationCreate,
     Membership,
@@ -18,6 +19,7 @@ from forja_core.auth.models import (
     Role,
 )
 from forja_core.models import Project, ProjectCreate
+from forja_core.pagination import DEFAULT_LIMIT, MAX_LIMIT
 
 router = APIRouter(tags=["projects"])
 
@@ -116,17 +118,31 @@ def project_audit(
     project_id: str,
     state: StateDep,
     _access: Annotated[Access, require(Action.AUDIT_READ)],
-    action: Annotated[str | None, Query()] = None,
-    limit: Annotated[int, Query(ge=1, le=5000)] = 200,
-) -> list[AuditEntry]:
-    return state.catalog.list_audit(project_id, limit=limit, action=action)
+    filters: Annotated[AuditQuery, Query()],
+    limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> AuditPage:
+    return _audit_page(state, project_id, filters, limit, offset)
 
 
 @router.get("/audit", summary="Audit log of the instance (instance administrator)")
 def instance_audit(
     _admin: AdminDep,
     state: StateDep,
-    action: Annotated[str | None, Query()] = None,
-    limit: Annotated[int, Query(ge=1, le=5000)] = 200,
-) -> list[AuditEntry]:
-    return state.catalog.list_audit(None, limit=limit, action=action)
+    filters: Annotated[AuditQuery, Query()],
+    limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> AuditPage:
+    return _audit_page(state, None, filters, limit, offset)
+
+
+def _audit_page(
+    state: StateDep, project_id: str | None, filters: AuditQuery, limit: int, offset: int
+) -> AuditPage:
+    return AuditPage(
+        items=state.catalog.list_audit(project_id, limit=limit, offset=offset, query=filters),
+        total=state.catalog.count_audit(project_id, filters),
+        offset=offset,
+        limit=limit,
+        facets=state.catalog.audit_facets(project_id),
+    )

@@ -194,7 +194,7 @@ def test_review_api(built: tuple[AppState, Source]) -> None:
             assert next(c for c in approved["columns"] if c["source_column"] == "commentaire")[
                 "included"
             ]
-            audit = client.get(f"/projects/{source.project_id}/audit").json()
+            audit = client.get(f"/projects/{source.project_id}/audit").json()["items"]
             assert any(e["action"] == "silver_plan.review" for e in audit)
             assert client.get("/sources/missing/rejects").status_code == 404
     finally:

@@ -13,7 +13,7 @@ export type paths = {
         };
         /**
          * Journal d'audit de l'instance
-         * @description Toutes les entrées. Réservé à l'administrateur de l'instance.
+         * @description Toutes les entrées, par page, avec les mêmes filtres que celui d'un projet. Réservé à l'administrateur de l'instance.
          */
         get: operations["instance_audit_audit_get"];
         put?: never;
@@ -236,8 +236,8 @@ export type paths = {
             cookie?: never;
         };
         /**
-         * Server-Sent Events: notifications and run status changes
-         * @description `text/event-stream`. Events: `ready` (unread count), `notification` (a new notification), `job` (a run the caller may follow was queued, progressed or ended), `ping` every 15 s, which keeps the connection open and lets the client notice a dead one. The stream ends when the access token expires or the session is revoked; the client reconnects.
+         * Flux d'événements (Server-Sent Events)
+         * @description text/event-stream : ready (nombre de non lues), notification (une nouvelle notification), job (un run que l'appelant peut suivre change d'état ou progresse), ping toutes les 15 s. Le flux se ferme à l'expiration du jeton d'accès ou à la révocation de la session ; le client se reconnecte. Tout utilisateur authentifié.
          */
         get: operations["events_events_get"];
         put?: never;
@@ -415,7 +415,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** The caller's notifications, newest first */
+        /**
+         * Mes notifications
+         * @description Les plus récentes d'abord, par page (limit, offset), toutes ou non lues seulement ; unread donne le nombre de non lues. Run terminé ou en échec, plan à revoir, data mart à approuver, approuvé, rejeté (avec le motif) ou publié, réponse de l'agent prête. Tout utilisateur authentifié.
+         */
         get: operations["list_notifications_notifications_get"];
         put?: never;
         post?: never;
@@ -434,7 +437,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Mark notifications as read (all when no ids) */
+        /**
+         * Marquer des notifications comme lues
+         * @description Celles dont les identifiants sont donnés, toutes sans identifiant. Tout utilisateur authentifié.
+         */
         post: operations["read_notifications_notifications_read_post"];
         delete?: never;
         options?: never;
@@ -495,7 +501,7 @@ export type paths = {
         };
         /**
          * Journal d'audit du projet
-         * @description Qui a fait quoi, quand, sur quel objet ; filtres action et limit. Rôle : admin du projet.
+         * @description Qui a fait quoi, quand, sur quel objet, les plus récents d'abord, par page (limit, offset). Filtres : utilisateur (« système » pour les actions sans utilisateur), action, type d'objet, date de début, texte ; facets donne les valeurs des filtres sur tout le journal. Rôle : admin du projet.
          */
         get: operations["project_audit_projects__project_id__audit_get"];
         put?: never;
@@ -683,7 +689,7 @@ export type paths = {
         };
         /**
          * Lister les demandes de data mart
-         * @description Les siennes ; toutes pour un engineer. Rôles : admin, engineer, analyst.
+         * @description Les siennes ; toutes pour un engineer. Les plus récemment modifiées d'abord, par page (limit, offset), filtrables par statut. versions=latest (par défaut) ne garde que la dernière version de chaque demande, et la dernière avec un aperçu ; versions=all les renvoie toutes, comme le détail d'une demande. Rôles : admin, engineer, analyst.
          */
         get: operations["list_mart_requests_projects__project_id__mart_requests_get"];
         put?: never;
@@ -795,7 +801,7 @@ export type paths = {
         };
         /**
          * Lister les runs
-         * @description Les plus récents d'abord ; un analyst ne voit que les siens (demandes à l'agent). Rôles : admin, engineer, analyst.
+         * @description Les plus récents d'abord, par page (limit, offset ; total donne le nombre de runs). Un analyst ne voit que les siens (demandes à l'agent). Rôles : admin, engineer, analyst.
          */
         get: operations["list_runs_projects__project_id__runs_get"];
         put?: never;
@@ -1561,6 +1567,31 @@ export type components = {
             user_email?: string | null;
             /** User Id */
             user_id?: string | null;
+        };
+        /** AuditFacets */
+        AuditFacets: {
+            /** Actions */
+            actions?: string[];
+            /** Objects */
+            objects?: string[];
+            /** Users */
+            users?: string[];
+        };
+        /** AuditPage */
+        AuditPage: {
+            /** @description Filter values over the whole log */
+            facets: components["schemas"]["AuditFacets"];
+            /** Items */
+            items: components["schemas"]["AuditEntry"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /**
+             * Total
+             * @description Items matching the request, all pages
+             */
+            total: number;
         };
         /** Body_upload_source_projects__project_id__sources_post */
         Body_upload_source_projects__project_id__sources_post: {
@@ -2875,6 +2906,23 @@ export type components = {
             validated_at?: string | null;
         };
         /**
+         * MartRequestPage
+         * @description Requests, most recently updated first.
+         */
+        MartRequestPage: {
+            /** Items */
+            items: components["schemas"]["MartRequest"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /**
+             * Total
+             * @description Items matching the request, all pages
+             */
+            total: number;
+        };
+        /**
          * MartRequestRun
          * @description The request, and the run working on it (follow it with GET /runs/{id}).
          */
@@ -3721,6 +3769,23 @@ export type components = {
             /** Unknown Member Rows */
             unknown_member_rows?: components["schemas"]["UnknownMemberRows"][];
         };
+        /**
+         * RunPage
+         * @description Runs of a project, newest first.
+         */
+        RunPage: {
+            /** Items */
+            items: components["schemas"]["Job"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /**
+             * Total
+             * @description Items matching the request, all pages
+             */
+            total: number;
+        };
         /** RunRequest */
         RunRequest: {
             /** Csv Delimiter */
@@ -4473,6 +4538,13 @@ export interface operations {
             query?: {
                 action?: string | null;
                 limit?: number;
+                object_type?: string | null;
+                offset?: number;
+                since?: string | null;
+                /** @description Words found in the entry */
+                text?: string | null;
+                /** @description An email, or « système » */
+                user?: string | null;
             };
             header?: never;
             path?: never;
@@ -4487,39 +4559,58 @@ export interface operations {
                 };
                 content: {
                     /**
-                     * @example [
-                     *       {
-                     *         "action": "settings.llm_test",
-                     *         "at": "2026-10-28T21:18:06.579160Z",
-                     *         "details": {
-                     *           "ok": true,
-                     *           "provider": "none"
-                     *         },
-                     *         "id": "cf3b28e90264483eb36e2557bcc21d9d",
-                     *         "object_id": "llm",
-                     *         "object_type": "settings",
-                     *         "project_id": null,
-                     *         "user_email": "admin@forja.local",
-                     *         "user_id": "496b5b5b4ef94be98853f5f764183864"
+                     * @example {
+                     *       "facets": {
+                     *         "actions": [
+                     *           "agent.request",
+                     *           "auth.login"
+                     *         ],
+                     *         "objects": [
+                     *           "mart_request",
+                     *           "user"
+                     *         ],
+                     *         "users": [
+                     *           "ingenieur@demo.forja.local",
+                     *           "analyste@demo.forja.local"
+                     *         ]
                      *       },
-                     *       {
-                     *         "action": "settings.llm",
-                     *         "at": "2026-10-28T21:18:06.561447Z",
-                     *         "details": {
-                     *           "api_key_changed": false,
-                     *           "model": null,
-                     *           "provider": "none"
+                     *       "items": [
+                     *         {
+                     *           "action": "settings.llm_test",
+                     *           "at": "2026-10-29T01:53:37.036773Z",
+                     *           "details": {
+                     *             "ok": true,
+                     *             "provider": "none"
+                     *           },
+                     *           "id": "34916a2cb368495d83aef357724681fb",
+                     *           "object_id": "llm",
+                     *           "object_type": "settings",
+                     *           "project_id": null,
+                     *           "user_email": "admin@forja.local",
+                     *           "user_id": "586b93081e37418f82e092fa9f76538e"
                      *         },
-                     *         "id": "23b697b575a6416b93df0e4e60f629e2",
-                     *         "object_id": "llm",
-                     *         "object_type": "settings",
-                     *         "project_id": null,
-                     *         "user_email": "admin@forja.local",
-                     *         "user_id": "496b5b5b4ef94be98853f5f764183864"
-                     *       }
-                     *     ]
+                     *         {
+                     *           "action": "settings.llm",
+                     *           "at": "2026-10-29T01:53:37.020400Z",
+                     *           "details": {
+                     *             "api_key_changed": false,
+                     *             "model": null,
+                     *             "provider": "none"
+                     *           },
+                     *           "id": "42abed9f547a497586815ff255784105",
+                     *           "object_id": "llm",
+                     *           "object_type": "settings",
+                     *           "project_id": null,
+                     *           "user_email": "admin@forja.local",
+                     *           "user_id": "586b93081e37418f82e092fa9f76538e"
+                     *         }
+                     *       ],
+                     *       "limit": 2,
+                     *       "offset": 0,
+                     *       "total": 54
+                     *     }
                      */
-                    "application/json": components["schemas"]["AuditEntry"][];
+                    "application/json": components["schemas"]["AuditPage"];
                 };
             };
             /** @description Validation Error */
@@ -4551,13 +4642,13 @@ export interface operations {
                     /**
                      * @example [
                      *       {
-                     *         "created_at": "2026-10-28T21:17:53.538159Z",
-                     *         "id": "7d73e0b74d8c449c9b24b82fd2fb3d82",
+                     *         "created_at": "2026-10-29T01:53:23.753763Z",
+                     *         "id": "80fe09ac4e2b46569337a98eea399777",
                      *         "last_used_at": null,
                      *         "name": "Power BI",
-                     *         "prefix": "d9e59440",
+                     *         "prefix": "b650921f",
                      *         "revoked_at": null,
-                     *         "user_id": "496b5b5b4ef94be98853f5f764183864"
+                     *         "user_id": "586b93081e37418f82e092fa9f76538e"
                      *       }
                      *     ]
                      */
@@ -4587,14 +4678,14 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "created_at": "2026-10-28T21:17:53.538159Z",
-                     *       "id": "7d73e0b74d8c449c9b24b82fd2fb3d82",
-                     *       "key": "fja_d9e59440_…",
+                     *       "created_at": "2026-10-29T01:53:23.753763Z",
+                     *       "id": "80fe09ac4e2b46569337a98eea399777",
+                     *       "key": "fja_b650921f_…",
                      *       "last_used_at": null,
                      *       "name": "Power BI",
-                     *       "prefix": "d9e59440",
+                     *       "prefix": "b650921f",
                      *       "revoked_at": null,
-                     *       "user_id": "496b5b5b4ef94be98853f5f764183864"
+                     *       "user_id": "586b93081e37418f82e092fa9f76538e"
                      *     }
                      */
                     "application/json": components["schemas"]["CreatedApiKey"];
@@ -4630,13 +4721,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "created_at": "2026-10-28T21:17:53.538159Z",
-                     *       "id": "7d73e0b74d8c449c9b24b82fd2fb3d82",
+                     *       "created_at": "2026-10-29T01:53:23.753763Z",
+                     *       "id": "80fe09ac4e2b46569337a98eea399777",
                      *       "last_used_at": null,
                      *       "name": "Power BI",
-                     *       "prefix": "d9e59440",
-                     *       "revoked_at": "2026-10-28T21:17:53.578583Z",
-                     *       "user_id": "496b5b5b4ef94be98853f5f764183864"
+                     *       "prefix": "b650921f",
+                     *       "revoked_at": "2026-10-29T01:53:23.786873Z",
+                     *       "user_id": "586b93081e37418f82e092fa9f76538e"
                      *     }
                      */
                     "application/json": components["schemas"]["ApiKey"];
@@ -4675,7 +4766,7 @@ export interface operations {
                     /**
                      * @example {
                      *       "email": "nouveau@exemple.fr",
-                     *       "expires_at": "2026-11-04T21:17:53.695217Z",
+                     *       "expires_at": "2026-11-05T01:53:23.884214Z",
                      *       "project_name": "Démo e-commerce",
                      *       "role": "analyst",
                      *       "status": "valid"
@@ -4775,10 +4866,10 @@ export interface operations {
                      *       "auth_mode": "multi",
                      *       "roles": {},
                      *       "user": {
-                     *         "created_at": "2026-10-28T21:17:21.917429Z",
+                     *         "created_at": "2026-10-29T01:52:51.375329Z",
                      *         "disabled": false,
                      *         "email": "admin@forja.local",
-                     *         "id": "496b5b5b4ef94be98853f5f764183864",
+                     *         "id": "586b93081e37418f82e092fa9f76538e",
                      *         "identity_provider": "password",
                      *         "is_admin": true,
                      *         "must_change_password": false,
@@ -4936,20 +5027,20 @@ export interface operations {
                     /**
                      * @example [
                      *       {
-                     *         "created_at": "2026-10-28T21:17:21.917429Z",
+                     *         "created_at": "2026-10-29T01:52:51.375329Z",
                      *         "disabled": false,
                      *         "email": "admin@forja.local",
-                     *         "id": "496b5b5b4ef94be98853f5f764183864",
+                     *         "id": "586b93081e37418f82e092fa9f76538e",
                      *         "identity_provider": "password",
                      *         "is_admin": true,
                      *         "must_change_password": false,
                      *         "name": null
                      *       },
                      *       {
-                     *         "created_at": "2026-10-28T21:17:38.782243Z",
+                     *         "created_at": "2026-10-29T01:53:08.651665Z",
                      *         "disabled": false,
                      *         "email": "ingenieur@demo.forja.local",
-                     *         "id": "f7662b44b85844fca1b33c3ac76cbe90",
+                     *         "id": "823aac3b0ef54b04a0ea9d115868a6d4",
                      *         "identity_provider": "password",
                      *         "is_admin": false,
                      *         "must_change_password": false,
@@ -5031,13 +5122,14 @@ export interface operations {
                      * @example {
                      *       "approved_at": null,
                      *       "approved_by": null,
+                     *       "approved_by_email": null,
                      *       "bindings": {
                      *         "vente": "metric:montant"
                      *       },
-                     *       "created_at": "2026-10-28T21:17:58.330680Z",
+                     *       "created_at": "2026-10-29T01:53:28.431410Z",
                      *       "destination": null,
                      *       "exports": [],
-                     *       "id": "781d414f5ce6471498380942d10be7ee",
+                     *       "id": "34d64bb7e51b44e299f18d71f21acb39",
                      *       "iterations": [
                      *         {
                      *           "clarification": {
@@ -5055,11 +5147,11 @@ export interface operations {
                      *             "term": "ventes"
                      *           },
                      *           "context_tokens": 233,
-                     *           "created_at": "2026-10-28T21:17:58.330680Z",
+                     *           "created_at": "2026-10-29T01:53:28.431410Z",
                      *           "effective": "Les ventes par produit en 2024",
                      *           "error": null,
                      *           "instruction": "Les ventes par produit en 2024",
-                     *           "job_id": "259a786bb51c4b18829b7082c79fbcf3",
+                     *           "job_id": "64ddeaf048564d7583e8a8ca486e4252",
                      *           "kind": "question",
                      *           "llm": null,
                      *           "option_counts": [
@@ -5093,11 +5185,11 @@ export interface operations {
                      *         {
                      *           "clarification": null,
                      *           "context_tokens": 233,
-                     *           "created_at": "2026-10-28T21:17:58.573868Z",
+                     *           "created_at": "2026-10-29T01:53:28.690294Z",
                      *           "effective": "Les ventes par produit en 2024",
                      *           "error": null,
                      *           "instruction": "Chiffre d'affaires",
-                     *           "job_id": "0f41963f4f464a068a7a8f5e4915fcc3",
+                     *           "job_id": "ff77669693ea4fd7b2b2ea6956a4f902",
                      *           "kind": "answer",
                      *           "llm": null,
                      *           "option_counts": [],
@@ -5211,9 +5303,9 @@ export interface operations {
                      *       "model_sql": null,
                      *       "model_summary": null,
                      *       "owner_email": "analyste@demo.forja.local",
-                     *       "owner_id": "d9d26f58279a43599f4782b39a238a67",
+                     *       "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
                      *       "owner_unmasked": false,
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "publish_error": null,
                      *       "publish_job_id": null,
                      *       "published_at": null,
@@ -5224,7 +5316,7 @@ export interface operations {
                      *       "rejection_reason": null,
                      *       "semantic_version": 3,
                      *       "status": "previewed",
-                     *       "updated_at": "2026-10-28T21:17:59.331368Z",
+                     *       "updated_at": "2026-10-29T01:53:29.426640Z",
                      *       "validated_at": null
                      *     }
                      */
@@ -5268,13 +5360,14 @@ export interface operations {
                      *       "mart_request": {
                      *         "approved_at": null,
                      *         "approved_by": null,
+                     *         "approved_by_email": null,
                      *         "bindings": {
                      *           "vente": "metric:montant"
                      *         },
-                     *         "created_at": "2026-10-28T21:17:58.330680Z",
+                     *         "created_at": "2026-10-29T01:53:28.431410Z",
                      *         "destination": null,
                      *         "exports": [],
-                     *         "id": "781d414f5ce6471498380942d10be7ee",
+                     *         "id": "34d64bb7e51b44e299f18d71f21acb39",
                      *         "iterations": [
                      *           {
                      *             "clarification": {
@@ -5292,11 +5385,11 @@ export interface operations {
                      *               "term": "ventes"
                      *             },
                      *             "context_tokens": 233,
-                     *             "created_at": "2026-10-28T21:17:58.330680Z",
+                     *             "created_at": "2026-10-29T01:53:28.431410Z",
                      *             "effective": "Les ventes par produit en 2024",
                      *             "error": null,
                      *             "instruction": "Les ventes par produit en 2024",
-                     *             "job_id": "259a786bb51c4b18829b7082c79fbcf3",
+                     *             "job_id": "64ddeaf048564d7583e8a8ca486e4252",
                      *             "kind": "question",
                      *             "llm": null,
                      *             "option_counts": [
@@ -5330,11 +5423,11 @@ export interface operations {
                      *           {
                      *             "clarification": null,
                      *             "context_tokens": 233,
-                     *             "created_at": "2026-10-28T21:17:58.573868Z",
+                     *             "created_at": "2026-10-29T01:53:28.690294Z",
                      *             "effective": "Les ventes par produit en 2024",
                      *             "error": null,
                      *             "instruction": "Chiffre d'affaires",
-                     *             "job_id": "0f41963f4f464a068a7a8f5e4915fcc3",
+                     *             "job_id": "ff77669693ea4fd7b2b2ea6956a4f902",
                      *             "kind": "answer",
                      *             "llm": null,
                      *             "option_counts": [],
@@ -5448,9 +5541,9 @@ export interface operations {
                      *         "model_sql": null,
                      *         "model_summary": null,
                      *         "owner_email": "analyste@demo.forja.local",
-                     *         "owner_id": "d9d26f58279a43599f4782b39a238a67",
+                     *         "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
                      *         "owner_unmasked": false,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "publish_error": null,
                      *         "publish_job_id": null,
                      *         "published_at": null,
@@ -5461,17 +5554,17 @@ export interface operations {
                      *         "rejection_reason": null,
                      *         "semantic_version": 3,
                      *         "status": "previewed",
-                     *         "updated_at": "2026-10-28T21:17:58.769658Z",
+                     *         "updated_at": "2026-10-29T01:53:28.881184Z",
                      *         "validated_at": null
                      *       },
                      *       "run": {
                      *         "attempts": 0,
                      *         "cancel_requested": false,
-                     *         "created_at": "2026-10-28T21:17:58.575457Z",
-                     *         "created_by": "d9d26f58279a43599f4782b39a238a67",
+                     *         "created_at": "2026-10-29T01:53:28.691925Z",
+                     *         "created_by": "377fa4fb58904d34af65f5933f6f7cdd",
                      *         "error": null,
                      *         "finished_at": null,
-                     *         "id": "0f41963f4f464a068a7a8f5e4915fcc3",
+                     *         "id": "ff77669693ea4fd7b2b2ea6956a4f902",
                      *         "metrics": null,
                      *         "params": {
                      *           "csv_delimiter": null,
@@ -5480,13 +5573,13 @@ export interface operations {
                      *             "csv"
                      *           ],
                      *           "full_refresh": false,
-                     *           "mart_request_id": "781d414f5ce6471498380942d10be7ee",
+                     *           "mart_request_id": "34d64bb7e51b44e299f18d71f21acb39",
                      *           "source_ids": null,
                      *           "type": "mart_request",
                      *           "use_llm": true
                      *         },
                      *         "progress": null,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "result": null,
                      *         "started_at": null,
                      *         "status": "queued",
@@ -5528,28 +5621,29 @@ export interface operations {
                     /**
                      * @example {
                      *       "mart_request": {
-                     *         "approved_at": "2026-10-28T21:17:59.444211Z",
-                     *         "approved_by": "f7662b44b85844fca1b33c3ac76cbe90",
+                     *         "approved_at": "2026-10-29T01:53:29.562090Z",
+                     *         "approved_by": "823aac3b0ef54b04a0ea9d115868a6d4",
+                     *         "approved_by_email": "ingenieur@demo.forja.local",
                      *         "bindings": {
                      *           "vente": "metric:montant"
                      *         },
-                     *         "created_at": "2026-10-28T21:17:58.330680Z",
+                     *         "created_at": "2026-10-29T01:53:28.431410Z",
                      *         "destination": "powerbi",
                      *         "exports": [
                      *           {
                      *             "format": "parquet",
-                     *             "path": "2c52376ee6594da69567373ad95dcbed/exports/mart_montant_par_libelle_2024.parquet",
+                     *             "path": "0f0e2a12705747e3afac6be0235494d2/exports/mart_montant_par_libelle_2024.parquet",
                      *             "rows": 10,
                      *             "table": "mart_montant_par_libelle_2024"
                      *           },
                      *           {
                      *             "format": "csv",
-                     *             "path": "2c52376ee6594da69567373ad95dcbed/exports/mart_montant_par_libelle_2024.csv",
+                     *             "path": "0f0e2a12705747e3afac6be0235494d2/exports/mart_montant_par_libelle_2024.csv",
                      *             "rows": 10,
                      *             "table": "mart_montant_par_libelle_2024"
                      *           }
                      *         ],
-                     *         "id": "781d414f5ce6471498380942d10be7ee",
+                     *         "id": "34d64bb7e51b44e299f18d71f21acb39",
                      *         "iterations": [
                      *           {
                      *             "clarification": {
@@ -5567,11 +5661,11 @@ export interface operations {
                      *               "term": "ventes"
                      *             },
                      *             "context_tokens": 233,
-                     *             "created_at": "2026-10-28T21:17:58.330680Z",
+                     *             "created_at": "2026-10-29T01:53:28.431410Z",
                      *             "effective": "Les ventes par produit en 2024",
                      *             "error": null,
                      *             "instruction": "Les ventes par produit en 2024",
-                     *             "job_id": "259a786bb51c4b18829b7082c79fbcf3",
+                     *             "job_id": "64ddeaf048564d7583e8a8ca486e4252",
                      *             "kind": "question",
                      *             "llm": null,
                      *             "option_counts": [
@@ -5605,11 +5699,11 @@ export interface operations {
                      *           {
                      *             "clarification": null,
                      *             "context_tokens": 233,
-                     *             "created_at": "2026-10-28T21:17:58.573868Z",
+                     *             "created_at": "2026-10-29T01:53:28.690294Z",
                      *             "effective": "Les ventes par produit en 2024",
                      *             "error": null,
                      *             "instruction": "Chiffre d'affaires",
-                     *             "job_id": "0f41963f4f464a068a7a8f5e4915fcc3",
+                     *             "job_id": "ff77669693ea4fd7b2b2ea6956a4f902",
                      *             "kind": "answer",
                      *             "llm": null,
                      *             "option_counts": [],
@@ -5737,33 +5831,33 @@ export interface operations {
                      *             "ref": "metric:quantite"
                      *           }
                      *         ],
-                     *         "model_sql": "-- Data mart requested by analyste@demo.forja.local: Les ventes par produit en 2024\n-- Quantité vendue par produit, sur T1 2024.\n-- Generated by Forja from mart request 781d414f5ce6471498380942d10be7ee v4.\n-- Do not edit: this file is regenerated on each build.\n\n{{ config(materialized='table') }}\n\nwith base as (\n\n    select\n        produit.libelle as libelle,\n        f.quantite as _m_quantite\n    …",
+                     *         "model_sql": "-- Data mart requested by analyste@demo.forja.local: Les ventes par produit en 2024\n-- Quantité vendue par produit, sur T1 2024.\n-- Generated by Forja from mart request 34d64bb7e51b44e299f18d71f21acb39 v4.\n-- Do not edit: this file is regenerated on each build.\n\n{{ config(materialized='table') }}\n\nwith base as (\n\n    select\n        produit.libelle as libelle,\n        f.quantite as _m_quantite\n    …",
                      *         "model_summary": "Quantité vendue par produit, sur T1 2024.",
                      *         "owner_email": "analyste@demo.forja.local",
-                     *         "owner_id": "d9d26f58279a43599f4782b39a238a67",
+                     *         "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
                      *         "owner_unmasked": false,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "publish_error": null,
-                     *         "publish_job_id": "59e1699b4dbb4d0c9d5933cf84a5e107",
-                     *         "published_at": "2026-10-28T21:18:06.254155Z",
+                     *         "publish_job_id": "82f798931bf74d5eabebc03dcf4733de",
+                     *         "published_at": "2026-10-29T01:53:36.630344Z",
                      *         "published_name": "mart_montant_par_libelle_2024",
-                     *         "published_table_id": "cf60c5fcdc1b4215a62f29d80fb09d67",
+                     *         "published_table_id": "962effd38372447195f2a45765c9e694",
                      *         "question": "Les ventes par produit en 2024",
                      *         "rejected_by": null,
                      *         "rejection_reason": null,
                      *         "semantic_version": 3,
                      *         "status": "published",
-                     *         "updated_at": "2026-10-28T21:18:06.254155Z",
-                     *         "validated_at": "2026-10-28T21:17:59.412960Z"
+                     *         "updated_at": "2026-10-29T01:53:36.630344Z",
+                     *         "validated_at": "2026-10-29T01:53:29.515739Z"
                      *       },
                      *       "run": {
                      *         "attempts": 0,
                      *         "cancel_requested": false,
-                     *         "created_at": "2026-10-28T21:17:59.467086Z",
-                     *         "created_by": "f7662b44b85844fca1b33c3ac76cbe90",
+                     *         "created_at": "2026-10-29T01:53:29.582121Z",
+                     *         "created_by": "823aac3b0ef54b04a0ea9d115868a6d4",
                      *         "error": null,
                      *         "finished_at": null,
-                     *         "id": "59e1699b4dbb4d0c9d5933cf84a5e107",
+                     *         "id": "82f798931bf74d5eabebc03dcf4733de",
                      *         "metrics": null,
                      *         "params": {
                      *           "csv_delimiter": null,
@@ -5772,13 +5866,13 @@ export interface operations {
                      *             "csv"
                      *           ],
                      *           "full_refresh": false,
-                     *           "mart_request_id": "781d414f5ce6471498380942d10be7ee",
+                     *           "mart_request_id": "34d64bb7e51b44e299f18d71f21acb39",
                      *           "source_ids": null,
                      *           "type": "publish_mart",
                      *           "use_llm": true
                      *         },
                      *         "progress": null,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "result": null,
                      *         "started_at": null,
                      *         "status": "queued",
@@ -5826,13 +5920,14 @@ export interface operations {
                      *       "mart_request": {
                      *         "approved_at": null,
                      *         "approved_by": null,
+                     *         "approved_by_email": null,
                      *         "bindings": {
                      *           "vente": "metric:montant"
                      *         },
-                     *         "created_at": "2026-10-28T21:17:58.330680Z",
+                     *         "created_at": "2026-10-29T01:53:28.431410Z",
                      *         "destination": null,
                      *         "exports": [],
-                     *         "id": "781d414f5ce6471498380942d10be7ee",
+                     *         "id": "34d64bb7e51b44e299f18d71f21acb39",
                      *         "iterations": [
                      *           {
                      *             "clarification": {
@@ -5850,11 +5945,11 @@ export interface operations {
                      *               "term": "ventes"
                      *             },
                      *             "context_tokens": 233,
-                     *             "created_at": "2026-10-28T21:17:58.330680Z",
+                     *             "created_at": "2026-10-29T01:53:28.431410Z",
                      *             "effective": "Les ventes par produit en 2024",
                      *             "error": null,
                      *             "instruction": "Les ventes par produit en 2024",
-                     *             "job_id": "259a786bb51c4b18829b7082c79fbcf3",
+                     *             "job_id": "64ddeaf048564d7583e8a8ca486e4252",
                      *             "kind": "question",
                      *             "llm": null,
                      *             "option_counts": [
@@ -5888,11 +5983,11 @@ export interface operations {
                      *           {
                      *             "clarification": null,
                      *             "context_tokens": 233,
-                     *             "created_at": "2026-10-28T21:17:58.573868Z",
+                     *             "created_at": "2026-10-29T01:53:28.690294Z",
                      *             "effective": "Les ventes par produit en 2024",
                      *             "error": null,
                      *             "instruction": "Chiffre d'affaires",
-                     *             "job_id": "0f41963f4f464a068a7a8f5e4915fcc3",
+                     *             "job_id": "ff77669693ea4fd7b2b2ea6956a4f902",
                      *             "kind": "answer",
                      *             "llm": null,
                      *             "option_counts": [],
@@ -6006,9 +6101,9 @@ export interface operations {
                      *         "model_sql": null,
                      *         "model_summary": null,
                      *         "owner_email": "analyste@demo.forja.local",
-                     *         "owner_id": "d9d26f58279a43599f4782b39a238a67",
+                     *         "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
                      *         "owner_unmasked": false,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "publish_error": null,
                      *         "publish_job_id": null,
                      *         "published_at": null,
@@ -6019,17 +6114,17 @@ export interface operations {
                      *         "rejection_reason": null,
                      *         "semantic_version": 3,
                      *         "status": "previewed",
-                     *         "updated_at": "2026-10-28T21:17:59.331368Z",
+                     *         "updated_at": "2026-10-29T01:53:29.426640Z",
                      *         "validated_at": null
                      *       },
                      *       "run": {
                      *         "attempts": 0,
                      *         "cancel_requested": false,
-                     *         "created_at": "2026-10-28T21:17:59.140154Z",
-                     *         "created_by": "d9d26f58279a43599f4782b39a238a67",
+                     *         "created_at": "2026-10-29T01:53:29.239722Z",
+                     *         "created_by": "377fa4fb58904d34af65f5933f6f7cdd",
                      *         "error": null,
                      *         "finished_at": null,
-                     *         "id": "ae69ac3461714e058c249b5fcb6546b0",
+                     *         "id": "dcca97217e2243d7992d87b4f1e23de7",
                      *         "metrics": null,
                      *         "params": {
                      *           "csv_delimiter": null,
@@ -6038,13 +6133,13 @@ export interface operations {
                      *             "csv"
                      *           ],
                      *           "full_refresh": false,
-                     *           "mart_request_id": "781d414f5ce6471498380942d10be7ee",
+                     *           "mart_request_id": "34d64bb7e51b44e299f18d71f21acb39",
                      *           "source_ids": null,
                      *           "type": "mart_request",
                      *           "use_llm": true
                      *         },
                      *         "progress": null,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "result": null,
                      *         "started_at": null,
                      *         "status": "queued",
@@ -6092,13 +6187,14 @@ export interface operations {
                      *       "mart_request": {
                      *         "approved_at": null,
                      *         "approved_by": null,
+                     *         "approved_by_email": null,
                      *         "bindings": {
                      *           "vente": "metric:montant"
                      *         },
-                     *         "created_at": "2026-10-28T21:17:58.330680Z",
+                     *         "created_at": "2026-10-29T01:53:28.431410Z",
                      *         "destination": null,
                      *         "exports": [],
-                     *         "id": "781d414f5ce6471498380942d10be7ee",
+                     *         "id": "34d64bb7e51b44e299f18d71f21acb39",
                      *         "iterations": [
                      *           {
                      *             "clarification": {
@@ -6116,11 +6212,11 @@ export interface operations {
                      *               "term": "ventes"
                      *             },
                      *             "context_tokens": 233,
-                     *             "created_at": "2026-10-28T21:17:58.330680Z",
+                     *             "created_at": "2026-10-29T01:53:28.431410Z",
                      *             "effective": "Les ventes par produit en 2024",
                      *             "error": null,
                      *             "instruction": "Les ventes par produit en 2024",
-                     *             "job_id": "259a786bb51c4b18829b7082c79fbcf3",
+                     *             "job_id": "64ddeaf048564d7583e8a8ca486e4252",
                      *             "kind": "question",
                      *             "llm": null,
                      *             "option_counts": [
@@ -6154,11 +6250,11 @@ export interface operations {
                      *           {
                      *             "clarification": null,
                      *             "context_tokens": 233,
-                     *             "created_at": "2026-10-28T21:17:58.573868Z",
+                     *             "created_at": "2026-10-29T01:53:28.690294Z",
                      *             "effective": "Les ventes par produit en 2024",
                      *             "error": null,
                      *             "instruction": "Chiffre d'affaires",
-                     *             "job_id": "0f41963f4f464a068a7a8f5e4915fcc3",
+                     *             "job_id": "ff77669693ea4fd7b2b2ea6956a4f902",
                      *             "kind": "answer",
                      *             "llm": null,
                      *             "option_counts": [],
@@ -6272,9 +6368,9 @@ export interface operations {
                      *         "model_sql": null,
                      *         "model_summary": null,
                      *         "owner_email": "analyste@demo.forja.local",
-                     *         "owner_id": "d9d26f58279a43599f4782b39a238a67",
+                     *         "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
                      *         "owner_unmasked": false,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "publish_error": null,
                      *         "publish_job_id": null,
                      *         "published_at": null,
@@ -6285,17 +6381,17 @@ export interface operations {
                      *         "rejection_reason": null,
                      *         "semantic_version": 3,
                      *         "status": "previewed",
-                     *         "updated_at": "2026-10-28T21:17:59.031002Z",
+                     *         "updated_at": "2026-10-29T01:53:29.122039Z",
                      *         "validated_at": null
                      *       },
                      *       "run": {
                      *         "attempts": 0,
                      *         "cancel_requested": false,
-                     *         "created_at": "2026-10-28T21:17:58.823116Z",
-                     *         "created_by": "d9d26f58279a43599f4782b39a238a67",
+                     *         "created_at": "2026-10-29T01:53:28.930501Z",
+                     *         "created_by": "377fa4fb58904d34af65f5933f6f7cdd",
                      *         "error": null,
                      *         "finished_at": null,
-                     *         "id": "8aa0ddf625e8426eb8f235f0b9307b44",
+                     *         "id": "07bb9110fdda494890bf2fa248a024cb",
                      *         "metrics": null,
                      *         "params": {
                      *           "csv_delimiter": null,
@@ -6304,13 +6400,13 @@ export interface operations {
                      *             "csv"
                      *           ],
                      *           "full_refresh": false,
-                     *           "mart_request_id": "781d414f5ce6471498380942d10be7ee",
+                     *           "mart_request_id": "34d64bb7e51b44e299f18d71f21acb39",
                      *           "source_ids": null,
                      *           "type": "mart_request",
                      *           "use_llm": true
                      *         },
                      *         "progress": null,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "result": null,
                      *         "started_at": null,
                      *         "status": "queued",
@@ -6357,20 +6453,21 @@ export interface operations {
                      * @example {
                      *       "approved_at": null,
                      *       "approved_by": null,
+                     *       "approved_by_email": null,
                      *       "bindings": {},
-                     *       "created_at": "2026-10-28T21:18:06.298661Z",
+                     *       "created_at": "2026-10-29T01:53:36.686899Z",
                      *       "destination": null,
                      *       "exports": [],
-                     *       "id": "3e0e3aa4cc364363ac94ab2f7fa6f075",
+                     *       "id": "9aacf3c757884e7085039a6c1ac6edd8",
                      *       "iterations": [
                      *         {
                      *           "clarification": null,
                      *           "context_tokens": 220,
-                     *           "created_at": "2026-10-28T21:18:06.298661Z",
+                     *           "created_at": "2026-10-29T01:53:36.686899Z",
                      *           "effective": "Panier moyen par segment",
                      *           "error": null,
                      *           "instruction": "Panier moyen par segment",
-                     *           "job_id": "f1ac33d6d06e46e18713a652373ccc52",
+                     *           "job_id": "8e49131399fe4c4c8f2363f91bbc1a69",
                      *           "kind": "question",
                      *           "llm": null,
                      *           "option_counts": [],
@@ -6478,20 +6575,20 @@ export interface operations {
                      *       "model_sql": null,
                      *       "model_summary": null,
                      *       "owner_email": "analyste@demo.forja.local",
-                     *       "owner_id": "d9d26f58279a43599f4782b39a238a67",
+                     *       "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
                      *       "owner_unmasked": false,
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "publish_error": null,
                      *       "publish_job_id": null,
                      *       "published_at": null,
                      *       "published_name": null,
                      *       "published_table_id": null,
                      *       "question": "Panier moyen par segment",
-                     *       "rejected_by": "d9d26f58279a43599f4782b39a238a67",
+                     *       "rejected_by": "377fa4fb58904d34af65f5933f6f7cdd",
                      *       "rejection_reason": "doublon",
                      *       "semantic_version": 3,
                      *       "status": "rejected",
-                     *       "updated_at": "2026-10-28T21:18:06.515440Z",
+                     *       "updated_at": "2026-10-29T01:53:36.930726Z",
                      *       "validated_at": null
                      *     }
                      */
@@ -6535,13 +6632,14 @@ export interface operations {
                      *       "mart_request": {
                      *         "approved_at": null,
                      *         "approved_by": null,
+                     *         "approved_by_email": null,
                      *         "bindings": {
                      *           "vente": "metric:montant"
                      *         },
-                     *         "created_at": "2026-10-28T21:17:58.330680Z",
+                     *         "created_at": "2026-10-29T01:53:28.431410Z",
                      *         "destination": "powerbi",
                      *         "exports": [],
-                     *         "id": "781d414f5ce6471498380942d10be7ee",
+                     *         "id": "34d64bb7e51b44e299f18d71f21acb39",
                      *         "iterations": [
                      *           {
                      *             "clarification": {
@@ -6559,11 +6657,11 @@ export interface operations {
                      *               "term": "ventes"
                      *             },
                      *             "context_tokens": 233,
-                     *             "created_at": "2026-10-28T21:17:58.330680Z",
+                     *             "created_at": "2026-10-29T01:53:28.431410Z",
                      *             "effective": "Les ventes par produit en 2024",
                      *             "error": null,
                      *             "instruction": "Les ventes par produit en 2024",
-                     *             "job_id": "259a786bb51c4b18829b7082c79fbcf3",
+                     *             "job_id": "64ddeaf048564d7583e8a8ca486e4252",
                      *             "kind": "question",
                      *             "llm": null,
                      *             "option_counts": [
@@ -6597,11 +6695,11 @@ export interface operations {
                      *           {
                      *             "clarification": null,
                      *             "context_tokens": 233,
-                     *             "created_at": "2026-10-28T21:17:58.573868Z",
+                     *             "created_at": "2026-10-29T01:53:28.690294Z",
                      *             "effective": "Les ventes par produit en 2024",
                      *             "error": null,
                      *             "instruction": "Chiffre d'affaires",
-                     *             "job_id": "0f41963f4f464a068a7a8f5e4915fcc3",
+                     *             "job_id": "ff77669693ea4fd7b2b2ea6956a4f902",
                      *             "kind": "answer",
                      *             "llm": null,
                      *             "option_counts": [],
@@ -6715,9 +6813,9 @@ export interface operations {
                      *         "model_sql": null,
                      *         "model_summary": null,
                      *         "owner_email": "analyste@demo.forja.local",
-                     *         "owner_id": "d9d26f58279a43599f4782b39a238a67",
+                     *         "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
                      *         "owner_unmasked": false,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "publish_error": null,
                      *         "publish_job_id": null,
                      *         "published_at": null,
@@ -6728,8 +6826,8 @@ export interface operations {
                      *         "rejection_reason": null,
                      *         "semantic_version": 3,
                      *         "status": "validated",
-                     *         "updated_at": "2026-10-28T21:17:59.331368Z",
-                     *         "validated_at": "2026-10-28T21:17:59.412960Z"
+                     *         "updated_at": "2026-10-29T01:53:29.426640Z",
+                     *         "validated_at": "2026-10-29T01:53:29.515739Z"
                      *       },
                      *       "run": null
                      *     }
@@ -6767,6 +6865,46 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "action": {
+                     *             "label": "Ouvrir",
+                     *             "target_id": "9aacf3c757884e7085039a6c1ac6edd8",
+                     *             "target_type": "mart"
+                     *           },
+                     *           "created_at": "2026-10-29T01:53:36.945623Z",
+                     *           "detail": "doublon",
+                     *           "id": "9ddf73c24a2f406193601e50c52304dc",
+                     *           "kind": "mart_rejected",
+                     *           "project_id": "0f0e2a12705747e3afac6be0235494d2",
+                     *           "read_at": null,
+                     *           "title": "Data mart rejeté",
+                     *           "user_id": "377fa4fb58904d34af65f5933f6f7cdd"
+                     *         },
+                     *         {
+                     *           "action": {
+                     *             "label": "Vérifier",
+                     *             "target_id": "9aacf3c757884e7085039a6c1ac6edd8",
+                     *             "target_type": "mart"
+                     *           },
+                     *           "created_at": "2026-10-29T01:53:36.901938Z",
+                     *           "detail": "Panier moyen par segment.",
+                     *           "id": "49dbb7def6eb4bb58fe1188a9d1e2e4f",
+                     *           "kind": "ai_job_done",
+                     *           "project_id": "0f0e2a12705747e3afac6be0235494d2",
+                     *           "read_at": null,
+                     *           "title": "Aperçu prêt à vérifier",
+                     *           "user_id": "377fa4fb58904d34af65f5933f6f7cdd"
+                     *         }
+                     *       ],
+                     *       "limit": 2,
+                     *       "offset": 0,
+                     *       "total": 12,
+                     *       "unread": 12
+                     *     }
+                     */
                     "application/json": components["schemas"]["NotificationPage"];
                 };
             };
@@ -6800,6 +6938,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "marked": 12,
+                     *       "unread": 0
+                     *     }
+                     */
                     "application/json": components["schemas"]["ReadResult"];
                 };
             };
@@ -6833,16 +6977,16 @@ export interface operations {
                      * @example [
                      *       {
                      *         "architecture": "medallion",
-                     *         "created_at": "2026-10-28T21:17:22.245090Z",
+                     *         "created_at": "2026-10-29T01:52:51.701526Z",
                      *         "description": "Boutique en ligne fictive (données générées)",
-                     *         "id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "name": "Démo e-commerce"
                      *       },
                      *       {
                      *         "architecture": "medallion",
-                     *         "created_at": "2026-10-28T21:17:53.625261Z",
+                     *         "created_at": "2026-10-29T01:53:23.831228Z",
                      *         "description": null,
-                     *         "id": "fb67b5faf80e47d68a522dd764a13683",
+                     *         "id": "c1a69ca6314c4814be73110a53d4662b",
                      *         "name": "Finance"
                      *       }
                      *     ]
@@ -6874,9 +7018,9 @@ export interface operations {
                     /**
                      * @example {
                      *       "architecture": "medallion",
-                     *       "created_at": "2026-10-28T21:17:53.625261Z",
+                     *       "created_at": "2026-10-29T01:53:23.831228Z",
                      *       "description": null,
-                     *       "id": "fb67b5faf80e47d68a522dd764a13683",
+                     *       "id": "c1a69ca6314c4814be73110a53d4662b",
                      *       "name": "Finance"
                      *     }
                      */
@@ -6913,12 +7057,12 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "data_updated_at": "2026-10-28T21:17:38.550229Z",
-                     *       "gold_run_id": "14dae6a40b3a4baea9b479406b87a1bc",
+                     *       "data_updated_at": "2026-10-29T01:53:08.437577Z",
+                     *       "gold_run_id": "54d198f4051a4ba6bb2b07078a2d3f3e",
                      *       "semantic_version": 3,
                      *       "suggestions": [
                      *         "Chiffre d'affaires par mois en 2024",
-                     *         "Chiffre d'affaires par code produit"
+                     *         "Chiffre d'affaires par produit"
                      *       ]
                      *     }
                      */
@@ -6941,6 +7085,13 @@ export interface operations {
             query?: {
                 action?: string | null;
                 limit?: number;
+                object_type?: string | null;
+                offset?: number;
+                since?: string | null;
+                /** @description Words found in the entry */
+                text?: string | null;
+                /** @description An email, or « système » */
+                user?: string | null;
             };
             header?: never;
             path: {
@@ -6957,36 +7108,55 @@ export interface operations {
                 };
                 content: {
                     /**
-                     * @example [
-                     *       {
-                     *         "action": "mart.reject",
-                     *         "at": "2026-10-28T21:18:06.528119Z",
-                     *         "details": {
-                     *           "reason": "doublon"
-                     *         },
-                     *         "id": "b580c01ae3cf4165822e5595c03ab02f",
-                     *         "object_id": "3e0e3aa4cc364363ac94ab2f7fa6f075",
-                     *         "object_type": "mart_request",
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
-                     *         "user_email": "analyste@demo.forja.local",
-                     *         "user_id": "d9d26f58279a43599f4782b39a238a67"
+                     * @example {
+                     *       "facets": {
+                     *         "actions": [
+                     *           "agent.request",
+                     *           "mart.publish"
+                     *         ],
+                     *         "objects": [
+                     *           "mart_request",
+                     *           "synonym_proposal"
+                     *         ],
+                     *         "users": [
+                     *           "ingenieur@demo.forja.local",
+                     *           "analyste@demo.forja.local"
+                     *         ]
                      *       },
-                     *       {
-                     *         "action": "agent.request",
-                     *         "at": "2026-10-28T21:18:06.491411Z",
-                     *         "details": {
-                     *           "question": "Panier moyen par segment"
+                     *       "items": [
+                     *         {
+                     *           "action": "mart.reject",
+                     *           "at": "2026-10-29T01:53:36.941089Z",
+                     *           "details": {
+                     *             "reason": "doublon"
+                     *           },
+                     *           "id": "bb6bd71c108c4ea4ae9e59e9b98a5c0d",
+                     *           "object_id": "9aacf3c757884e7085039a6c1ac6edd8",
+                     *           "object_type": "mart_request",
+                     *           "project_id": "0f0e2a12705747e3afac6be0235494d2",
+                     *           "user_email": "analyste@demo.forja.local",
+                     *           "user_id": "377fa4fb58904d34af65f5933f6f7cdd"
                      *         },
-                     *         "id": "f480bf692b914fb78d16ba41ca3b28f8",
-                     *         "object_id": "3e0e3aa4cc364363ac94ab2f7fa6f075",
-                     *         "object_type": "mart_request",
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
-                     *         "user_email": "analyste@demo.forja.local",
-                     *         "user_id": "d9d26f58279a43599f4782b39a238a67"
-                     *       }
-                     *     ]
+                     *         {
+                     *           "action": "agent.request",
+                     *           "at": "2026-10-29T01:53:36.906686Z",
+                     *           "details": {
+                     *             "question": "Panier moyen par segment"
+                     *           },
+                     *           "id": "fe2690b3f26c49bba049f1600da5883f",
+                     *           "object_id": "9aacf3c757884e7085039a6c1ac6edd8",
+                     *           "object_type": "mart_request",
+                     *           "project_id": "0f0e2a12705747e3afac6be0235494d2",
+                     *           "user_email": "analyste@demo.forja.local",
+                     *           "user_id": "377fa4fb58904d34af65f5933f6f7cdd"
+                     *         }
+                     *       ],
+                     *       "limit": 2,
+                     *       "offset": 0,
+                     *       "total": 43
+                     *     }
                      */
-                    "application/json": components["schemas"]["AuditEntry"][];
+                    "application/json": components["schemas"]["AuditPage"];
                 };
             };
             /** @description Validation Error */
@@ -7021,7 +7191,7 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "created_at": "2026-10-28T21:17:31.562217Z",
+                     *       "created_at": "2026-10-29T01:53:01.207691Z",
                      *       "date_dimension": {
                      *         "enabled": true,
                      *         "explanation": "Dimension date générée : un jour par ligne de la plus ancienne à la plus récente date des faits, avec année, trimestre, mois, semaine et jour en français, et un membre inconnu (-1)."
@@ -7105,7 +7275,7 @@ export interface operations {
                      *               "dimension": "dim_produits",
                      *               "explanation": "produit_key → dim_produits via la relation confirmée lignes_commande.code_produit → produits.code_produit.",
                      *               "name": "produit_key",
-                     *               "relation_id": "110fb6e834ab407ba89979e01edea5c8",
+                     *               "relation_id": "969b24a7adcd458a985935793f9cd1f1",
                      *               "source": "lignes_commande"
                      *             },
                      *             {
@@ -7113,7 +7283,7 @@ export interface operations {
                      *               "dimension": "dim_clients",
                      *               "explanation": "client_key → dim_clients via la relation confirmée commandes.id_client → clients.id_client.",
                      *               "name": "client_key",
-                     *               "relation_id": "f34e3fcbe744417e96686934aa816078",
+                     *               "relation_id": "79668b209ee64f45a44f9a5a7d57c904",
                      *               "source": "commandes"
                      *             }
                      *           ],
@@ -7151,13 +7321,13 @@ export interface operations {
                      *           "source": "lignes_commande"
                      *         }
                      *       ],
-                     *       "id": "dd5cc05aa9b249c98d8aa81c3e978369",
+                     *       "id": "da9c496c272b49308ed9e9fdb9fd68d4",
                      *       "issues": [],
                      *       "origin": "heuristic",
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "status": "applied",
                      *       "summary": "2 dimension(s), 1 fait(s), dimension date générée. Validation : 0 erreur(s), 0 avertissement(s).",
-                     *       "updated_at": "2026-10-28T21:17:38.565155Z",
+                     *       "updated_at": "2026-10-29T01:53:08.451794Z",
                      *       "version": 1,
                      *       "warnings": [
                      *         "commandes.frais_port n'est pas repris comme mesure : il est au niveau de commandes, le sommer au grain de lignes_commande le multiplierait"
@@ -7201,7 +7371,7 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "created_at": "2026-10-28T21:17:56.048788Z",
+                     *       "created_at": "2026-10-29T01:53:26.200829Z",
                      *       "date_dimension": {
                      *         "enabled": true,
                      *         "explanation": "Dimension date générée : un jour par ligne de la plus ancienne à la plus récente date des faits, avec année, trimestre, mois, semaine et jour en français, et un membre inconnu (-1)."
@@ -7285,7 +7455,7 @@ export interface operations {
                      *               "dimension": "dim_produits",
                      *               "explanation": "produit_key → dim_produits via la relation confirmée lignes_commande.code_produit → produits.code_produit.",
                      *               "name": "produit_key",
-                     *               "relation_id": "110fb6e834ab407ba89979e01edea5c8",
+                     *               "relation_id": "969b24a7adcd458a985935793f9cd1f1",
                      *               "source": "lignes_commande"
                      *             },
                      *             {
@@ -7293,7 +7463,7 @@ export interface operations {
                      *               "dimension": "dim_clients",
                      *               "explanation": "client_key → dim_clients via la relation confirmée commandes.id_client → clients.id_client.",
                      *               "name": "client_key",
-                     *               "relation_id": "f34e3fcbe744417e96686934aa816078",
+                     *               "relation_id": "79668b209ee64f45a44f9a5a7d57c904",
                      *               "source": "commandes"
                      *             }
                      *           ],
@@ -7331,13 +7501,13 @@ export interface operations {
                      *           "source": "lignes_commande"
                      *         }
                      *       ],
-                     *       "id": "8d229e63fa724253bf351a06f2a9cc19",
+                     *       "id": "30da6d659f3640b09fe10c8839a5e1e8",
                      *       "issues": [],
                      *       "origin": "heuristic",
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "status": "draft",
                      *       "summary": "2 dimension(s), 1 fait(s), dimension date générée. Validation : 0 erreur(s), 0 avertissement(s).",
-                     *       "updated_at": "2026-10-28T21:17:56.048788Z",
+                     *       "updated_at": "2026-10-29T01:53:26.200829Z",
                      *       "version": 3,
                      *       "warnings": []
                      *     }
@@ -7375,7 +7545,7 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "created_at": "2026-10-28T21:17:56.048788Z",
+                     *       "created_at": "2026-10-29T01:53:26.200829Z",
                      *       "date_dimension": {
                      *         "enabled": true,
                      *         "explanation": "Dimension date générée : un jour par ligne de la plus ancienne à la plus récente date des faits, avec année, trimestre, mois, semaine et jour en français, et un membre inconnu (-1)."
@@ -7459,7 +7629,7 @@ export interface operations {
                      *               "dimension": "dim_produits",
                      *               "explanation": "produit_key → dim_produits via la relation confirmée lignes_commande.code_produit → produits.code_produit.",
                      *               "name": "produit_key",
-                     *               "relation_id": "110fb6e834ab407ba89979e01edea5c8",
+                     *               "relation_id": "969b24a7adcd458a985935793f9cd1f1",
                      *               "source": "lignes_commande"
                      *             },
                      *             {
@@ -7467,7 +7637,7 @@ export interface operations {
                      *               "dimension": "dim_clients",
                      *               "explanation": "client_key → dim_clients via la relation confirmée commandes.id_client → clients.id_client.",
                      *               "name": "client_key",
-                     *               "relation_id": "f34e3fcbe744417e96686934aa816078",
+                     *               "relation_id": "79668b209ee64f45a44f9a5a7d57c904",
                      *               "source": "commandes"
                      *             }
                      *           ],
@@ -7505,13 +7675,13 @@ export interface operations {
                      *           "source": "lignes_commande"
                      *         }
                      *       ],
-                     *       "id": "8d229e63fa724253bf351a06f2a9cc19",
+                     *       "id": "30da6d659f3640b09fe10c8839a5e1e8",
                      *       "issues": [],
                      *       "origin": "heuristic",
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "status": "approved",
                      *       "summary": "2 dimension(s), 1 fait(s), dimension date générée. Validation : 0 erreur(s), 0 avertissement(s).",
-                     *       "updated_at": "2026-10-28T21:17:56.109143Z",
+                     *       "updated_at": "2026-10-29T01:53:26.256791Z",
                      *       "version": 3,
                      *       "warnings": []
                      *     }
@@ -7587,11 +7757,11 @@ export interface operations {
                      * @example {
                      *       "attempts": 1,
                      *       "cancel_requested": false,
-                     *       "created_at": "2026-10-28T21:17:55.896360Z",
-                     *       "created_by": "f7662b44b85844fca1b33c3ac76cbe90",
+                     *       "created_at": "2026-10-29T01:53:26.041892Z",
+                     *       "created_by": "823aac3b0ef54b04a0ea9d115868a6d4",
                      *       "error": null,
-                     *       "finished_at": "2026-10-28T21:17:55.978574Z",
-                     *       "id": "c5fdd26f94f74021af8c6cff71de4e11",
+                     *       "finished_at": "2026-10-29T01:53:26.132425Z",
+                     *       "id": "4bb28e0ec9234a438880818958b938c1",
                      *       "metrics": {
                      *         "dbt_tests": null,
                      *         "duplicates_removed": 0,
@@ -7627,9 +7797,9 @@ export interface operations {
                      *         "percent": 100,
                      *         "running": [],
                      *         "step": "validation",
-                     *         "updated_at": "2026-10-28T21:17:55.974985Z"
+                     *         "updated_at": "2026-10-29T01:53:26.127490Z"
                      *       },
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "result": {
                      *         "errors": 0,
                      *         "gold_plan_version": 2,
@@ -7638,7 +7808,7 @@ export interface operations {
                      *           "commandes.frais_port n'est pas repris comme mesure : il est au niveau de commandes, le sommer au grain de lignes_commande le multiplierait"
                      *         ]
                      *       },
-                     *       "started_at": "2026-10-28T21:17:55.905298Z",
+                     *       "started_at": "2026-10-29T01:53:26.050727Z",
                      *       "status": "succeeded",
                      *       "type": "gold_proposal"
                      *     }
@@ -7677,7 +7847,7 @@ export interface operations {
                     /**
                      * @example [
                      *       {
-                     *         "created_at": "2026-10-28T21:17:31.562217Z",
+                     *         "created_at": "2026-10-29T01:53:01.207691Z",
                      *         "date_dimension": {
                      *           "enabled": true,
                      *           "explanation": "Dimension date générée : un jour par ligne de la plus ancienne à la plus récente date des faits, avec année, trimestre, mois, semaine et jour en français, et un membre inconnu (-1)."
@@ -7761,7 +7931,7 @@ export interface operations {
                      *                 "dimension": "dim_produits",
                      *                 "explanation": "produit_key → dim_produits via la relation confirmée lignes_commande.code_produit → produits.code_produit.",
                      *                 "name": "produit_key",
-                     *                 "relation_id": "110fb6e834ab407ba89979e01edea5c8",
+                     *                 "relation_id": "969b24a7adcd458a985935793f9cd1f1",
                      *                 "source": "lignes_commande"
                      *               },
                      *               {
@@ -7769,7 +7939,7 @@ export interface operations {
                      *                 "dimension": "dim_clients",
                      *                 "explanation": "client_key → dim_clients via la relation confirmée commandes.id_client → clients.id_client.",
                      *                 "name": "client_key",
-                     *                 "relation_id": "f34e3fcbe744417e96686934aa816078",
+                     *                 "relation_id": "79668b209ee64f45a44f9a5a7d57c904",
                      *                 "source": "commandes"
                      *               }
                      *             ],
@@ -7807,13 +7977,13 @@ export interface operations {
                      *             "source": "lignes_commande"
                      *           }
                      *         ],
-                     *         "id": "dd5cc05aa9b249c98d8aa81c3e978369",
+                     *         "id": "da9c496c272b49308ed9e9fdb9fd68d4",
                      *         "issues": [],
                      *         "origin": "heuristic",
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "status": "applied",
                      *         "summary": "2 dimension(s), 1 fait(s), dimension date générée. Validation : 0 erreur(s), 0 avertissement(s).",
-                     *         "updated_at": "2026-10-28T21:17:38.565155Z",
+                     *         "updated_at": "2026-10-29T01:53:08.451794Z",
                      *         "version": 1,
                      *         "warnings": [
                      *           "commandes.frais_port n'est pas repris comme mesure : il est au niveau de commandes, le sommer au grain de lignes_commande le multiplierait"
@@ -7911,12 +8081,12 @@ export interface operations {
                      *           "pii_columns": [],
                      *           "pii_count": 0,
                      *           "quality_score": 100,
-                     *           "ref": "4a0d20517ed948c88ac9811ef212c932",
+                     *           "ref": "1fbb02924d3c4096acf590db54f3c286",
                      *           "review_count": 0,
                      *           "run": {
-                     *             "finished_at": "2026-10-28T21:17:57.037689Z",
+                     *             "finished_at": "2026-10-29T01:53:27.176473Z",
                      *             "percent": null,
-                     *             "run_id": "00597f8cdc59496ca53f0c8048a32a84",
+                     *             "run_id": "5802aa6bcc0b4242baf2300ec4df2b8d",
                      *             "status": "succeeded",
                      *             "type": "profile"
                      *           },
@@ -7942,15 +8112,15 @@ export interface operations {
                      *           "pii_columns": [],
                      *           "pii_count": 0,
                      *           "quality_score": null,
-                     *           "ref": "4a0d20517ed948c88ac9811ef212c932",
+                     *           "ref": "1fbb02924d3c4096acf590db54f3c286",
                      *           "review_count": 0,
                      *           "run": null,
                      *           "state": "pending",
                      *           "type": "silver"
                      *         }
                      *       ],
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
-                     *       "version": "4dd1707e555a5b3a"
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
+                     *       "version": "3ecd01d9ddf79e2f"
                      *     }
                      */
                     "application/json": components["schemas"]["ProjectGraph"];
@@ -7995,12 +8165,12 @@ export interface operations {
                      * @example [
                      *       {
                      *         "accepted_at": null,
-                     *         "created_at": "2026-10-28T21:17:53.695217Z",
+                     *         "created_at": "2026-10-29T01:53:23.884214Z",
                      *         "email": "nouveau@exemple.fr",
-                     *         "expires_at": "2026-11-04T21:17:53.695217Z",
-                     *         "id": "5b334c1c0dee4d4da1a338a6ab4fc34c",
-                     *         "invited_by": "496b5b5b4ef94be98853f5f764183864",
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "expires_at": "2026-11-05T01:53:23.884214Z",
+                     *         "id": "d67ad22c6128467c9c917f0268860dd2",
+                     *         "invited_by": "586b93081e37418f82e092fa9f76538e",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "revoked_at": null,
                      *         "role": "analyst",
                      *         "token": null
@@ -8045,12 +8215,12 @@ export interface operations {
                     /**
                      * @example {
                      *       "accepted_at": null,
-                     *       "created_at": "2026-10-28T21:17:53.730328Z",
+                     *       "created_at": "2026-10-29T01:53:23.916333Z",
                      *       "email": "erreur@exemple.fr",
-                     *       "expires_at": "2026-11-04T21:17:53.730328Z",
-                     *       "id": "3c3d7aa5309f41e4ad51af65d366bdec",
-                     *       "invited_by": "496b5b5b4ef94be98853f5f764183864",
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "expires_at": "2026-11-05T01:53:23.916333Z",
+                     *       "id": "9db54509e267405783cceb25e42dfaf4",
+                     *       "invited_by": "586b93081e37418f82e092fa9f76538e",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "revoked_at": null,
                      *       "role": "analyst",
                      *       "token": "…"
@@ -8102,7 +8272,13 @@ export interface operations {
     };
     list_mart_requests_projects__project_id__mart_requests_get: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                offset?: number;
+                status?: components["schemas"]["MartStatus"] | null;
+                /** @description latest: the last version (and the last previewed one); all: every one */
+                versions?: "latest" | "all";
+            };
             header?: never;
             path: {
                 project_id: string;
@@ -8118,382 +8294,472 @@ export interface operations {
                 };
                 content: {
                     /**
-                     * @example [
-                     *       {
-                     *         "approved_at": null,
-                     *         "approved_by": null,
-                     *         "bindings": {
-                     *           "vente": "metric:montant"
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "approved_at": null,
+                     *           "approved_by": null,
+                     *           "approved_by_email": null,
+                     *           "bindings": {
+                     *             "vente": "metric:montant"
+                     *           },
+                     *           "created_at": "2026-10-29T01:53:28.431410Z",
+                     *           "destination": null,
+                     *           "exports": [],
+                     *           "id": "34d64bb7e51b44e299f18d71f21acb39",
+                     *           "iterations": [
+                     *             {
+                     *               "clarification": null,
+                     *               "context_tokens": 152,
+                     *               "created_at": "2026-10-29T01:53:28.928493Z",
+                     *               "effective": "seulement le T1",
+                     *               "error": null,
+                     *               "instruction": "seulement le T1",
+                     *               "job_id": "07bb9110fdda494890bf2fa248a024cb",
+                     *               "kind": "refinement",
+                     *               "llm": null,
+                     *               "option_counts": [],
+                     *               "path": "parser",
+                     *               "preview": {
+                     *                 "columns": [
+                     *                   {
+                     *                     "additivity": null,
+                     *                     "kind": "axis",
+                     *                     "label": "Libellé (produit)",
+                     *                     "name": "libelle",
+                     *                     "pii": null,
+                     *                     "ref": "attribute:produit.libelle"
+                     *                   },
+                     *                   {
+                     *                     "additivity": "additive",
+                     *                     "kind": "metric",
+                     *                     "label": "Chiffre d'affaires (EUR)",
+                     *                     "name": "montant",
+                     *                     "pii": null,
+                     *                     "ref": "metric:montant"
+                     *                   }
+                     *                 ],
+                     *                 "controls": [
+                     *                   {
+                     *                     "code": "reconciliation",
+                     *                     "details": {
+                     *                       "fact_total": 2224.5,
+                     *                       "mart_total": 2224.5,
+                     *                       "metric": "montant"
+                     *                     },
+                     *                     "message": "Chiffre d'affaires : total du data mart 2 224.50 = total du fait fct_ventes sur le même périmètre.",
+                     *                     "status": "ok"
+                     *                   },
+                     *                   {
+                     *                     "code": "unknown_member",
+                     *                     "details": {
+                     *                       "dimension": "produit",
+                     *                       "rows": 0,
+                     *                       "share": 0
+                     *                     },
+                     *                     "message": "Toutes les lignes sont rattachées à un membre de produit.",
+                     *                     "status": "ok"
+                     *                   }
+                     *                 ],
+                     *                 "pseudonymized": [],
+                     *                 "row_count": 10,
+                     *                 "rows": [
+                     *                   {
+                     *                     "libelle": "Plaid tricoté",
+                     *                     "montant": 599
+                     *                   },
+                     *                   {
+                     *                     "libelle": "Théière en fonte",
+                     *                     "montant": 450
+                     *                   }
+                     *                 ]
+                     *               },
+                     *               "proposed": null,
+                     *               "refines": true,
+                     *               "refusal": null,
+                     *               "selected": [
+                     *                 "metric:montant",
+                     *                 "metric:nb_commandes"
+                     *               ],
+                     *               "spec": {
+                     *                 "axes": [
+                     *                   "produit.libelle"
+                     *                 ],
+                     *                 "filters": [],
+                     *                 "limit": null,
+                     *                 "metrics": [
+                     *                   "montant"
+                     *                 ],
+                     *                 "name": "montant_par_libelle_2024",
+                     *                 "order_by": [],
+                     *                 "period": {
+                     *                   "end": "2024-03-31",
+                     *                   "label": "T1 2024",
+                     *                   "start": "2024-01-01"
+                     *                 },
+                     *                 "time_dimension": "date_commande",
+                     *                 "time_grain": null
+                     *               },
+                     *               "sql": "with base as (\n\n    select\n        produit.libelle as libelle,\n        f.montant as _m_montant\n    from \"fct_ventes\" as f\n    left join \"dim_produits\" as produit\n        on produit.produit_key = f.produit_key\n    left join \"dim_date\" as date_commande\n        on date_commande.date_key = f.date_commande_key\n    where date_commande.date >= DATE '2024-01-01'\n        and date_commande.date <= DATE '202…",
+                     *               "status": "previewed",
+                     *               "summary": "Chiffre d'affaires par produit, sur T1 2024.",
+                     *               "summary_parts": [
+                     *                 {
+                     *                   "term": {
+                     *                     "current": 0,
+                     *                     "index": 0,
+                     *                     "kind": "metric",
+                     *                     "options": [
+                     *                       "Chiffre d'affaires",
+                     *                       "Quantité vendue"
+                     *                     ],
+                     *                     "question": "Quelle mesure ?"
+                     *                   },
+                     *                   "text": "Chiffre d'affaires"
+                     *                 },
+                     *                 {
+                     *                   "term": null,
+                     *                   "text": " "
+                     *                 }
+                     *               ],
+                     *               "version": 3
+                     *             },
+                     *             {
+                     *               "clarification": null,
+                     *               "context_tokens": 180,
+                     *               "created_at": "2026-10-29T01:53:29.236719Z",
+                     *               "effective": "Quantité vendue",
+                     *               "error": null,
+                     *               "instruction": "Chiffre d'affaires → Quantité vendue",
+                     *               "job_id": "dcca97217e2243d7992d87b4f1e23de7",
+                     *               "kind": "correction",
+                     *               "llm": null,
+                     *               "option_counts": [],
+                     *               "path": "parser",
+                     *               "preview": {
+                     *                 "columns": [
+                     *                   {
+                     *                     "additivity": null,
+                     *                     "kind": "axis",
+                     *                     "label": "Libellé (produit)",
+                     *                     "name": "libelle",
+                     *                     "pii": null,
+                     *                     "ref": "attribute:produit.libelle"
+                     *                   },
+                     *                   {
+                     *                     "additivity": "additive",
+                     *                     "kind": "metric",
+                     *                     "label": "Quantité vendue (unités)",
+                     *                     "name": "quantite",
+                     *                     "pii": null,
+                     *                     "ref": "metric:quantite"
+                     *                   }
+                     *                 ],
+                     *                 "controls": [
+                     *                   {
+                     *                     "code": "reconciliation",
+                     *                     "details": {
+                     *                       "fact_total": 72,
+                     *                       "mart_total": 72,
+                     *                       "metric": "quantite"
+                     *                     },
+                     *                     "message": "Quantité vendue : total du data mart 72.00 = total du fait fct_ventes sur le même périmètre.",
+                     *                     "status": "ok"
+                     *                   },
+                     *                   {
+                     *                     "code": "unknown_member",
+                     *                     "details": {
+                     *                       "dimension": "produit",
+                     *                       "rows": 0,
+                     *                       "share": 0
+                     *                     },
+                     *                     "message": "Toutes les lignes sont rattachées à un membre de produit.",
+                     *                     "status": "ok"
+                     *                   }
+                     *                 ],
+                     *                 "pseudonymized": [],
+                     *                 "row_count": 10,
+                     *                 "rows": [
+                     *                   {
+                     *                     "libelle": "Jardinière",
+                     *                     "quantite": 11
+                     *                   },
+                     *                   {
+                     *                     "libelle": "Plaid tricoté",
+                     *                     "quantite": 10
+                     *                   }
+                     *                 ]
+                     *               },
+                     *               "proposed": {
+                     *                 "axes": [
+                     *                   "produit.libelle"
+                     *                 ],
+                     *                 "filters": [],
+                     *                 "limit": null,
+                     *                 "metrics": [
+                     *                   "quantite"
+                     *                 ],
+                     *                 "name": "montant_par_libelle_2024",
+                     *                 "order_by": [],
+                     *                 "period": {
+                     *                   "end": "2024-03-31",
+                     *                   "label": "T1 2024",
+                     *                   "start": "2024-01-01"
+                     *                 },
+                     *                 "time_dimension": "date_commande",
+                     *                 "time_grain": null
+                     *               },
+                     *               "refines": true,
+                     *               "refusal": null,
+                     *               "selected": [
+                     *                 "metric:montant",
+                     *                 "metric:quantite"
+                     *               ],
+                     *               "spec": {
+                     *                 "axes": [
+                     *                   "produit.libelle"
+                     *                 ],
+                     *                 "filters": [],
+                     *                 "limit": null,
+                     *                 "metrics": [
+                     *                   "quantite"
+                     *                 ],
+                     *                 "name": "montant_par_libelle_2024",
+                     *                 "order_by": [],
+                     *                 "period": {
+                     *                   "end": "2024-03-31",
+                     *                   "label": "T1 2024",
+                     *                   "start": "2024-01-01"
+                     *                 },
+                     *                 "time_dimension": "date_commande",
+                     *                 "time_grain": null
+                     *               },
+                     *               "sql": "with base as (\n\n    select\n        produit.libelle as libelle,\n        f.quantite as _m_quantite\n    from \"fct_ventes\" as f\n    left join \"dim_produits\" as produit\n        on produit.produit_key = f.produit_key\n    left join \"dim_date\" as date_commande\n        on date_commande.date_key = f.date_commande_key\n    where date_commande.date >= DATE '2024-01-01'\n        and date_commande.date <= DATE '2…",
+                     *               "status": "previewed",
+                     *               "summary": "Quantité vendue par produit, sur T1 2024.",
+                     *               "summary_parts": [
+                     *                 {
+                     *                   "term": {
+                     *                     "current": 0,
+                     *                     "index": 0,
+                     *                     "kind": "metric",
+                     *                     "options": [
+                     *                       "Quantité vendue",
+                     *                       "Chiffre d'affaires"
+                     *                     ],
+                     *                     "question": "Quelle mesure ?"
+                     *                   },
+                     *                   "text": "Quantité vendue"
+                     *                 },
+                     *                 {
+                     *                   "term": null,
+                     *                   "text": " "
+                     *                 }
+                     *               ],
+                     *               "version": 4
+                     *             }
+                     *           ],
+                     *           "model_columns": [],
+                     *           "model_sql": null,
+                     *           "model_summary": null,
+                     *           "owner_email": "analyste@demo.forja.local",
+                     *           "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
+                     *           "owner_unmasked": false,
+                     *           "project_id": "0f0e2a12705747e3afac6be0235494d2",
+                     *           "publish_error": null,
+                     *           "publish_job_id": null,
+                     *           "published_at": null,
+                     *           "published_name": null,
+                     *           "published_table_id": null,
+                     *           "question": "Les ventes par produit en 2024",
+                     *           "rejected_by": null,
+                     *           "rejection_reason": null,
+                     *           "semantic_version": 3,
+                     *           "status": "previewed",
+                     *           "updated_at": "2026-10-29T01:53:29.426640Z",
+                     *           "validated_at": null
                      *         },
-                     *         "created_at": "2026-10-28T21:17:58.330680Z",
-                     *         "destination": null,
-                     *         "exports": [],
-                     *         "id": "781d414f5ce6471498380942d10be7ee",
-                     *         "iterations": [
-                     *           {
-                     *             "clarification": {
-                     *               "options": [
-                     *                 {
-                     *                   "label": "Chiffre d'affaires",
-                     *                   "ref": "metric:montant"
-                     *                 },
-                     *                 {
-                     *                   "label": "Quantité vendue",
-                     *                   "ref": "metric:quantite"
-                     *                 }
-                     *               ],
-                     *               "question": "Que voulez-vous dire par « ventes » ?",
-                     *               "term": "ventes"
+                     *         {
+                     *           "approved_at": null,
+                     *           "approved_by": null,
+                     *           "approved_by_email": null,
+                     *           "bindings": {},
+                     *           "created_at": "2026-10-29T01:53:16.439757Z",
+                     *           "destination": null,
+                     *           "exports": [
+                     *             {
+                     *               "format": "parquet",
+                     *               "path": "0f0e2a12705747e3afac6be0235494d2/exports/mart_quantite_par_categorie.parquet",
+                     *               "rows": 4,
+                     *               "table": "mart_quantite_par_categorie"
                      *             },
-                     *             "context_tokens": 233,
-                     *             "created_at": "2026-10-28T21:17:58.330680Z",
-                     *             "effective": "Les ventes par produit en 2024",
-                     *             "error": null,
-                     *             "instruction": "Les ventes par produit en 2024",
-                     *             "job_id": "259a786bb51c4b18829b7082c79fbcf3",
-                     *             "kind": "question",
-                     *             "llm": null,
-                     *             "option_counts": [
-                     *               {
-                     *                 "format": "currency",
-                     *                 "unit": "",
-                     *                 "value": 4994.8
-                     *               },
-                     *               {
-                     *                 "format": "integer",
-                     *                 "unit": "",
-                     *                 "value": 182
-                     *               }
-                     *             ],
-                     *             "path": "parser",
-                     *             "preview": null,
-                     *             "proposed": null,
-                     *             "refines": false,
-                     *             "refusal": null,
-                     *             "selected": [
-                     *               "metric:montant",
-                     *               "metric:quantite"
-                     *             ],
-                     *             "spec": null,
-                     *             "sql": null,
-                     *             "status": "clarification",
-                     *             "summary": null,
-                     *             "summary_parts": [],
-                     *             "version": 1
-                     *           },
-                     *           {
-                     *             "clarification": null,
-                     *             "context_tokens": 233,
-                     *             "created_at": "2026-10-28T21:17:58.573868Z",
-                     *             "effective": "Les ventes par produit en 2024",
-                     *             "error": null,
-                     *             "instruction": "Chiffre d'affaires",
-                     *             "job_id": "0f41963f4f464a068a7a8f5e4915fcc3",
-                     *             "kind": "answer",
-                     *             "llm": null,
-                     *             "option_counts": [],
-                     *             "path": "parser",
-                     *             "preview": {
-                     *               "columns": [
-                     *                 {
-                     *                   "additivity": null,
-                     *                   "kind": "axis",
-                     *                   "label": "Libellé (produit)",
-                     *                   "name": "libelle",
-                     *                   "pii": null,
-                     *                   "ref": "attribute:produit.libelle"
-                     *                 },
-                     *                 {
-                     *                   "additivity": "additive",
-                     *                   "kind": "metric",
-                     *                   "label": "Chiffre d'affaires (EUR)",
-                     *                   "name": "montant",
-                     *                   "pii": null,
-                     *                   "ref": "metric:montant"
-                     *                 }
-                     *               ],
-                     *               "controls": [
-                     *                 {
-                     *                   "code": "reconciliation",
-                     *                   "details": {
-                     *                     "fact_total": 4994.8,
-                     *                     "mart_total": 4994.8,
-                     *                     "metric": "montant"
+                     *             {
+                     *               "format": "csv",
+                     *               "path": "0f0e2a12705747e3afac6be0235494d2/exports/mart_quantite_par_categorie.csv",
+                     *               "rows": 4,
+                     *               "table": "mart_quantite_par_categorie"
+                     *             }
+                     *           ],
+                     *           "id": "57e9ed3a28ab474cad9570693c71b899",
+                     *           "iterations": [
+                     *             {
+                     *               "clarification": null,
+                     *               "context_tokens": 244,
+                     *               "created_at": "2026-10-29T01:53:16.439757Z",
+                     *               "effective": "Quantité vendue et prix moyen par catégorie de produit",
+                     *               "error": null,
+                     *               "instruction": "Quantité vendue et prix moyen par catégorie de produit",
+                     *               "job_id": "e3b98c0131d14c6d9eb146c73e03c599",
+                     *               "kind": "question",
+                     *               "llm": null,
+                     *               "option_counts": [],
+                     *               "path": "parser",
+                     *               "preview": {
+                     *                 "columns": [
+                     *                   {
+                     *                     "additivity": null,
+                     *                     "kind": "axis",
+                     *                     "label": "Catégorie (produit)",
+                     *                     "name": "categorie",
+                     *                     "pii": null,
+                     *                     "ref": "attribute:produit.categorie"
                      *                   },
-                     *                   "message": "Chiffre d'affaires : total du data mart 4 994.80 = total du fait fct_ventes sur le même périmètre.",
-                     *                   "status": "ok"
-                     *                 },
-                     *                 {
-                     *                   "code": "unknown_member",
-                     *                   "details": {
-                     *                     "dimension": "produit",
-                     *                     "rows": 1,
-                     *                     "share": 0.0127
+                     *                   {
+                     *                     "additivity": "additive",
+                     *                     "kind": "metric",
+                     *                     "label": "Quantité vendue (unités)",
+                     *                     "name": "quantite",
+                     *                     "pii": null,
+                     *                     "ref": "metric:quantite"
+                     *                   }
+                     *                 ],
+                     *                 "controls": [
+                     *                   {
+                     *                     "code": "reconciliation",
+                     *                     "details": {
+                     *                       "fact_total": 182,
+                     *                       "mart_total": 182,
+                     *                       "metric": "quantite"
+                     *                     },
+                     *                     "message": "Quantité vendue : total du data mart 182.00 = total du fait fct_ventes sur le même périmètre.",
+                     *                     "status": "ok"
                      *                   },
-                     *                   "message": "1 ligne(s) du fait sur 79 (1.3%) rattachée(s) au membre inconnu de produit : elles apparaissent sous « Inconnu » ou une valeur vide.",
-                     *                   "status": "warning"
-                     *                 }
-                     *               ],
-                     *               "pseudonymized": [],
-                     *               "row_count": 12,
-                     *               "rows": [
-                     *                 {
-                     *                   "libelle": "Plaid tricoté",
-                     *                   "montant": 1377.7
-                     *                 },
-                     *                 {
-                     *                   "libelle": "Théière en fonte",
-                     *                   "montant": 630
-                     *                 }
-                     *               ]
-                     *             },
-                     *             "proposed": null,
-                     *             "refines": false,
-                     *             "refusal": null,
-                     *             "selected": [
-                     *               "metric:montant",
-                     *               "metric:quantite"
-                     *             ],
-                     *             "spec": {
-                     *               "axes": [
-                     *                 "produit.libelle"
-                     *               ],
-                     *               "filters": [],
-                     *               "limit": null,
-                     *               "metrics": [
-                     *                 "montant"
-                     *               ],
-                     *               "name": "montant_par_libelle_2024",
-                     *               "order_by": [],
-                     *               "period": {
-                     *                 "end": "2024-12-31",
-                     *                 "label": "2024",
-                     *                 "start": "2024-01-01"
-                     *               },
-                     *               "time_dimension": "date_commande",
-                     *               "time_grain": null
-                     *             },
-                     *             "sql": "with base as (\n\n    select\n        produit.libelle as libelle,\n        f.montant as _m_montant\n    from \"fct_ventes\" as f\n    left join \"dim_produits\" as produit\n        on produit.produit_key = f.produit_key\n    left join \"dim_date\" as date_commande\n        on date_commande.date_key = f.date_commande_key\n    where date_commande.date >= DATE '2024-01-01'\n        and date_commande.date <= DATE '202…",
-                     *             "status": "previewed",
-                     *             "summary": "Chiffre d'affaires par produit, sur 2024.",
-                     *             "summary_parts": [
-                     *               {
-                     *                 "term": {
-                     *                   "current": 0,
-                     *                   "index": 0,
-                     *                   "kind": "metric",
-                     *                   "options": [
-                     *                     "Chiffre d'affaires",
-                     *                     "Quantité vendue"
-                     *                   ],
-                     *                   "question": "Quelle mesure ?"
-                     *                 },
-                     *                 "text": "Chiffre d'affaires"
-                     *               },
-                     *               {
-                     *                 "term": null,
-                     *                 "text": " "
-                     *               }
-                     *             ],
-                     *             "version": 2
-                     *           }
-                     *         ],
-                     *         "model_columns": [],
-                     *         "model_sql": null,
-                     *         "model_summary": null,
-                     *         "owner_email": "analyste@demo.forja.local",
-                     *         "owner_id": "d9d26f58279a43599f4782b39a238a67",
-                     *         "owner_unmasked": false,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
-                     *         "publish_error": null,
-                     *         "publish_job_id": null,
-                     *         "published_at": null,
-                     *         "published_name": null,
-                     *         "published_table_id": null,
-                     *         "question": "Les ventes par produit en 2024",
-                     *         "rejected_by": null,
-                     *         "rejection_reason": null,
-                     *         "semantic_version": 3,
-                     *         "status": "previewed",
-                     *         "updated_at": "2026-10-28T21:17:59.331368Z",
-                     *         "validated_at": null
-                     *       },
-                     *       {
-                     *         "approved_at": null,
-                     *         "approved_by": null,
-                     *         "bindings": {},
-                     *         "created_at": "2026-10-28T21:17:46.458383Z",
-                     *         "destination": null,
-                     *         "exports": [
-                     *           {
-                     *             "format": "parquet",
-                     *             "path": "2c52376ee6594da69567373ad95dcbed/exports/mart_quantite_par_categorie.parquet",
-                     *             "rows": 4,
-                     *             "table": "mart_quantite_par_categorie"
-                     *           },
-                     *           {
-                     *             "format": "csv",
-                     *             "path": "2c52376ee6594da69567373ad95dcbed/exports/mart_quantite_par_categorie.csv",
-                     *             "rows": 4,
-                     *             "table": "mart_quantite_par_categorie"
-                     *           }
-                     *         ],
-                     *         "id": "4c7f040fa75943db88819f15cbea2792",
-                     *         "iterations": [
-                     *           {
-                     *             "clarification": null,
-                     *             "context_tokens": 244,
-                     *             "created_at": "2026-10-28T21:17:46.458383Z",
-                     *             "effective": "Quantité vendue et prix moyen par catégorie de produit",
-                     *             "error": null,
-                     *             "instruction": "Quantité vendue et prix moyen par catégorie de produit",
-                     *             "job_id": "92e1fc52a3104e51a2e2e26ca60b292c",
-                     *             "kind": "question",
-                     *             "llm": null,
-                     *             "option_counts": [],
-                     *             "path": "parser",
-                     *             "preview": {
-                     *               "columns": [
-                     *                 {
-                     *                   "additivity": null,
-                     *                   "kind": "axis",
-                     *                   "label": "Catégorie (produit)",
-                     *                   "name": "categorie",
-                     *                   "pii": null,
-                     *                   "ref": "attribute:produit.categorie"
-                     *                 },
-                     *                 {
-                     *                   "additivity": "additive",
-                     *                   "kind": "metric",
-                     *                   "label": "Quantité vendue (unités)",
-                     *                   "name": "quantite",
-                     *                   "pii": null,
-                     *                   "ref": "metric:quantite"
-                     *                 }
-                     *               ],
-                     *               "controls": [
-                     *                 {
-                     *                   "code": "reconciliation",
-                     *                   "details": {
-                     *                     "fact_total": 182,
-                     *                     "mart_total": 182,
-                     *                     "metric": "quantite"
+                     *                   {
+                     *                     "code": "reconciliation",
+                     *                     "details": {
+                     *                       "metric": "prix_moyen"
+                     *                     },
+                     *                     "message": "Prix moyen unitaire n'est pas additive (sum(montant) / sum(quantite)) : son total ne se compare pas ligne à ligne, il est recalculé à chaque niveau.",
+                     *                     "status": "info"
+                     *                   }
+                     *                 ],
+                     *                 "pseudonymized": [],
+                     *                 "row_count": 4,
+                     *                 "rows": [
+                     *                   {
+                     *                     "categorie": "maison",
+                     *                     "prix_moyen": 35.1,
+                     *                     "quantite": 69
                      *                   },
-                     *                   "message": "Quantité vendue : total du data mart 182.00 = total du fait fct_ventes sur le même périmètre.",
-                     *                   "status": "ok"
-                     *                 },
-                     *                 {
-                     *                   "code": "reconciliation",
-                     *                   "details": {
-                     *                     "metric": "prix_moyen"
-                     *                   },
-                     *                   "message": "Prix moyen unitaire n'est pas additive (sum(montant) / sum(quantite)) : son total ne se compare pas ligne à ligne, il est recalculé à chaque niveau.",
-                     *                   "status": "info"
-                     *                 }
-                     *               ],
-                     *               "pseudonymized": [],
-                     *               "row_count": 4,
-                     *               "rows": [
-                     *                 {
-                     *                   "categorie": "maison",
-                     *                   "prix_moyen": 35.1,
-                     *                   "quantite": 69
-                     *                 },
-                     *                 {
-                     *                   "categorie": "cuisine",
-                     *                   "prix_moyen": 24.21,
-                     *                   "quantite": 62
-                     *                 }
-                     *               ]
-                     *             },
-                     *             "proposed": null,
-                     *             "refines": false,
-                     *             "refusal": null,
-                     *             "selected": [
-                     *               "metric:quantite",
-                     *               "metric:prix_moyen"
-                     *             ],
-                     *             "spec": {
-                     *               "axes": [
-                     *                 "produit.categorie"
-                     *               ],
-                     *               "filters": [],
-                     *               "limit": null,
-                     *               "metrics": [
-                     *                 "quantite",
-                     *                 "prix_moyen"
-                     *               ],
-                     *               "name": "quantite_par_categorie",
-                     *               "order_by": [],
-                     *               "period": null,
-                     *               "time_dimension": null,
-                     *               "time_grain": null
-                     *             },
-                     *             "sql": "with base as (\n\n    select\n        produit.categorie as categorie,\n        f.quantite as _m_quantite,\n        f.montant as _m_montant\n    from \"fct_ventes\" as f\n    left join \"dim_produits\" as produit\n        on produit.produit_key = f.produit_key\n\n)\n\nselect\n    categorie,\n    sum(_m_quantite) as quantite,\n    round(cast(sum(_m_montant) as double) / nullif(sum(_m_quantite), 0), 2) as prix_moyen\nfr…",
-                     *             "status": "previewed",
-                     *             "summary": "Quantité vendue et prix moyen unitaire par catégorie.",
-                     *             "summary_parts": [
-                     *               {
-                     *                 "term": {
-                     *                   "current": 0,
-                     *                   "index": 0,
-                     *                   "kind": "metric",
-                     *                   "options": [
-                     *                     "Quantité vendue",
-                     *                     "Chiffre d'affaires"
-                     *                   ],
-                     *                   "question": "Quelle mesure ?"
-                     *                 },
-                     *                 "text": "Quantité vendue"
+                     *                   {
+                     *                     "categorie": "cuisine",
+                     *                     "prix_moyen": 24.21,
+                     *                     "quantite": 62
+                     *                   }
+                     *                 ]
                      *               },
-                     *               {
-                     *                 "term": null,
-                     *                 "text": " et "
-                     *               }
-                     *             ],
-                     *             "version": 1
-                     *           }
-                     *         ],
-                     *         "model_columns": [
-                     *           {
-                     *             "additivity": null,
-                     *             "kind": "axis",
-                     *             "label": "Catégorie (produit)",
-                     *             "name": "categorie",
-                     *             "pii": null,
-                     *             "ref": "attribute:produit.categorie"
-                     *           },
-                     *           {
-                     *             "additivity": "additive",
-                     *             "kind": "metric",
-                     *             "label": "Quantité vendue (unités)",
-                     *             "name": "quantite",
-                     *             "pii": null,
-                     *             "ref": "metric:quantite"
-                     *           }
-                     *         ],
-                     *         "model_sql": "-- Data mart requested by analyste@demo.forja.local: Quantité vendue et prix moyen par catégorie de produit\n-- Quantité vendue et prix moyen unitaire par catégorie.\n-- Generated by Forja from mart request 4c7f040fa75943db88819f15cbea2792 v1.\n-- Do not edit: this file is regenerated on each build.\n\n{{ config(materialized='table') }}\n\nwith base as (\n\n    select\n        produit.categorie as categorie…",
-                     *         "model_summary": "Quantité vendue et prix moyen unitaire par catégorie.",
-                     *         "owner_email": "analyste@demo.forja.local",
-                     *         "owner_id": "d9d26f58279a43599f4782b39a238a67",
-                     *         "owner_unmasked": false,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
-                     *         "publish_error": null,
-                     *         "publish_job_id": "8d3baa8688f347afa413c14533ba7672",
-                     *         "published_at": "2026-10-28T21:17:53.328123Z",
-                     *         "published_name": "mart_quantite_par_categorie",
-                     *         "published_table_id": "2e1c9ceedce64fb19383cad0d9b93699",
-                     *         "question": "Quantité vendue et prix moyen par catégorie de produit",
-                     *         "rejected_by": null,
-                     *         "rejection_reason": null,
-                     *         "semantic_version": 1,
-                     *         "status": "published",
-                     *         "updated_at": "2026-10-28T21:17:53.328123Z",
-                     *         "validated_at": "2026-10-28T21:17:46.708544Z"
-                     *       }
-                     *     ]
+                     *               "proposed": null,
+                     *               "refines": false,
+                     *               "refusal": null,
+                     *               "selected": [
+                     *                 "metric:quantite",
+                     *                 "metric:prix_moyen"
+                     *               ],
+                     *               "spec": {
+                     *                 "axes": [
+                     *                   "produit.categorie"
+                     *                 ],
+                     *                 "filters": [],
+                     *                 "limit": null,
+                     *                 "metrics": [
+                     *                   "quantite",
+                     *                   "prix_moyen"
+                     *                 ],
+                     *                 "name": "quantite_par_categorie",
+                     *                 "order_by": [],
+                     *                 "period": null,
+                     *                 "time_dimension": null,
+                     *                 "time_grain": null
+                     *               },
+                     *               "sql": "with base as (\n\n    select\n        produit.categorie as categorie,\n        f.quantite as _m_quantite,\n        f.montant as _m_montant\n    from \"fct_ventes\" as f\n    left join \"dim_produits\" as produit\n        on produit.produit_key = f.produit_key\n\n)\n\nselect\n    categorie,\n    sum(_m_quantite) as quantite,\n    round(cast(sum(_m_montant) as double) / nullif(sum(_m_quantite), 0), 2) as prix_moyen\nfr…",
+                     *               "status": "previewed",
+                     *               "summary": "Quantité vendue et prix moyen unitaire par catégorie.",
+                     *               "summary_parts": [
+                     *                 {
+                     *                   "term": {
+                     *                     "current": 0,
+                     *                     "index": 0,
+                     *                     "kind": "metric",
+                     *                     "options": [
+                     *                       "Quantité vendue",
+                     *                       "Chiffre d'affaires"
+                     *                     ],
+                     *                     "question": "Quelle mesure ?"
+                     *                   },
+                     *                   "text": "Quantité vendue"
+                     *                 },
+                     *                 {
+                     *                   "term": null,
+                     *                   "text": " et "
+                     *                 }
+                     *               ],
+                     *               "version": 1
+                     *             }
+                     *           ],
+                     *           "model_columns": [
+                     *             {
+                     *               "additivity": null,
+                     *               "kind": "axis",
+                     *               "label": "Catégorie (produit)",
+                     *               "name": "categorie",
+                     *               "pii": null,
+                     *               "ref": "attribute:produit.categorie"
+                     *             },
+                     *             {
+                     *               "additivity": "additive",
+                     *               "kind": "metric",
+                     *               "label": "Quantité vendue (unités)",
+                     *               "name": "quantite",
+                     *               "pii": null,
+                     *               "ref": "metric:quantite"
+                     *             }
+                     *           ],
+                     *           "model_sql": "-- Data mart requested by analyste@demo.forja.local: Quantité vendue et prix moyen par catégorie de produit\n-- Quantité vendue et prix moyen unitaire par catégorie.\n-- Generated by Forja from mart request 57e9ed3a28ab474cad9570693c71b899 v1.\n-- Do not edit: this file is regenerated on each build.\n\n{{ config(materialized='table') }}\n\nwith base as (\n\n    select\n        produit.categorie as categorie…",
+                     *           "model_summary": "Quantité vendue et prix moyen unitaire par catégorie.",
+                     *           "owner_email": "analyste@demo.forja.local",
+                     *           "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
+                     *           "owner_unmasked": false,
+                     *           "project_id": "0f0e2a12705747e3afac6be0235494d2",
+                     *           "publish_error": null,
+                     *           "publish_job_id": "6bc606186dd64d3289190cbc37635e2a",
+                     *           "published_at": "2026-10-29T01:53:23.532227Z",
+                     *           "published_name": "mart_quantite_par_categorie",
+                     *           "published_table_id": "f81fa50b287947b78a55990f1a2136d7",
+                     *           "question": "Quantité vendue et prix moyen par catégorie de produit",
+                     *           "rejected_by": null,
+                     *           "rejection_reason": null,
+                     *           "semantic_version": 1,
+                     *           "status": "published",
+                     *           "updated_at": "2026-10-29T01:53:23.532227Z",
+                     *           "validated_at": "2026-10-29T01:53:16.676862Z"
+                     *         }
+                     *       ],
+                     *       "limit": 50,
+                     *       "offset": 0,
+                     *       "total": 3
+                     *     }
                      */
-                    "application/json": components["schemas"]["MartRequest"][];
+                    "application/json": components["schemas"]["MartRequestPage"];
                 };
             };
             /** @description Validation Error */
@@ -8533,20 +8799,21 @@ export interface operations {
                      *       "mart_request": {
                      *         "approved_at": null,
                      *         "approved_by": null,
+                     *         "approved_by_email": null,
                      *         "bindings": {},
-                     *         "created_at": "2026-10-28T21:18:06.298661Z",
+                     *         "created_at": "2026-10-29T01:53:36.686899Z",
                      *         "destination": null,
                      *         "exports": [],
-                     *         "id": "3e0e3aa4cc364363ac94ab2f7fa6f075",
+                     *         "id": "9aacf3c757884e7085039a6c1ac6edd8",
                      *         "iterations": [
                      *           {
                      *             "clarification": null,
                      *             "context_tokens": 220,
-                     *             "created_at": "2026-10-28T21:18:06.298661Z",
+                     *             "created_at": "2026-10-29T01:53:36.686899Z",
                      *             "effective": "Panier moyen par segment",
                      *             "error": null,
                      *             "instruction": "Panier moyen par segment",
-                     *             "job_id": "f1ac33d6d06e46e18713a652373ccc52",
+                     *             "job_id": "8e49131399fe4c4c8f2363f91bbc1a69",
                      *             "kind": "question",
                      *             "llm": null,
                      *             "option_counts": [],
@@ -8654,9 +8921,9 @@ export interface operations {
                      *         "model_sql": null,
                      *         "model_summary": null,
                      *         "owner_email": "analyste@demo.forja.local",
-                     *         "owner_id": "d9d26f58279a43599f4782b39a238a67",
+                     *         "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
                      *         "owner_unmasked": false,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "publish_error": null,
                      *         "publish_job_id": null,
                      *         "published_at": null,
@@ -8667,17 +8934,17 @@ export interface operations {
                      *         "rejection_reason": null,
                      *         "semantic_version": 3,
                      *         "status": "previewed",
-                     *         "updated_at": "2026-10-28T21:18:06.469269Z",
+                     *         "updated_at": "2026-10-29T01:53:36.874860Z",
                      *         "validated_at": null
                      *       },
                      *       "run": {
                      *         "attempts": 0,
                      *         "cancel_requested": false,
-                     *         "created_at": "2026-10-28T21:18:06.300208Z",
-                     *         "created_by": "d9d26f58279a43599f4782b39a238a67",
+                     *         "created_at": "2026-10-29T01:53:36.688413Z",
+                     *         "created_by": "377fa4fb58904d34af65f5933f6f7cdd",
                      *         "error": null,
                      *         "finished_at": null,
-                     *         "id": "f1ac33d6d06e46e18713a652373ccc52",
+                     *         "id": "8e49131399fe4c4c8f2363f91bbc1a69",
                      *         "metrics": null,
                      *         "params": {
                      *           "csv_delimiter": null,
@@ -8686,13 +8953,13 @@ export interface operations {
                      *             "csv"
                      *           ],
                      *           "full_refresh": false,
-                     *           "mart_request_id": "3e0e3aa4cc364363ac94ab2f7fa6f075",
+                     *           "mart_request_id": "9aacf3c757884e7085039a6c1ac6edd8",
                      *           "source_ids": null,
                      *           "type": "mart_request",
                      *           "use_llm": true
                      *         },
                      *         "progress": null,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "result": null,
                      *         "started_at": null,
                      *         "status": "queued",
@@ -8734,18 +9001,18 @@ export interface operations {
                     /**
                      * @example [
                      *       {
-                     *         "created_at": "2026-10-28T21:17:38.958337Z",
+                     *         "created_at": "2026-10-29T01:53:08.824139Z",
                      *         "email": "analyste@demo.forja.local",
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "role": "analyst",
-                     *         "user_id": "d9d26f58279a43599f4782b39a238a67"
+                     *         "user_id": "377fa4fb58904d34af65f5933f6f7cdd"
                      *       },
                      *       {
-                     *         "created_at": "2026-10-28T21:17:38.867842Z",
+                     *         "created_at": "2026-10-29T01:53:08.724408Z",
                      *         "email": "ingenieur@demo.forja.local",
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "role": "engineer",
-                     *         "user_id": "f7662b44b85844fca1b33c3ac76cbe90"
+                     *         "user_id": "823aac3b0ef54b04a0ea9d115868a6d4"
                      *       }
                      *     ]
                      */
@@ -8787,11 +9054,11 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "created_at": "2026-10-28T21:17:53.847428Z",
+                     *       "created_at": "2026-10-29T01:53:24.036364Z",
                      *       "email": "nouveau@exemple.fr",
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "role": "engineer",
-                     *       "user_id": "e9c9c411784b4636afc1cb1a7ac1d7e3"
+                     *       "user_id": "4de75bb9afb7484c8fba9074bbbb4d1e"
                      *     }
                      */
                     "application/json": components["schemas"]["Membership"];
@@ -8862,50 +9129,50 @@ export interface operations {
                      *       {
                      *         "cardinality": "N-1",
                      *         "confidence": 0.963,
-                     *         "created_at": "2026-10-28T21:17:31.128773Z",
+                     *         "created_at": "2026-10-29T01:53:00.797855Z",
                      *         "explanation": "94 % des valeurs de commandes.id_client existent dans clients.id_client ; noms identiques ; relation N-1 : plusieurs lignes de commandes pour une ligne de clients.",
                      *         "from_column": "id_client",
                      *         "from_distinct": 16,
                      *         "from_source": "commandes",
-                     *         "from_source_id": "6b975b6b84714cd3b366aba0bb27d625",
+                     *         "from_source_id": "5ea383f529bc4ade897423617281c6e8",
                      *         "from_table": "stg_commandes",
-                     *         "id": "f34e3fcbe744417e96686934aa816078",
+                     *         "id": "79668b209ee64f45a44f9a5a7d57c904",
                      *         "inclusion_ratio": 0.9375,
                      *         "name_similarity": 1,
                      *         "origin": "detected",
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "sample_size": 16,
                      *         "status": "confirmed",
                      *         "to_column": "id_client",
                      *         "to_source": "clients",
-                     *         "to_source_id": "b5d168336bb54909a107520298cc6d57",
+                     *         "to_source_id": "9dd3011becfb456b8809a565758bc759",
                      *         "to_table": "stg_clients",
                      *         "type_compatible": true,
-                     *         "updated_at": "2026-10-28T21:17:31.498476Z"
+                     *         "updated_at": "2026-10-29T01:53:01.153047Z"
                      *       },
                      *       {
                      *         "cardinality": "N-1",
                      *         "confidence": 0.95,
-                     *         "created_at": "2026-10-28T21:17:31.320618Z",
+                     *         "created_at": "2026-10-29T01:53:00.982895Z",
                      *         "explanation": "92 % des valeurs de lignes_commande.code_produit existent dans produits.code_produit ; noms identiques ; relation N-1 : plusieurs lignes de lignes_commande pour une ligne de produits.",
                      *         "from_column": "code_produit",
                      *         "from_distinct": 12,
                      *         "from_source": "lignes_commande",
-                     *         "from_source_id": "d8b3c80a2749432387c89c7a0e6c83dc",
+                     *         "from_source_id": "1234e8c5d3ec446280dc3824b56d90d7",
                      *         "from_table": "stg_lignes_commande",
-                     *         "id": "110fb6e834ab407ba89979e01edea5c8",
+                     *         "id": "969b24a7adcd458a985935793f9cd1f1",
                      *         "inclusion_ratio": 0.9167,
                      *         "name_similarity": 1,
                      *         "origin": "detected",
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "sample_size": 12,
                      *         "status": "confirmed",
                      *         "to_column": "code_produit",
                      *         "to_source": "produits",
-                     *         "to_source_id": "dd88ae9929f04976ac94c76d7db74432",
+                     *         "to_source_id": "120bcf2cc92e4538a98ee7c9fa7df2b9",
                      *         "to_table": "stg_produits",
                      *         "type_compatible": true,
-                     *         "updated_at": "2026-10-28T21:17:31.506356Z"
+                     *         "updated_at": "2026-10-29T01:53:01.159083Z"
                      *       }
                      *     ]
                      */
@@ -8948,26 +9215,26 @@ export interface operations {
                      * @example {
                      *       "cardinality": "N-1",
                      *       "confidence": 1,
-                     *       "created_at": "2026-10-28T21:17:55.381254Z",
+                     *       "created_at": "2026-10-29T01:53:25.538173Z",
                      *       "explanation": "Ajoutée manuellement. 94 % des valeurs de commandes.id_client existent dans clients.id_client ; noms identiques ; relation N-1 : plusieurs lignes de commandes pour une ligne de clients.",
                      *       "from_column": "id_client",
                      *       "from_distinct": 16,
                      *       "from_source": "commandes",
-                     *       "from_source_id": "6b975b6b84714cd3b366aba0bb27d625",
+                     *       "from_source_id": "5ea383f529bc4ade897423617281c6e8",
                      *       "from_table": "stg_commandes",
-                     *       "id": "f34e3fcbe744417e96686934aa816078",
+                     *       "id": "79668b209ee64f45a44f9a5a7d57c904",
                      *       "inclusion_ratio": 0.9375,
                      *       "name_similarity": 1,
                      *       "origin": "manual",
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "sample_size": 16,
                      *       "status": "confirmed",
                      *       "to_column": "id_client",
                      *       "to_source": "clients",
-                     *       "to_source_id": "b5d168336bb54909a107520298cc6d57",
+                     *       "to_source_id": "9dd3011becfb456b8809a565758bc759",
                      *       "to_table": "stg_clients",
                      *       "type_compatible": true,
-                     *       "updated_at": "2026-10-28T21:17:55.381254Z"
+                     *       "updated_at": "2026-10-29T01:53:25.538173Z"
                      *     }
                      */
                     "application/json": components["schemas"]["Relation"];
@@ -9006,50 +9273,50 @@ export interface operations {
                      *       {
                      *         "cardinality": "N-1",
                      *         "confidence": 0.963,
-                     *         "created_at": "2026-10-28T21:17:55.381254Z",
+                     *         "created_at": "2026-10-29T01:53:25.538173Z",
                      *         "explanation": "94 % des valeurs de commandes.id_client existent dans clients.id_client ; noms identiques ; relation N-1 : plusieurs lignes de commandes pour une ligne de clients.",
                      *         "from_column": "id_client",
                      *         "from_distinct": 16,
                      *         "from_source": "commandes",
-                     *         "from_source_id": "6b975b6b84714cd3b366aba0bb27d625",
+                     *         "from_source_id": "5ea383f529bc4ade897423617281c6e8",
                      *         "from_table": "stg_commandes",
-                     *         "id": "f34e3fcbe744417e96686934aa816078",
+                     *         "id": "79668b209ee64f45a44f9a5a7d57c904",
                      *         "inclusion_ratio": 0.9375,
                      *         "name_similarity": 1,
                      *         "origin": "manual",
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "sample_size": 16,
                      *         "status": "confirmed",
                      *         "to_column": "id_client",
                      *         "to_source": "clients",
-                     *         "to_source_id": "b5d168336bb54909a107520298cc6d57",
+                     *         "to_source_id": "9dd3011becfb456b8809a565758bc759",
                      *         "to_table": "stg_clients",
                      *         "type_compatible": true,
-                     *         "updated_at": "2026-10-28T21:17:55.769783Z"
+                     *         "updated_at": "2026-10-29T01:53:25.915313Z"
                      *       },
                      *       {
                      *         "cardinality": "N-1",
                      *         "confidence": 0.95,
-                     *         "created_at": "2026-10-28T21:17:31.320618Z",
+                     *         "created_at": "2026-10-29T01:53:00.982895Z",
                      *         "explanation": "92 % des valeurs de lignes_commande.code_produit existent dans produits.code_produit ; noms identiques ; relation N-1 : plusieurs lignes de lignes_commande pour une ligne de produits.",
                      *         "from_column": "code_produit",
                      *         "from_distinct": 12,
                      *         "from_source": "lignes_commande",
-                     *         "from_source_id": "d8b3c80a2749432387c89c7a0e6c83dc",
+                     *         "from_source_id": "1234e8c5d3ec446280dc3824b56d90d7",
                      *         "from_table": "stg_lignes_commande",
-                     *         "id": "110fb6e834ab407ba89979e01edea5c8",
+                     *         "id": "969b24a7adcd458a985935793f9cd1f1",
                      *         "inclusion_ratio": 0.9167,
                      *         "name_similarity": 1,
                      *         "origin": "detected",
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "sample_size": 12,
                      *         "status": "confirmed",
                      *         "to_column": "code_produit",
                      *         "to_source": "produits",
-                     *         "to_source_id": "dd88ae9929f04976ac94c76d7db74432",
+                     *         "to_source_id": "120bcf2cc92e4538a98ee7c9fa7df2b9",
                      *         "to_table": "stg_produits",
                      *         "type_compatible": true,
-                     *         "updated_at": "2026-10-28T21:17:55.773211Z"
+                     *         "updated_at": "2026-10-29T01:53:25.918420Z"
                      *       }
                      *     ]
                      */
@@ -9069,7 +9336,10 @@ export interface operations {
     };
     list_runs_projects__project_id__runs_get: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
             header?: never;
             path: {
                 project_id: string;
@@ -9085,122 +9355,127 @@ export interface operations {
                 };
                 content: {
                     /**
-                     * @example [
-                     *       {
-                     *         "attempts": 1,
-                     *         "cancel_requested": false,
-                     *         "created_at": "2026-10-28T21:17:56.136182Z",
-                     *         "created_by": "f7662b44b85844fca1b33c3ac76cbe90",
-                     *         "error": null,
-                     *         "finished_at": "2026-10-28T21:17:57.037689Z",
-                     *         "id": "00597f8cdc59496ca53f0c8048a32a84",
-                     *         "metrics": {
-                     *           "dbt_tests": null,
-                     *           "duplicates_removed": 0,
-                     *           "duration_seconds": 0.876,
-                     *           "exports": [],
-                     *           "llm_calls": [],
-                     *           "models": [],
-                     *           "profiled_sources": 5,
-                     *           "relations_detected": 0,
-                     *           "rows_read": 0,
-                     *           "rows_rejected": 0,
-                     *           "rows_valid": 0,
-                     *           "serving_path": null,
-                     *           "sources": [],
-                     *           "unknown_member_rows": []
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "attempts": 1,
+                     *           "cancel_requested": false,
+                     *           "created_at": "2026-10-29T01:53:26.283201Z",
+                     *           "created_by": "823aac3b0ef54b04a0ea9d115868a6d4",
+                     *           "error": null,
+                     *           "finished_at": "2026-10-29T01:53:27.176473Z",
+                     *           "id": "5802aa6bcc0b4242baf2300ec4df2b8d",
+                     *           "metrics": {
+                     *             "dbt_tests": null,
+                     *             "duplicates_removed": 0,
+                     *             "duration_seconds": 0.876,
+                     *             "exports": [],
+                     *             "llm_calls": [],
+                     *             "models": [],
+                     *             "profiled_sources": 5,
+                     *             "relations_detected": 0,
+                     *             "rows_read": 0,
+                     *             "rows_rejected": 0,
+                     *             "rows_valid": 0,
+                     *             "serving_path": null,
+                     *             "sources": [],
+                     *             "unknown_member_rows": []
+                     *           },
+                     *           "params": {
+                     *             "csv_delimiter": null,
+                     *             "formats": [
+                     *               "parquet",
+                     *               "csv"
+                     *             ],
+                     *             "full_refresh": false,
+                     *             "mart_request_id": null,
+                     *             "source_ids": null,
+                     *             "type": "profile",
+                     *             "use_llm": true
+                     *           },
+                     *           "progress": {
+                     *             "done": [
+                     *               "1fbb02924d3c4096acf590db54f3c286",
+                     *               "9dd3011becfb456b8809a565758bc759"
+                     *             ],
+                     *             "failed": [],
+                     *             "message": "profilage de produits",
+                     *             "percent": 100,
+                     *             "running": [],
+                     *             "step": "profile",
+                     *             "updated_at": "2026-10-29T01:53:27.171113Z"
+                     *           },
+                     *           "project_id": "0f0e2a12705747e3afac6be0235494d2",
+                     *           "result": null,
+                     *           "started_at": "2026-10-29T01:53:26.289795Z",
+                     *           "status": "succeeded",
+                     *           "type": "profile"
                      *         },
-                     *         "params": {
-                     *           "csv_delimiter": null,
-                     *           "formats": [
-                     *             "parquet",
-                     *             "csv"
-                     *           ],
-                     *           "full_refresh": false,
-                     *           "mart_request_id": null,
-                     *           "source_ids": null,
-                     *           "type": "profile",
-                     *           "use_llm": true
-                     *         },
-                     *         "progress": {
-                     *           "done": [
-                     *             "4a0d20517ed948c88ac9811ef212c932",
-                     *             "b5d168336bb54909a107520298cc6d57"
-                     *           ],
-                     *           "failed": [],
-                     *           "message": "profilage de produits",
-                     *           "percent": 100,
-                     *           "running": [],
-                     *           "step": "profile",
-                     *           "updated_at": "2026-10-28T21:17:57.032292Z"
-                     *         },
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
-                     *         "result": null,
-                     *         "started_at": "2026-10-28T21:17:56.151684Z",
-                     *         "status": "succeeded",
-                     *         "type": "profile"
-                     *       },
-                     *       {
-                     *         "attempts": 1,
-                     *         "cancel_requested": false,
-                     *         "created_at": "2026-10-28T21:17:55.896360Z",
-                     *         "created_by": "f7662b44b85844fca1b33c3ac76cbe90",
-                     *         "error": null,
-                     *         "finished_at": "2026-10-28T21:17:55.978574Z",
-                     *         "id": "c5fdd26f94f74021af8c6cff71de4e11",
-                     *         "metrics": {
-                     *           "dbt_tests": null,
-                     *           "duplicates_removed": 0,
-                     *           "duration_seconds": 0.062,
-                     *           "exports": [],
-                     *           "llm_calls": [],
-                     *           "models": [],
-                     *           "profiled_sources": 0,
-                     *           "relations_detected": 0,
-                     *           "rows_read": 0,
-                     *           "rows_rejected": 0,
-                     *           "rows_valid": 0,
-                     *           "serving_path": null,
-                     *           "sources": [],
-                     *           "unknown_member_rows": []
-                     *         },
-                     *         "params": {
-                     *           "csv_delimiter": null,
-                     *           "formats": [
-                     *             "parquet",
-                     *             "csv"
-                     *           ],
-                     *           "full_refresh": false,
-                     *           "mart_request_id": null,
-                     *           "source_ids": null,
-                     *           "type": "gold_proposal",
-                     *           "use_llm": false
-                     *         },
-                     *         "progress": {
-                     *           "done": [],
-                     *           "failed": [],
-                     *           "message": "validation et enregistrement du plan",
-                     *           "percent": 100,
-                     *           "running": [],
-                     *           "step": "validation",
-                     *           "updated_at": "2026-10-28T21:17:55.974985Z"
-                     *         },
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
-                     *         "result": {
-                     *           "errors": 0,
-                     *           "gold_plan_version": 2,
-                     *           "origin": "heuristic",
-                     *           "warnings": [
-                     *             "commandes.frais_port n'est pas repris comme mesure : il est au niveau de commandes, le sommer au grain de lignes_commande le multiplierait"
-                     *           ]
-                     *         },
-                     *         "started_at": "2026-10-28T21:17:55.905298Z",
-                     *         "status": "succeeded",
-                     *         "type": "gold_proposal"
-                     *       }
-                     *     ]
+                     *         {
+                     *           "attempts": 1,
+                     *           "cancel_requested": false,
+                     *           "created_at": "2026-10-29T01:53:26.041892Z",
+                     *           "created_by": "823aac3b0ef54b04a0ea9d115868a6d4",
+                     *           "error": null,
+                     *           "finished_at": "2026-10-29T01:53:26.132425Z",
+                     *           "id": "4bb28e0ec9234a438880818958b938c1",
+                     *           "metrics": {
+                     *             "dbt_tests": null,
+                     *             "duplicates_removed": 0,
+                     *             "duration_seconds": 0.062,
+                     *             "exports": [],
+                     *             "llm_calls": [],
+                     *             "models": [],
+                     *             "profiled_sources": 0,
+                     *             "relations_detected": 0,
+                     *             "rows_read": 0,
+                     *             "rows_rejected": 0,
+                     *             "rows_valid": 0,
+                     *             "serving_path": null,
+                     *             "sources": [],
+                     *             "unknown_member_rows": []
+                     *           },
+                     *           "params": {
+                     *             "csv_delimiter": null,
+                     *             "formats": [
+                     *               "parquet",
+                     *               "csv"
+                     *             ],
+                     *             "full_refresh": false,
+                     *             "mart_request_id": null,
+                     *             "source_ids": null,
+                     *             "type": "gold_proposal",
+                     *             "use_llm": false
+                     *           },
+                     *           "progress": {
+                     *             "done": [],
+                     *             "failed": [],
+                     *             "message": "validation et enregistrement du plan",
+                     *             "percent": 100,
+                     *             "running": [],
+                     *             "step": "validation",
+                     *             "updated_at": "2026-10-29T01:53:26.127490Z"
+                     *           },
+                     *           "project_id": "0f0e2a12705747e3afac6be0235494d2",
+                     *           "result": {
+                     *             "errors": 0,
+                     *             "gold_plan_version": 2,
+                     *             "origin": "heuristic",
+                     *             "warnings": [
+                     *               "commandes.frais_port n'est pas repris comme mesure : il est au niveau de commandes, le sommer au grain de lignes_commande le multiplierait"
+                     *             ]
+                     *           },
+                     *           "started_at": "2026-10-29T01:53:26.050727Z",
+                     *           "status": "succeeded",
+                     *           "type": "gold_proposal"
+                     *         }
+                     *       ],
+                     *       "limit": 50,
+                     *       "offset": 0,
+                     *       "total": 8
+                     *     }
                      */
-                    "application/json": components["schemas"]["Job"][];
+                    "application/json": components["schemas"]["RunPage"];
                 };
             };
             /** @description Validation Error */
@@ -9239,25 +9514,25 @@ export interface operations {
                      * @example {
                      *       "attempts": 1,
                      *       "cancel_requested": false,
-                     *       "created_at": "2026-10-28T21:18:06.629784Z",
-                     *       "created_by": "496b5b5b4ef94be98853f5f764183864",
+                     *       "created_at": "2026-10-29T01:53:37.093659Z",
+                     *       "created_by": "586b93081e37418f82e092fa9f76538e",
                      *       "error": null,
-                     *       "finished_at": "2026-10-28T21:18:08.113224Z",
-                     *       "id": "41691f0488ea45bd8fe3cfa2b6c5ebdf",
+                     *       "finished_at": "2026-10-29T01:53:38.575525Z",
+                     *       "id": "7cde13e464dc442586d810a5ed7c9b41",
                      *       "metrics": {
                      *         "dbt_tests": null,
                      *         "duplicates_removed": 0,
-                     *         "duration_seconds": 1.465,
+                     *         "duration_seconds": 1.463,
                      *         "exports": [
                      *           {
                      *             "format": "parquet",
-                     *             "path": "2c52376ee6594da69567373ad95dcbed/exports/dim_clients.parquet",
+                     *             "path": "0f0e2a12705747e3afac6be0235494d2/exports/dim_clients.parquet",
                      *             "rows": 21,
                      *             "table": "dim_clients"
                      *           },
                      *           {
                      *             "format": "csv",
-                     *             "path": "2c52376ee6594da69567373ad95dcbed/exports/dim_clients.csv",
+                     *             "path": "0f0e2a12705747e3afac6be0235494d2/exports/dim_clients.csv",
                      *             "rows": 21,
                      *             "table": "dim_clients"
                      *           }
@@ -9269,7 +9544,7 @@ export interface operations {
                      *         "rows_read": 0,
                      *         "rows_rejected": 0,
                      *         "rows_valid": 0,
-                     *         "serving_path": "2c52376ee6594da69567373ad95dcbed/serving/demo_e_commerce.duckdb",
+                     *         "serving_path": "0f0e2a12705747e3afac6be0235494d2/serving/demo_e_commerce.duckdb",
                      *         "sources": [],
                      *         "unknown_member_rows": []
                      *       },
@@ -9286,9 +9561,9 @@ export interface operations {
                      *         "use_llm": true
                      *       },
                      *       "progress": null,
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "result": null,
-                     *       "started_at": "2026-10-28T21:18:06.637764Z",
+                     *       "started_at": "2026-10-29T01:53:37.102154Z",
                      *       "status": "succeeded",
                      *       "type": "export"
                      *     }
@@ -9328,7 +9603,7 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "created_at": "2026-10-28T21:17:38.696534Z",
+                     *       "created_at": "2026-10-29T01:53:08.575202Z",
                      *       "created_by": null,
                      *       "default_time_dimension": "date_commande",
                      *       "dimensions": [
@@ -9430,7 +9705,7 @@ export interface operations {
                      *         }
                      *       ],
                      *       "gold_plan_version": 1,
-                     *       "id": "2f5be4a3917f41c8a5c317465d726122",
+                     *       "id": "2a61aa1e5532468799c66796ffefb8d5",
                      *       "metrics": [
                      *         {
                      *           "additivity": "additive",
@@ -9478,7 +9753,7 @@ export interface operations {
                      *         }
                      *       ],
                      *       "overrides": [],
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "version": 1
                      *     }
                      */
@@ -9519,8 +9794,8 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "created_at": "2026-10-28T21:17:57.690905Z",
-                     *       "created_by": "f7662b44b85844fca1b33c3ac76cbe90",
+                     *       "created_at": "2026-10-29T01:53:27.797185Z",
+                     *       "created_by": "823aac3b0ef54b04a0ea9d115868a6d4",
                      *       "default_time_dimension": "date_commande",
                      *       "dimensions": [
                      *         {
@@ -9621,7 +9896,7 @@ export interface operations {
                      *         }
                      *       ],
                      *       "gold_plan_version": 1,
-                     *       "id": "b6fad3ad017649a18c1102185f11c04a",
+                     *       "id": "66858af2949e4a44a5ff0264bc4cbb01",
                      *       "metrics": [
                      *         {
                      *           "additivity": "additive",
@@ -9678,11 +9953,11 @@ export interface operations {
                      *           "label": null,
                      *           "synonyms": null,
                      *           "target": "metric:montant",
-                     *           "updated_at": "2026-10-28T21:17:57.640186Z",
-                     *           "updated_by": "f7662b44b85844fca1b33c3ac76cbe90"
+                     *           "updated_at": "2026-10-29T01:53:27.753347Z",
+                     *           "updated_by": "823aac3b0ef54b04a0ea9d115868a6d4"
                      *         }
                      *       ],
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "version": 2
                      *     }
                      */
@@ -9719,7 +9994,7 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "created_at": "2026-10-28T21:17:38.696534Z",
+                     *       "created_at": "2026-10-29T01:53:08.575202Z",
                      *       "created_by": null,
                      *       "default_time_dimension": "date_commande",
                      *       "dimensions": [
@@ -9821,7 +10096,7 @@ export interface operations {
                      *         }
                      *       ],
                      *       "gold_plan_version": 1,
-                     *       "id": "2f5be4a3917f41c8a5c317465d726122",
+                     *       "id": "2a61aa1e5532468799c66796ffefb8d5",
                      *       "metrics": [
                      *         {
                      *           "additivity": "additive",
@@ -9869,7 +10144,7 @@ export interface operations {
                      *         }
                      *       ],
                      *       "overrides": [],
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "version": 1
                      *     }
                      */
@@ -9909,11 +10184,11 @@ export interface operations {
                     /**
                      * @example [
                      *       {
-                     *         "created_at": "2026-10-28T21:17:57.720940Z",
-                     *         "id": "090498f81e9d406bb50f3047c746537c",
+                     *         "created_at": "2026-10-29T01:53:27.844243Z",
+                     *         "id": "e00d0855120e436d83cfd78ac593d3ed",
                      *         "mart_request_id": null,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
-                     *         "proposed_by": "d9d26f58279a43599f4782b39a238a67",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
+                     *         "proposed_by": "377fa4fb58904d34af65f5933f6f7cdd",
                      *         "reviewed_at": null,
                      *         "reviewed_by": null,
                      *         "status": "pending",
@@ -9959,11 +10234,11 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "created_at": "2026-10-28T21:17:57.859215Z",
-                     *       "id": "1663be8fae084f31ae6f6c0c0811623e",
+                     *       "created_at": "2026-10-29T01:53:27.978207Z",
+                     *       "id": "9905744b02024154b239a984f68ceff0",
                      *       "mart_request_id": null,
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
-                     *       "proposed_by": "d9d26f58279a43599f4782b39a238a67",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
+                     *       "proposed_by": "377fa4fb58904d34af65f5933f6f7cdd",
                      *       "reviewed_at": null,
                      *       "reviewed_by": null,
                      *       "status": "pending",
@@ -10041,7 +10316,7 @@ export interface operations {
                     /**
                      * @example [
                      *       {
-                     *         "bronze_path": "2c52376ee6594da69567373ad95dcbed/bronze/clients/20261028T211722356317Z_v0001_clients.parquet",
+                     *         "bronze_path": "0f0e2a12705747e3afac6be0235494d2/bronze/clients/20261029T015251799927Z_v0001_clients.parquet",
                      *         "column_count": 7,
                      *         "columns": [
                      *           {
@@ -10058,12 +10333,12 @@ export interface operations {
                      *         "delimiter": ";",
                      *         "encoding": "cp1252",
                      *         "format": "csv",
-                     *         "id": "b5d168336bb54909a107520298cc6d57",
-                     *         "ingested_at": "2026-10-28T21:17:22.356317Z",
-                     *         "latest_version_id": "9648c3f8bc3b4cb897d8c9a9d0d97a01",
+                     *         "id": "9dd3011becfb456b8809a565758bc759",
+                     *         "ingested_at": "2026-10-29T01:52:51.799927Z",
+                     *         "latest_version_id": "fc564b076df94da09ba85ef0d233949f",
                      *         "name": "clients",
                      *         "original_filename": "clients.csv",
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "quality_score": 100,
                      *         "row_count": 20,
                      *         "schema_drift": null,
@@ -10072,7 +10347,7 @@ export interface operations {
                      *         "warnings": []
                      *       },
                      *       {
-                     *         "bronze_path": "2c52376ee6594da69567373ad95dcbed/bronze/commandes/20261028T211722940022Z_v0001_commandes.parquet",
+                     *         "bronze_path": "0f0e2a12705747e3afac6be0235494d2/bronze/commandes/20261029T015252387226Z_v0001_commandes.parquet",
                      *         "column_count": 5,
                      *         "columns": [
                      *           {
@@ -10089,12 +10364,12 @@ export interface operations {
                      *         "delimiter": ";",
                      *         "encoding": "utf-8",
                      *         "format": "csv",
-                     *         "id": "6b975b6b84714cd3b366aba0bb27d625",
-                     *         "ingested_at": "2026-10-28T21:17:22.940022Z",
-                     *         "latest_version_id": "94afe7782e2b4ceab8a807364f20403d",
+                     *         "id": "5ea383f529bc4ade897423617281c6e8",
+                     *         "ingested_at": "2026-10-29T01:52:52.387226Z",
+                     *         "latest_version_id": "bb52b43993824995898d3a92fb166f6c",
                      *         "name": "commandes",
                      *         "original_filename": "commandes.csv",
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "quality_score": 100,
                      *         "row_count": 40,
                      *         "schema_drift": null,
@@ -10147,7 +10422,7 @@ export interface operations {
                     /**
                      * @example [
                      *       {
-                     *         "bronze_path": "2c52376ee6594da69567373ad95dcbed/bronze/catalogue/20261028T211754385196Z_v0001_catalogue.parquet",
+                     *         "bronze_path": "0f0e2a12705747e3afac6be0235494d2/bronze/catalogue/20261029T015324586883Z_v0001_catalogue.parquet",
                      *         "column_count": 5,
                      *         "columns": [
                      *           {
@@ -10164,12 +10439,12 @@ export interface operations {
                      *         "delimiter": ";",
                      *         "encoding": "utf-8",
                      *         "format": "csv",
-                     *         "id": "4a0d20517ed948c88ac9811ef212c932",
-                     *         "ingested_at": "2026-10-28T21:17:54.385196Z",
-                     *         "latest_version_id": "c8730703a50c4b5f9c89141b92c75fab",
+                     *         "id": "1fbb02924d3c4096acf590db54f3c286",
+                     *         "ingested_at": "2026-10-29T01:53:24.586883Z",
+                     *         "latest_version_id": "fe6eae0270ff4c989f5ccaab9cf25395",
                      *         "name": "catalogue",
                      *         "original_filename": "catalogue.csv",
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "quality_score": 100,
                      *         "row_count": 12,
                      *         "schema_drift": null,
@@ -10213,7 +10488,7 @@ export interface operations {
                     /**
                      * @example [
                      *       {
-                     *         "built_at": "2026-10-28T21:17:38.474201Z",
+                     *         "built_at": "2026-10-29T01:53:08.389918Z",
                      *         "columns": [
                      *           {
                      *             "name": "client_key",
@@ -10226,20 +10501,20 @@ export interface operations {
                      *             "type": "VARCHAR"
                      *           }
                      *         ],
-                     *         "id": "f4782d8fad1348dc9432a0ce35ebf034",
-                     *         "last_run_id": "14dae6a40b3a4baea9b479406b87a1bc",
+                     *         "id": "555dab079e9b46f2bde0e9a9a4d2e924",
+                     *         "last_run_id": "54d198f4051a4ba6bb2b07078a2d3f3e",
                      *         "layer": "gold",
                      *         "name": "dim_clients",
                      *         "owner_id": null,
                      *         "plan_version": 1,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "publish": true,
                      *         "rejected_count": 0,
                      *         "row_count": 21,
                      *         "source_id": null
                      *       },
                      *       {
-                     *         "built_at": "2026-10-28T21:17:38.550229Z",
+                     *         "built_at": "2026-10-29T01:53:08.437577Z",
                      *         "columns": [
                      *           {
                      *             "name": "date_key",
@@ -10252,13 +10527,13 @@ export interface operations {
                      *             "type": "DATE"
                      *           }
                      *         ],
-                     *         "id": "eef3a349acf24013b1f4dd4e3728c189",
-                     *         "last_run_id": "14dae6a40b3a4baea9b479406b87a1bc",
+                     *         "id": "55996fc577b34b199ff665c972041a84",
+                     *         "last_run_id": "54d198f4051a4ba6bb2b07078a2d3f3e",
                      *         "layer": "gold",
                      *         "name": "dim_date",
                      *         "owner_id": null,
                      *         "plan_version": 1,
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "publish": true,
                      *         "rejected_count": 0,
                      *         "row_count": 323,
@@ -10301,26 +10576,26 @@ export interface operations {
                      * @example {
                      *       "cardinality": "N-1",
                      *       "confidence": 0.963,
-                     *       "created_at": "2026-10-28T21:17:31.128773Z",
+                     *       "created_at": "2026-10-29T01:53:00.797855Z",
                      *       "explanation": "94 % des valeurs de commandes.id_client existent dans clients.id_client ; noms identiques ; relation N-1 : plusieurs lignes de commandes pour une ligne de clients.",
                      *       "from_column": "id_client",
                      *       "from_distinct": 16,
                      *       "from_source": "commandes",
-                     *       "from_source_id": "6b975b6b84714cd3b366aba0bb27d625",
+                     *       "from_source_id": "5ea383f529bc4ade897423617281c6e8",
                      *       "from_table": "stg_commandes",
-                     *       "id": "f34e3fcbe744417e96686934aa816078",
+                     *       "id": "79668b209ee64f45a44f9a5a7d57c904",
                      *       "inclusion_ratio": 0.9375,
                      *       "name_similarity": 1,
                      *       "origin": "detected",
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "sample_size": 16,
                      *       "status": "confirmed",
                      *       "to_column": "id_client",
                      *       "to_source": "clients",
-                     *       "to_source_id": "b5d168336bb54909a107520298cc6d57",
+                     *       "to_source_id": "9dd3011becfb456b8809a565758bc759",
                      *       "to_table": "stg_clients",
                      *       "type_compatible": true,
-                     *       "updated_at": "2026-10-28T21:17:31.498476Z"
+                     *       "updated_at": "2026-10-29T01:53:01.153047Z"
                      *     }
                      */
                     "application/json": components["schemas"]["Relation"];
@@ -10358,26 +10633,26 @@ export interface operations {
                      * @example {
                      *       "cardinality": "N-1",
                      *       "confidence": 0.963,
-                     *       "created_at": "2026-10-28T21:17:31.128773Z",
+                     *       "created_at": "2026-10-29T01:53:00.797855Z",
                      *       "explanation": "94 % des valeurs de commandes.id_client existent dans clients.id_client ; noms identiques ; relation N-1 : plusieurs lignes de commandes pour une ligne de clients.",
                      *       "from_column": "id_client",
                      *       "from_distinct": 16,
                      *       "from_source": "commandes",
-                     *       "from_source_id": "6b975b6b84714cd3b366aba0bb27d625",
+                     *       "from_source_id": "5ea383f529bc4ade897423617281c6e8",
                      *       "from_table": "stg_commandes",
-                     *       "id": "f34e3fcbe744417e96686934aa816078",
+                     *       "id": "79668b209ee64f45a44f9a5a7d57c904",
                      *       "inclusion_ratio": 0.9375,
                      *       "name_similarity": 1,
                      *       "origin": "detected",
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "sample_size": 16,
                      *       "status": "confirmed",
                      *       "to_column": "id_client",
                      *       "to_source": "clients",
-                     *       "to_source_id": "b5d168336bb54909a107520298cc6d57",
+                     *       "to_source_id": "9dd3011becfb456b8809a565758bc759",
                      *       "to_table": "stg_clients",
                      *       "type_compatible": true,
-                     *       "updated_at": "2026-10-28T21:17:55.283327Z"
+                     *       "updated_at": "2026-10-29T01:53:25.448564Z"
                      *     }
                      */
                     "application/json": components["schemas"]["Relation"];
@@ -10415,26 +10690,26 @@ export interface operations {
                      * @example {
                      *       "cardinality": "N-1",
                      *       "confidence": 0.963,
-                     *       "created_at": "2026-10-28T21:17:31.128773Z",
+                     *       "created_at": "2026-10-29T01:53:00.797855Z",
                      *       "explanation": "94 % des valeurs de commandes.id_client existent dans clients.id_client ; noms identiques ; relation N-1 : plusieurs lignes de commandes pour une ligne de clients.",
                      *       "from_column": "id_client",
                      *       "from_distinct": 16,
                      *       "from_source": "commandes",
-                     *       "from_source_id": "6b975b6b84714cd3b366aba0bb27d625",
+                     *       "from_source_id": "5ea383f529bc4ade897423617281c6e8",
                      *       "from_table": "stg_commandes",
-                     *       "id": "f34e3fcbe744417e96686934aa816078",
+                     *       "id": "79668b209ee64f45a44f9a5a7d57c904",
                      *       "inclusion_ratio": 0.9375,
                      *       "name_similarity": 1,
                      *       "origin": "detected",
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "sample_size": 16,
                      *       "status": "rejected",
                      *       "to_column": "id_client",
                      *       "to_source": "clients",
-                     *       "to_source_id": "b5d168336bb54909a107520298cc6d57",
+                     *       "to_source_id": "9dd3011becfb456b8809a565758bc759",
                      *       "to_table": "stg_clients",
                      *       "type_compatible": true,
-                     *       "updated_at": "2026-10-28T21:17:55.250640Z"
+                     *       "updated_at": "2026-10-29T01:53:25.424043Z"
                      *     }
                      */
                     "application/json": components["schemas"]["Relation"];
@@ -10472,11 +10747,11 @@ export interface operations {
                      * @example {
                      *       "attempts": 1,
                      *       "cancel_requested": false,
-                     *       "created_at": "2026-10-28T21:17:56.136182Z",
-                     *       "created_by": "f7662b44b85844fca1b33c3ac76cbe90",
+                     *       "created_at": "2026-10-29T01:53:26.283201Z",
+                     *       "created_by": "823aac3b0ef54b04a0ea9d115868a6d4",
                      *       "error": null,
-                     *       "finished_at": "2026-10-28T21:17:57.037689Z",
-                     *       "id": "00597f8cdc59496ca53f0c8048a32a84",
+                     *       "finished_at": "2026-10-29T01:53:27.176473Z",
+                     *       "id": "5802aa6bcc0b4242baf2300ec4df2b8d",
                      *       "metrics": {
                      *         "dbt_tests": null,
                      *         "duplicates_removed": 0,
@@ -10507,19 +10782,19 @@ export interface operations {
                      *       },
                      *       "progress": {
                      *         "done": [
-                     *           "4a0d20517ed948c88ac9811ef212c932",
-                     *           "b5d168336bb54909a107520298cc6d57"
+                     *           "1fbb02924d3c4096acf590db54f3c286",
+                     *           "9dd3011becfb456b8809a565758bc759"
                      *         ],
                      *         "failed": [],
                      *         "message": "profilage de produits",
                      *         "percent": 100,
                      *         "running": [],
                      *         "step": "profile",
-                     *         "updated_at": "2026-10-28T21:17:57.032292Z"
+                     *         "updated_at": "2026-10-29T01:53:27.171113Z"
                      *       },
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "result": null,
-                     *       "started_at": "2026-10-28T21:17:56.151684Z",
+                     *       "started_at": "2026-10-29T01:53:26.289795Z",
                      *       "status": "succeeded",
                      *       "type": "profile"
                      *     }
@@ -10559,11 +10834,11 @@ export interface operations {
                      * @example {
                      *       "attempts": 0,
                      *       "cancel_requested": true,
-                     *       "created_at": "2026-10-28T21:17:57.194181Z",
+                     *       "created_at": "2026-10-29T01:53:27.332723Z",
                      *       "created_by": null,
                      *       "error": "cancelled",
-                     *       "finished_at": "2026-10-28T21:17:57.223516Z",
-                     *       "id": "585ff27431ea4ba1867d104a039c2ec7",
+                     *       "finished_at": "2026-10-29T01:53:27.354307Z",
+                     *       "id": "1d9a5b5e42684924954d98c7465c54da",
                      *       "metrics": null,
                      *       "params": {
                      *         "csv_delimiter": null,
@@ -10578,7 +10853,7 @@ export interface operations {
                      *         "use_llm": true
                      *       },
                      *       "progress": null,
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "result": null,
                      *       "started_at": null,
                      *       "status": "cancelled",
@@ -10617,15 +10892,15 @@ export interface operations {
                 };
                 content: {
                     /**
-                     * @example [22:17:56] profile started
-                     *     [22:17:56] [profile] profilage de catalogue
-                     *     [22:17:56] catalogue v1: quality score 100.0, 0 PII column(s)
-                     *     [22:17:56] [profile] profilage de clients
-                     *     [22:17:56] clients v2: quality score 100.0, 3 PII column(s)
-                     *     [22:17:56] [profile] profilage de commandes
-                     *     [22:17:56] commandes v1: quality score 100.0, 0 PII column(s)
-                     *     [22:17:56] [profile] profilage de lignes_commande
-                     *     [22:17:56…
+                     * @example [02:53:26] profile started
+                     *     [02:53:26] [profile] profilage de catalogue
+                     *     [02:53:26] catalogue v1: quality score 100.0, 0 PII column(s)
+                     *     [02:53:26] [profile] profilage de clients
+                     *     [02:53:26] clients v2: quality score 100.0, 3 PII column(s)
+                     *     [02:53:26] [profile] profilage de commandes
+                     *     [02:53:26] commandes v1: quality score 100.0, 0 PII column(s)
+                     *     [02:53:26] [profile] profilage de lignes_commande
+                     *     [02:53:27…
                      */
                     "text/plain": string;
                 };
@@ -10741,7 +11016,7 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "checked_at": "2026-10-28T21:18:06.578158Z",
+                     *       "checked_at": "2026-10-29T01:53:37.035773Z",
                      *       "duration_ms": 0,
                      *       "message": "Aucun fournisseur : les heuristiques de Forja sont utilisées.",
                      *       "model": null,
@@ -10773,7 +11048,7 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "bronze_path": "2c52376ee6594da69567373ad95dcbed/bronze/clients/20261028T211754055325Z_v0002_clients.parquet",
+                     *       "bronze_path": "0f0e2a12705747e3afac6be0235494d2/bronze/clients/20261029T015324255758Z_v0002_clients.parquet",
                      *       "column_count": 7,
                      *       "columns": [
                      *         {
@@ -10790,12 +11065,12 @@ export interface operations {
                      *       "delimiter": ";",
                      *       "encoding": "cp1252",
                      *       "format": "csv",
-                     *       "id": "b5d168336bb54909a107520298cc6d57",
-                     *       "ingested_at": "2026-10-28T21:17:54.055325Z",
-                     *       "latest_version_id": "94b36dba17954298bdf915872d9ff1f9",
+                     *       "id": "9dd3011becfb456b8809a565758bc759",
+                     *       "ingested_at": "2026-10-29T01:53:24.255758Z",
+                     *       "latest_version_id": "8bb6fe3cff044f2e80af4bc6f113f6d4",
                      *       "name": "clients",
                      *       "original_filename": "clients.csv",
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "quality_score": 100,
                      *       "row_count": 21,
                      *       "schema_drift": {
@@ -10920,13 +11195,13 @@ export interface operations {
                      *           "target_type": "varchar"
                      *         }
                      *       ],
-                     *       "created_at": "2026-10-28T21:17:22.675380Z",
+                     *       "created_at": "2026-10-29T01:52:52.110679Z",
                      *       "deduplication": {
                      *         "duplicate_rows": 0,
                      *         "enabled": true,
                      *         "explanation": "Déduplication exacte : aucun doublon au profiling, une seule occurrence conservée si des doublons apparaissent."
                      *       },
-                     *       "id": "59cc72cc51254a0abc2820a36622b3c8",
+                     *       "id": "f76ac007336b44668784fd5ce6ed78bf",
                      *       "model_name": "stg_clients",
                      *       "primary_key": {
                      *         "columns": [
@@ -10935,13 +11210,13 @@ export interface operations {
                      *         "explanation": "Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
                      *         "quasi_unique": false
                      *       },
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "reviews": {},
-                     *       "source_id": "b5d168336bb54909a107520298cc6d57",
+                     *       "source_id": "9dd3011becfb456b8809a565758bc759",
                      *       "source_name": "clients",
                      *       "status": "applied",
                      *       "summary": "7 colonne(s) publiée(s) sur 7, 3 règle(s) de validité, 3 colonne(s) personnelle(s). Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
-                     *       "updated_at": "2026-10-28T21:17:30.910416Z",
+                     *       "updated_at": "2026-10-29T01:53:00.537216Z",
                      *       "version": 1,
                      *       "warnings": []
                      *     }
@@ -11058,13 +11333,13 @@ export interface operations {
                      *           "target_type": "varchar"
                      *         }
                      *       ],
-                     *       "created_at": "2026-10-28T21:17:22.675380Z",
+                     *       "created_at": "2026-10-29T01:52:52.110679Z",
                      *       "deduplication": {
                      *         "duplicate_rows": 0,
                      *         "enabled": true,
                      *         "explanation": "Déduplication exacte : aucun doublon au profiling, une seule occurrence conservée si des doublons apparaissent."
                      *       },
-                     *       "id": "0dcd8fa749954bc0980726828fe24fe5",
+                     *       "id": "f0a5187f669b422b87540d3570469e89",
                      *       "model_name": "stg_clients",
                      *       "primary_key": {
                      *         "columns": [
@@ -11073,13 +11348,13 @@ export interface operations {
                      *         "explanation": "Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
                      *         "quasi_unique": false
                      *       },
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "reviews": {},
-                     *       "source_id": "b5d168336bb54909a107520298cc6d57",
+                     *       "source_id": "9dd3011becfb456b8809a565758bc759",
                      *       "source_name": "clients",
                      *       "status": "draft",
                      *       "summary": "7 colonne(s) publiée(s) sur 7, 3 règle(s) de validité, 3 colonne(s) personnelle(s). Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
-                     *       "updated_at": "2026-10-28T21:17:54.881173Z",
+                     *       "updated_at": "2026-10-29T01:53:25.062205Z",
                      *       "version": 2,
                      *       "warnings": []
                      *     }
@@ -11192,13 +11467,13 @@ export interface operations {
                      *           "target_type": "varchar"
                      *         }
                      *       ],
-                     *       "created_at": "2026-10-28T21:17:22.675380Z",
+                     *       "created_at": "2026-10-29T01:52:52.110679Z",
                      *       "deduplication": {
                      *         "duplicate_rows": 0,
                      *         "enabled": true,
                      *         "explanation": "Déduplication exacte : aucun doublon au profiling, une seule occurrence conservée si des doublons apparaissent."
                      *       },
-                     *       "id": "0dcd8fa749954bc0980726828fe24fe5",
+                     *       "id": "f0a5187f669b422b87540d3570469e89",
                      *       "model_name": "stg_clients",
                      *       "primary_key": {
                      *         "columns": [
@@ -11207,7 +11482,7 @@ export interface operations {
                      *         "explanation": "Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
                      *         "quasi_unique": false
                      *       },
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "reviews": {
                      *         "cast:date_inscription": "validated",
                      *         "deduplicate": "validated",
@@ -11219,11 +11494,11 @@ export interface operations {
                      *         "pii:prénom": "validated",
                      *         "primary_key": "validated"
                      *       },
-                     *       "source_id": "b5d168336bb54909a107520298cc6d57",
+                     *       "source_id": "9dd3011becfb456b8809a565758bc759",
                      *       "source_name": "clients",
                      *       "status": "approved",
                      *       "summary": "7 colonne(s) publiée(s) sur 7, 3 règle(s) de validité, 3 colonne(s) personnelle(s). Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
-                     *       "updated_at": "2026-10-28T21:17:55.071659Z",
+                     *       "updated_at": "2026-10-29T01:53:25.253446Z",
                      *       "version": 2,
                      *       "warnings": []
                      *     }
@@ -11295,7 +11570,7 @@ export interface operations {
                      *           "title": "Supprimer les espaces superflus"
                      *         }
                      *       ],
-                     *       "source_id": "b5d168336bb54909a107520298cc6d57",
+                     *       "source_id": "9dd3011becfb456b8809a565758bc759",
                      *       "status": "draft",
                      *       "validated": 0
                      *     }
@@ -11369,7 +11644,7 @@ export interface operations {
                      *           "title": "Supprimer les espaces superflus"
                      *         }
                      *       ],
-                     *       "source_id": "b5d168336bb54909a107520298cc6d57",
+                     *       "source_id": "9dd3011becfb456b8809a565758bc759",
                      *       "status": "draft",
                      *       "validated": 9
                      *     }
@@ -11437,13 +11712,13 @@ export interface operations {
                      *           "treatment": "hash",
                      *           "values": [
                      *             {
-                     *               "after": "f1f78f6cb8bb1adde69a5c2eb7d08156d95921b2c1145d8d380cad72b989331b",
+                     *               "after": "c6390c17f74d1316ff866b9a2faddca340cc0574138b73590ab2d5e000ed0ec7",
                      *               "before": "A***",
                      *               "count": 1,
                      *               "invalid": false
                      *             },
                      *             {
-                     *               "after": "98457ed0c8394d3e4b2ae48292b5d79a9f519726994d851a6c62b34505405367",
+                     *               "after": "f5afa8c626cb6a784af153ac739e178ca37f76910835420a2193c491b084205d",
                      *               "before": "B***",
                      *               "count": 1,
                      *               "invalid": false
@@ -11453,7 +11728,7 @@ export interface operations {
                      *       ],
                      *       "plan_version": 2,
                      *       "sample_rows": 21,
-                     *       "source_id": "b5d168336bb54909a107520298cc6d57"
+                     *       "source_id": "9dd3011becfb456b8809a565758bc759"
                      *     }
                      */
                     "application/json": components["schemas"]["PlanSamples"];
@@ -11565,13 +11840,13 @@ export interface operations {
                      *             "target_type": "varchar"
                      *           }
                      *         ],
-                     *         "created_at": "2026-10-28T21:17:22.675380Z",
+                     *         "created_at": "2026-10-29T01:52:52.110679Z",
                      *         "deduplication": {
                      *           "duplicate_rows": 0,
                      *           "enabled": true,
                      *           "explanation": "Déduplication exacte : aucun doublon au profiling, une seule occurrence conservée si des doublons apparaissent."
                      *         },
-                     *         "id": "59cc72cc51254a0abc2820a36622b3c8",
+                     *         "id": "f76ac007336b44668784fd5ce6ed78bf",
                      *         "model_name": "stg_clients",
                      *         "primary_key": {
                      *           "columns": [
@@ -11580,13 +11855,13 @@ export interface operations {
                      *           "explanation": "Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
                      *           "quasi_unique": false
                      *         },
-                     *         "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *         "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *         "reviews": {},
-                     *         "source_id": "b5d168336bb54909a107520298cc6d57",
+                     *         "source_id": "9dd3011becfb456b8809a565758bc759",
                      *         "source_name": "clients",
                      *         "status": "applied",
                      *         "summary": "7 colonne(s) publiée(s) sur 7, 3 règle(s) de validité, 3 colonne(s) personnelle(s). Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
-                     *         "updated_at": "2026-10-28T21:17:30.910416Z",
+                     *         "updated_at": "2026-10-29T01:53:00.537216Z",
                      *         "version": 1,
                      *         "warnings": []
                      *       }
@@ -11634,8 +11909,8 @@ export interface operations {
                      *       "limit": 2,
                      *       "rows": [
                      *         {
-                     *           "_batch_id": "94b36dba17954298bdf915872d9ff1f9",
-                     *           "_ingested_at": "2026-10-28T22:17:54.055325+01:00",
+                     *           "_batch_id": "8bb6fe3cff044f2e80af4bc6f113f6d4",
+                     *           "_ingested_at": "2026-10-29T02:53:24.255758+01:00",
                      *           "_row_hash": "a7ffac631f30c7b07070990bd3ab2dd2610861364842ab8fefafc521c225e613",
                      *           "_source_file": "clients.csv",
                      *           "date_inscription": "09/04/2022",
@@ -11647,8 +11922,8 @@ export interface operations {
                      *           "ville": "Nantes"
                      *         },
                      *         {
-                     *           "_batch_id": "94b36dba17954298bdf915872d9ff1f9",
-                     *           "_ingested_at": "2026-10-28T22:17:54.055325+01:00",
+                     *           "_batch_id": "8bb6fe3cff044f2e80af4bc6f113f6d4",
+                     *           "_ingested_at": "2026-10-29T02:53:24.255758+01:00",
                      *           "_row_hash": "cb9825b31beb8c8e49458226e5a361b717050d583225a2643add891bf05b497d",
                      *           "_source_file": "clients.csv",
                      *           "date_inscription": "22/04/2022",
@@ -11660,7 +11935,7 @@ export interface operations {
                      *           "ville": "Lille"
                      *         }
                      *       ],
-                     *       "source_id": "b5d168336bb54909a107520298cc6d57",
+                     *       "source_id": "9dd3011becfb456b8809a565758bc759",
                      *       "total_rows": 21
                      *     }
                      */
@@ -11830,7 +12105,7 @@ export interface operations {
                      *           "pii_type": "first_name"
                      *         }
                      *       ],
-                     *       "profiled_at": "2026-10-28T21:17:54.312965Z",
+                     *       "profiled_at": "2026-10-29T01:53:24.513444Z",
                      *       "profiler_version": "2",
                      *       "quality": {
                      *         "components": [
@@ -11857,10 +12132,10 @@ export interface operations {
                      *         "score": 100
                      *       },
                      *       "row_count": 21,
-                     *       "source_id": "b5d168336bb54909a107520298cc6d57",
+                     *       "source_id": "9dd3011becfb456b8809a565758bc759",
                      *       "source_name": "clients",
                      *       "version": 2,
-                     *       "version_id": "94b36dba17954298bdf915872d9ff1f9"
+                     *       "version_id": "8bb6fe3cff044f2e80af4bc6f113f6d4"
                      *     }
                      */
                     "application/json": components["schemas"]["ProfileReport"];
@@ -11908,7 +12183,7 @@ export interface operations {
                      *       "reasons": [],
                      *       "rows": [],
                      *       "runs": [],
-                     *       "source_id": "b5d168336bb54909a107520298cc6d57",
+                     *       "source_id": "9dd3011becfb456b8809a565758bc759",
                      *       "table": "stg_clients__rejects",
                      *       "total_rows": 0
                      *     }
@@ -11947,7 +12222,7 @@ export interface operations {
                     /**
                      * @example [
                      *       {
-                     *         "bronze_path": "2c52376ee6594da69567373ad95dcbed/bronze/clients/20261028T211722356317Z_v0001_clients.parquet",
+                     *         "bronze_path": "0f0e2a12705747e3afac6be0235494d2/bronze/clients/20261029T015251799927Z_v0001_clients.parquet",
                      *         "columns": [
                      *           {
                      *             "name": "id_client",
@@ -11963,19 +12238,19 @@ export interface operations {
                      *         "delimiter": ";",
                      *         "encoding": "cp1252",
                      *         "format": "csv",
-                     *         "id": "9648c3f8bc3b4cb897d8c9a9d0d97a01",
-                     *         "ingested_at": "2026-10-28T21:17:22.356317Z",
+                     *         "id": "fc564b076df94da09ba85ef0d233949f",
+                     *         "ingested_at": "2026-10-29T01:52:51.799927Z",
                      *         "new_row_count": 20,
                      *         "original_filename": "clients.csv",
                      *         "row_count": 20,
                      *         "schema_drift": null,
                      *         "sheet_name": null,
-                     *         "source_id": "b5d168336bb54909a107520298cc6d57",
+                     *         "source_id": "9dd3011becfb456b8809a565758bc759",
                      *         "version": 1,
                      *         "warnings": []
                      *       },
                      *       {
-                     *         "bronze_path": "2c52376ee6594da69567373ad95dcbed/bronze/clients/20261028T211754055325Z_v0002_clients.parquet",
+                     *         "bronze_path": "0f0e2a12705747e3afac6be0235494d2/bronze/clients/20261029T015324255758Z_v0002_clients.parquet",
                      *         "columns": [
                      *           {
                      *             "name": "id_client",
@@ -11991,8 +12266,8 @@ export interface operations {
                      *         "delimiter": ";",
                      *         "encoding": "cp1252",
                      *         "format": "csv",
-                     *         "id": "94b36dba17954298bdf915872d9ff1f9",
-                     *         "ingested_at": "2026-10-28T21:17:54.055325Z",
+                     *         "id": "8bb6fe3cff044f2e80af4bc6f113f6d4",
+                     *         "ingested_at": "2026-10-29T01:53:24.255758Z",
                      *         "new_row_count": 2,
                      *         "original_filename": "clients.csv",
                      *         "row_count": 21,
@@ -12004,7 +12279,7 @@ export interface operations {
                      *           "type_changed": []
                      *         },
                      *         "sheet_name": null,
-                     *         "source_id": "b5d168336bb54909a107520298cc6d57",
+                     *         "source_id": "9dd3011becfb456b8809a565758bc759",
                      *         "version": 2,
                      *         "warnings": []
                      *       }
@@ -12047,7 +12322,7 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "bronze_path": "2c52376ee6594da69567373ad95dcbed/bronze/clients/20261028T211754055325Z_v0002_clients.parquet",
+                     *       "bronze_path": "0f0e2a12705747e3afac6be0235494d2/bronze/clients/20261029T015324255758Z_v0002_clients.parquet",
                      *       "column_count": 7,
                      *       "columns": [
                      *         {
@@ -12064,12 +12339,12 @@ export interface operations {
                      *       "delimiter": ";",
                      *       "encoding": "cp1252",
                      *       "format": "csv",
-                     *       "id": "b5d168336bb54909a107520298cc6d57",
-                     *       "ingested_at": "2026-10-28T21:17:54.055325Z",
-                     *       "latest_version_id": "94b36dba17954298bdf915872d9ff1f9",
+                     *       "id": "9dd3011becfb456b8809a565758bc759",
+                     *       "ingested_at": "2026-10-29T01:53:24.255758Z",
+                     *       "latest_version_id": "8bb6fe3cff044f2e80af4bc6f113f6d4",
                      *       "name": "clients",
                      *       "original_filename": "clients.csv",
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "quality_score": 100,
                      *       "row_count": 21,
                      *       "schema_drift": {
@@ -12117,13 +12392,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "created_at": "2026-10-28T21:17:57.720940Z",
-                     *       "id": "090498f81e9d406bb50f3047c746537c",
+                     *       "created_at": "2026-10-29T01:53:27.844243Z",
+                     *       "id": "e00d0855120e436d83cfd78ac593d3ed",
                      *       "mart_request_id": null,
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
-                     *       "proposed_by": "d9d26f58279a43599f4782b39a238a67",
-                     *       "reviewed_at": "2026-10-28T21:17:57.767043Z",
-                     *       "reviewed_by": "f7662b44b85844fca1b33c3ac76cbe90",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
+                     *       "proposed_by": "377fa4fb58904d34af65f5933f6f7cdd",
+                     *       "reviewed_at": "2026-10-29T01:53:27.891400Z",
+                     *       "reviewed_by": "823aac3b0ef54b04a0ea9d115868a6d4",
                      *       "status": "accepted",
                      *       "synonym": "encaissements",
                      *       "target": "metric:montant"
@@ -12162,13 +12437,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "created_at": "2026-10-28T21:17:57.859215Z",
-                     *       "id": "1663be8fae084f31ae6f6c0c0811623e",
+                     *       "created_at": "2026-10-29T01:53:27.978207Z",
+                     *       "id": "9905744b02024154b239a984f68ceff0",
                      *       "mart_request_id": null,
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
-                     *       "proposed_by": "d9d26f58279a43599f4782b39a238a67",
-                     *       "reviewed_at": "2026-10-28T21:17:57.894683Z",
-                     *       "reviewed_by": "f7662b44b85844fca1b33c3ac76cbe90",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
+                     *       "proposed_by": "377fa4fb58904d34af65f5933f6f7cdd",
+                     *       "reviewed_at": "2026-10-29T01:53:28.009240Z",
+                     *       "reviewed_by": "823aac3b0ef54b04a0ea9d115868a6d4",
                      *       "status": "rejected",
                      *       "synonym": "cité",
                      *       "target": "attribute:client.ville"
@@ -12207,7 +12482,7 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "built_at": "2026-10-28T21:17:38.510305Z",
+                     *       "built_at": "2026-10-29T01:53:08.424140Z",
                      *       "columns": [
                      *         {
                      *           "name": "id_commande",
@@ -12220,13 +12495,13 @@ export interface operations {
                      *           "type": "BIGINT"
                      *         }
                      *       ],
-                     *       "id": "7a85f7c70cdb4ac3acd224e48e3f1bb5",
-                     *       "last_run_id": "14dae6a40b3a4baea9b479406b87a1bc",
+                     *       "id": "7c2e9f80d8ca4751981269885a52f1f7",
+                     *       "last_run_id": "54d198f4051a4ba6bb2b07078a2d3f3e",
                      *       "layer": "gold",
                      *       "name": "fct_ventes",
                      *       "owner_id": null,
                      *       "plan_version": 1,
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "publish": true,
                      *       "rejected_count": 0,
                      *       "row_count": 79,
@@ -12270,7 +12545,7 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "built_at": "2026-10-28T21:17:38.510305Z",
+                     *       "built_at": "2026-10-29T01:53:08.424140Z",
                      *       "columns": [
                      *         {
                      *           "name": "id_commande",
@@ -12283,13 +12558,13 @@ export interface operations {
                      *           "type": "BIGINT"
                      *         }
                      *       ],
-                     *       "id": "7a85f7c70cdb4ac3acd224e48e3f1bb5",
-                     *       "last_run_id": "14dae6a40b3a4baea9b479406b87a1bc",
+                     *       "id": "7c2e9f80d8ca4751981269885a52f1f7",
+                     *       "last_run_id": "54d198f4051a4ba6bb2b07078a2d3f3e",
                      *       "layer": "gold",
                      *       "name": "fct_ventes",
                      *       "owner_id": null,
                      *       "plan_version": 1,
-                     *       "project_id": "2c52376ee6594da69567373ad95dcbed",
+                     *       "project_id": "0f0e2a12705747e3afac6be0235494d2",
                      *       "publish": true,
                      *       "rejected_count": 0,
                      *       "row_count": 79,
@@ -12370,31 +12645,31 @@ export interface operations {
                      *       "limit": 2,
                      *       "rows": [
                      *         {
-                     *           "client_key": "e783cc7f8982f5f117db654b00cc1b30",
-                     *           "date_commande_key": 20240821,
-                     *           "id_commande": "CMD-00005",
-                     *           "montant": 25.5,
+                     *           "client_key": "57397f1f16ab0004ecdba2695f0aea57",
+                     *           "date_commande_key": 20240213,
+                     *           "id_commande": "CMD-00001",
+                     *           "montant": 179.7,
                      *           "nb_lignes": 1,
-                     *           "num_ligne": 1,
-                     *           "prix_unitaire": 8.5,
-                     *           "produit_key": "a41c13b1cc22dfccdf989dec46e608a0",
+                     *           "num_ligne": 3,
+                     *           "prix_unitaire": 59.9,
+                     *           "produit_key": "f756531b8cd3e0bc9854608164852288",
                      *           "quantite": 3,
-                     *           "statut": "livrée"
+                     *           "statut": "annulée"
                      *         },
                      *         {
-                     *           "client_key": "8a59c9c7da61e48e446b1a9aac5f57df",
-                     *           "date_commande_key": 20240708,
-                     *           "id_commande": "CMD-00011",
-                     *           "montant": 93.6,
+                     *           "client_key": "5e870b38f31226bc65a045cacfa86039",
+                     *           "date_commande_key": 20241021,
+                     *           "id_commande": "CMD-00012",
+                     *           "montant": 66,
                      *           "nb_lignes": 1,
-                     *           "num_ligne": 1,
-                     *           "prix_unitaire": 31.2,
-                     *           "produit_key": "c6f3e187973412a02acd87c496f65d6c",
+                     *           "num_ligne": 3,
+                     *           "prix_unitaire": 22,
+                     *           "produit_key": "af17146164059d95a5b09a00b14a1319",
                      *           "quantite": 3,
-                     *           "statut": "livrée"
+                     *           "statut": "expédiée"
                      *         }
                      *       ],
-                     *       "table_id": "7a85f7c70cdb4ac3acd224e48e3f1bb5",
+                     *       "table_id": "7c2e9f80d8ca4751981269885a52f1f7",
                      *       "total_rows": 79
                      *     }
                      */

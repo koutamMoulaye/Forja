@@ -14,6 +14,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from forja_core.pagination import Page
+
 
 class Role(StrEnum):
     ADMIN = "admin"
@@ -265,6 +267,24 @@ class MembershipUpdate(BaseModel):
     role: Role
 
 
+SYSTEM_USER = "système"
+"""How an entry without a user (bootstrap, scheduled work) is filtered and listed."""
+
+
+class AuditQuery(BaseModel):
+    action: str | None = None
+    user: str | None = Field(default=None, description=f"An email, or « {SYSTEM_USER} »")
+    object_type: str | None = None
+    since: datetime | None = None
+    text: str | None = Field(default=None, description="Words found in the entry")
+
+
+class AuditFacets(BaseModel):
+    users: list[str] = Field(default_factory=list)
+    actions: list[str] = Field(default_factory=list)
+    objects: list[str] = Field(default_factory=list)
+
+
 class AuditEntry(BaseModel):
     id: str
     at: datetime
@@ -275,3 +295,7 @@ class AuditEntry(BaseModel):
     object_type: str | None = None
     object_id: str | None = None
     details: dict[str, Any] = Field(default_factory=dict)
+
+
+class AuditPage(Page[AuditEntry]):
+    facets: AuditFacets = Field(description="Filter values over the whole log")

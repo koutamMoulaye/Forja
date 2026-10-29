@@ -397,6 +397,10 @@ def record(root: Path) -> dict[str, Any]:
             mart_id=rejected["mart_request"]["id"],
         )
 
+        # Notifications of the analyst: the agent's answers and the decisions above.
+        rec.call(analyst, "GET", "/notifications", "/notifications", params={"limit": 2})
+        rec.call(analyst, "POST", "/notifications/read", "/notifications/read", json={})
+
         # Instance settings
         get(analyst, "/settings/llm")
         rec.call(admin, "PUT", "/settings/llm", "/settings/llm", json={"provider": "none"})

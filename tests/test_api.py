@@ -208,7 +208,8 @@ def test_runs_endpoints(client: TestClient, fixtures_dir: Path) -> None:
     logs = client.get(f"/runs/{run['id']}/logs")
     assert logs.headers["content-type"].startswith("text/plain")
     assert "profile succeeded" in logs.text
-    assert [r["id"] for r in client.get(f"/projects/{project_id}/runs").json()] == [run["id"]]
+    runs = client.get(f"/projects/{project_id}/runs").json()["items"]
+    assert [r["id"] for r in runs] == [run["id"]]
 
     assert client.post(f"/projects/{project_id}/runs", json={"type": "nope"}).status_code == 422
     assert client.get("/runs/missing").status_code == 404

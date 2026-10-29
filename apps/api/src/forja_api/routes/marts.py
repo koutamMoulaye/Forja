@@ -3,9 +3,9 @@ preview, validation, approval and publication of data marts."""
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 from pydantic import BaseModel
 
 from forja_api.security import Access, require
@@ -17,12 +17,16 @@ from forja_core.agent.models import (
     MartRefinement,
     MartRejection,
     MartRequest,
+    MartRequestPage,
+    MartStatus,
     MartValidation,
     TermCorrection,
+    latest_versions,
 )
 from forja_core.auth.models import Action
 from forja_core.errors import ForbiddenError
 from forja_core.jobs.models import Job
+from forja_core.pagination import DEFAULT_LIMIT, MAX_LIMIT
 
 router = APIRouter(tags=["agent"])
 
@@ -66,9 +70,28 @@ def create_mart_request(
     "/projects/{project_id}/mart-requests",
     summary="Requests of the caller (all of them for engineers)",
 )
-def list_mart_requests(project_id: str, state: StateDep, access: AgentAccess) -> list[MartRequest]:
+def list_mart_requests(
+    project_id: str,
+    state: StateDep,
+    access: AgentAccess,
+    status: MartStatus | None = None,
+    versions: Annotated[
+        Literal["latest", "all"],
+        Query(description="latest: the last version (and the last previewed one); all: every one"),
+    ] = "latest",
+    limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> MartRequestPage:
     owner = None if access.can(Action.MART_READ_ALL) else access.principal.id
-    return state.catalog.list_mart_requests(project_id, owner_id=owner)
+    requests = state.catalog.list_mart_requests(
+        project_id, owner_id=owner, status=status, limit=limit, offset=offset, recent_first=True
+    )
+    return MartRequestPage(
+        items=requests if versions == "all" else [latest_versions(r) for r in requests],
+        total=state.catalog.count_mart_requests(project_id, owner_id=owner, status=status),
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.get("/mart-requests/{mart_id}")

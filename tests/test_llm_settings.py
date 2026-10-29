@@ -52,7 +52,7 @@ def test_llm_settings_api(client: TestClient, settings: Settings) -> None:
     assert body["source"] == "saved"
     assert "sk-secret-123" not in chosen.text
     assert "sk-secret-123" not in client.get("/settings/llm").text
-    audit = client.get("/audit").json()
+    audit = client.get("/audit").json()["items"]
     assert any(e["action"] == "settings.llm" for e in audit)
     assert "sk-secret-123" not in str(audit)
 

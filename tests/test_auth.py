@@ -244,7 +244,7 @@ def test_revoked_invitation_cannot_register(multi: TestClient) -> None:
         "/auth/register", json={"token": invitation["token"], "password": USER_PASSWORD}
     )
     assert registered.status_code == 401
-    actions = [e["action"] for e in multi.get(f"/projects/{project_id}/audit").json()]
+    actions = [e["action"] for e in multi.get(f"/projects/{project_id}/audit").json()["items"]]
     assert "member.invitation_revoke" in actions
 
 
@@ -253,12 +253,12 @@ def test_audit_log(multi: TestClient) -> None:
     multi.post("/auth/login", json={"email": ADMIN_EMAIL, "password": "wrong"})
     with user_client(multi, project_id, "c@exemple.fr", "analyst") as analyst:
         assert analyst.get(f"/projects/{project_id}/audit").status_code == 403
-    entries = multi.get(f"/projects/{project_id}/audit").json()
+    entries = multi.get(f"/projects/{project_id}/audit").json()["items"]
     actions = {e["action"] for e in entries}
     assert {"project.create", "member.invite", "member.register"} <= actions
     invite = next(e for e in entries if e["action"] == "member.invite")
     assert invite["user_email"] == ADMIN_EMAIL and invite["details"]["role"] == "analyst"
-    instance = {e["action"] for e in multi.get("/audit").json()}
+    instance = {e["action"] for e in multi.get("/audit").json()["items"]}
     assert {"auth.login", "auth.login_failed", "user.bootstrap"} <= instance
 
 

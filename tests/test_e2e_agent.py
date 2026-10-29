@@ -154,7 +154,8 @@ def test_analyst_requests_a_data_mart(settings: Settings, ecommerce_dir: Path) -
             assert latest["status"] == "previewed" and latest["path"] == "parser"
             assert latest["spec"]["metrics"] == ["montant"]
 
-            audit = {e["action"] for e in admin.get(f"/projects/{project_id}/audit").json()}
+            entries = admin.get(f"/projects/{project_id}/audit").json()["items"]
+            audit = {e["action"] for e in entries}
             assert {
                 "agent.request", "agent.answer", "synonym.propose", "synonym.accept",
                 "mart.validate", "mart.approve", "mart.publish", "table.export",

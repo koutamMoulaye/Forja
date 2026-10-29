@@ -50,7 +50,7 @@ def _login(
 
 
 def _audit(client: TestClient) -> list[str]:
-    return [e["action"] for e in client.get("/audit", params={"limit": 500}).json()]
+    return [e["action"] for e in client.get("/audit", params={"limit": 200}).json()["items"]]
 
 
 def test_account_lock_is_progressive_and_answers_alike(throttled: tuple[TestClient, Clock]) -> None:

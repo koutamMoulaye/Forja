@@ -12,8 +12,11 @@ from datetime import datetime
 from typing import Any
 
 from forja_core.auth.models import (
+    SYSTEM_USER,
     ApiKey,
     AuditEntry,
+    AuditFacets,
+    AuditQuery,
     Invitation,
     Membership,
     Role,
@@ -392,16 +395,43 @@ class AuthMixin(GoldPlansMixin):
         )
         return entry
 
+    def _audit_where(self, project_id: str | None, query: AuditQuery) -> tuple[str, list[Any]]:
+        where = ["(? IS NULL OR project_id = ?)", "(? IS NULL OR action = ?)",
+                 "(? IS NULL OR object_type = ?)", "(? IS NULL OR occurred_at >= ?)"]  # fmt: skip
+        since = to_db_timestamp(query.since)
+        params: list[Any] = [project_id, project_id, query.action, query.action,
+                             query.object_type, query.object_type, since, since]  # fmt: skip
+        if query.user == SYSTEM_USER:
+            where.append("user_email IS NULL")
+        elif query.user:
+            where.append("user_email = ?")
+            params.append(query.user)
+        if query.text and query.text.strip():
+            where.append(
+                "lower(concat_ws(' ', user_email, action, object_type, object_id, "
+                "CAST(details AS VARCHAR))) LIKE ?"
+            )
+            params.append(f"%{query.text.strip().lower()}%")
+        return " AND ".join(where), params
+
     def list_audit(
-        self, project_id: str | None = None, *, limit: int = 200, action: str | None = None
+        self,
+        project_id: str | None = None,
+        *,
+        limit: int = 200,
+        offset: int = 0,
+        action: str | None = None,
+        query: AuditQuery | None = None,
     ) -> list[AuditEntry]:
+        """Audit entries, newest first, matching ``query`` (or just ``action``)."""
+        query = query or AuditQuery(action=action)
+        where, params = self._audit_where(project_id, query)
         sql = (
             "SELECT id, occurred_at, user_id, user_email, action, project_id, object_type, "
-            "object_id, "
-            "details FROM audit_log WHERE (? IS NULL OR project_id = ?) "
-            "AND (? IS NULL OR action = ?) ORDER BY occurred_at DESC, id LIMIT ?"
+            f"object_id, details FROM audit_log WHERE {where} "
+            "ORDER BY occurred_at DESC, id LIMIT ? OFFSET ?"
         )
-        rows = self._fetchall(sql, [project_id, project_id, action, action, limit])
+        rows = self._fetchall(sql, [*params, limit, offset])
         return [
             AuditEntry(
                 id=r[0],
@@ -416,6 +446,29 @@ class AuthMixin(GoldPlansMixin):
             )
             for r in rows
         ]
+
+    def count_audit(self, project_id: str | None, query: AuditQuery) -> int:
+        where, params = self._audit_where(project_id, query)
+        row = self._fetchone(f"SELECT count(*) FROM audit_log WHERE {where}", params)
+        return int(row[0]) if row else 0
+
+    def audit_facets(self, project_id: str | None) -> AuditFacets:
+        """Who acted, which actions and which objects, most frequent first: the menus of
+        the audit filters, over the whole log rather than one page."""
+
+        def most_frequent(column: str) -> list[str]:
+            rows = self._fetchall(
+                f"SELECT coalesce({column}, ?) AS value, count(*) AS n FROM audit_log "
+                "WHERE (? IS NULL OR project_id = ?) GROUP BY value ORDER BY n DESC, value",
+                [SYSTEM_USER, project_id, project_id],
+            )
+            return [str(r[0]) for r in rows]
+
+        return AuditFacets(
+            users=most_frequent("user_email"),
+            actions=most_frequent("action"),
+            objects=[o for o in most_frequent("object_type") if o != SYSTEM_USER],
+        )
 
 
 def new_id() -> str:

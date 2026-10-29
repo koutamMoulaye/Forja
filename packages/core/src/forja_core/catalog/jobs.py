@@ -141,13 +141,30 @@ class JobsMixin(PlansMixin):
             raise JobNotFoundError(f"run '{job_id}' not found")
         return str(row[0])
 
-    def list_jobs(self, project_id: str) -> list[Job]:
+    def list_jobs(
+        self,
+        project_id: str,
+        *,
+        created_by: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[Job]:
+        """Runs of a project, newest first; those of one user with ``created_by``."""
         self.get_project(project_id)
         rows = self._fetchall(
-            f"SELECT {_JOB_COLUMNS} FROM jobs WHERE project_id = ? ORDER BY created_at DESC",
-            [project_id],
+            f"SELECT {_JOB_COLUMNS} FROM jobs WHERE project_id = ? "
+            "AND (? IS NULL OR created_by = ?) ORDER BY created_at DESC, id "
+            "LIMIT ? OFFSET ?",
+            [project_id, created_by, created_by, limit, offset],
         )
         return [_job(row) for row in rows]
+
+    def count_jobs(self, project_id: str, *, created_by: str | None = None) -> int:
+        row = self._fetchone(
+            "SELECT count(*) FROM jobs WHERE project_id = ? AND (? IS NULL OR created_by = ?)",
+            [project_id, created_by, created_by],
+        )
+        return int(row[0]) if row else 0
 
     def queued_job_ids(self) -> list[str]:
         rows = self._fetchall(

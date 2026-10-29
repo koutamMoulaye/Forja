@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from forja_core.agent.spec import Clarification, MartSpec
 from forja_core.jobs.models import ExportedFile
+from forja_core.pagination import Page
 
 
 class MartStatus(StrEnum):
@@ -178,6 +179,24 @@ class MartRequest(BaseModel):
             if iteration.spec is not None and iteration.status == "previewed":
                 return iteration.spec
         return None
+
+
+def latest_versions(request: MartRequest) -> MartRequest:
+    """The request with its latest version, and the latest one with a preview when it is
+    an older one: what lists show. The whole history stays on GET /mart-requests/{id}."""
+    iterations = request.iterations
+    if len(iterations) <= 1:
+        return request
+    kept = [iterations[-1]]
+    for iteration in reversed(iterations[:-1]):
+        if iteration.status == "previewed" and iteration.preview is not None:
+            kept.insert(0, iteration)
+            break
+    return request.model_copy(update={"iterations": kept})
+
+
+class MartRequestPage(Page[MartRequest]):
+    """Requests, most recently updated first."""
 
 
 class AgentOverview(BaseModel):

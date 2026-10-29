@@ -99,9 +99,15 @@ ROUTE_DOCS: dict[tuple[str, str], tuple[str, str]] = {
     ),
     ("get", "/projects/{project_id}/audit"): (
         "Journal d'audit du projet",
-        "Qui a fait quoi, quand, sur quel objet ; filtres action et limit. " + ADMIN,
+        "Qui a fait quoi, quand, sur quel objet, les plus récents d'abord, par page (limit, "
+        "offset). Filtres : utilisateur (« système » pour les actions sans utilisateur), "
+        "action, type d'objet, date de début, texte ; facets donne les valeurs des filtres "
+        "sur tout le journal. " + ADMIN,
     ),
-    ("get", "/audit"): ("Journal d'audit de l'instance", f"Toutes les entrées. {INSTANCE}"),
+    ("get", "/audit"): (
+        "Journal d'audit de l'instance",
+        f"Toutes les entrées, par page, avec les mêmes filtres que celui d'un projet. {INSTANCE}",
+    ),
     # --- Sources --------------------------------------------------------------------
     ("post", "/projects/{project_id}/sources"): (
         "Charger un fichier",
@@ -166,9 +172,29 @@ ROUTE_DOCS: dict[tuple[str, str], tuple[str, str]] = {
         "voit que le modèle en étoile, les data marts publiés qu'il peut lire et les "
         "destinations. " + ALL,
     ),
+    # --- Notifications ------------------------------------------------------------
+    ("get", "/notifications"): (
+        "Mes notifications",
+        "Les plus récentes d'abord, par page (limit, offset), toutes ou non lues seulement ; "
+        "unread donne le nombre de non lues. Run terminé ou en échec, plan à revoir, data mart "
+        "à approuver, approuvé, rejeté (avec le motif) ou publié, réponse de l'agent prête. "
+        f"{ANY_USER}",
+    ),
+    ("post", "/notifications/read"): (
+        "Marquer des notifications comme lues",
+        f"Celles dont les identifiants sont donnés, toutes sans identifiant. {ANY_USER}",
+    ),
+    ("get", "/events"): (
+        "Flux d'événements (Server-Sent Events)",
+        "text/event-stream : ready (nombre de non lues), notification (une nouvelle "
+        "notification), job (un run que l'appelant peut suivre change d'état ou progresse), "
+        "ping toutes les 15 s. Le flux se ferme à l'expiration du jeton d'accès ou à la "
+        f"révocation de la session ; le client se reconnecte. {ANY_USER}",
+    ),
     ("get", "/projects/{project_id}/runs"): (
         "Lister les runs",
-        "Les plus récents d'abord ; un analyst ne voit que les siens (demandes à l'agent). " + ALL,
+        "Les plus récents d'abord, par page (limit, offset ; total donne le nombre de runs). "
+        "Un analyst ne voit que les siens (demandes à l'agent). " + ALL,
     ),
     ("get", "/runs/{run_id}"): (
         "Statut d'un run",
@@ -300,7 +326,10 @@ ROUTE_DOCS: dict[tuple[str, str], tuple[str, str]] = {
     ),
     ("get", "/projects/{project_id}/mart-requests"): (
         "Lister les demandes de data mart",
-        "Les siennes ; toutes pour un engineer. " + ALL,
+        "Les siennes ; toutes pour un engineer. Les plus récemment modifiées d'abord, par page "
+        "(limit, offset), filtrables par statut. versions=latest (par défaut) ne garde que la "
+        "dernière version de chaque demande, et la dernière avec un aperçu ; versions=all les "
+        "renvoie toutes, comme le détail d'une demande. " + ALL,
     ),
     ("get", "/mart-requests/{mart_id}"): (
         "Détail d'une demande",
