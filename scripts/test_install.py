@@ -92,6 +92,7 @@ def ask_through_the_web(url: str, email: str, password: str) -> str:
             "/api/auth/login", json={"email": email, "password": password}, headers=csrf
         )
         assert login.status_code == 200, login.text
+        csrf = {"X-CSRF-Token": web.cookies.get("forja_csrf") or ""}  # renewed at sign-in
         [project] = web.get("/api/forja/projects").json()
         assert project["name"].startswith("Démo"), project
         asked = web.post(
