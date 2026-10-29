@@ -16,8 +16,14 @@ from forja_core.pagination import DEFAULT_LIMIT, MAX_LIMIT
 
 router = APIRouter(tags=["runs"])
 
-# Agent runs are created by the data mart endpoints, which keep their lifecycle.
-_MART_RUNS = frozenset({JobType.MART_REQUEST, JobType.PUBLISH_MART})
+# Agent runs are created by the data mart endpoints, which keep their lifecycle; loads
+# and file ingestions by the connection and upload endpoints.
+_DEDICATED_RUNS = {
+    JobType.MART_REQUEST: "/projects/{id}/mart-requests",
+    JobType.PUBLISH_MART: "/projects/{id}/mart-requests",
+    JobType.LOAD: "/connections/{id}/load",
+    JobType.INGEST: "/uploads/{id}/complete",
+}
 
 ProjectAccess = Annotated[Access, require(Action.PROJECT_READ)]
 
@@ -45,9 +51,9 @@ def create_run(
     state: StateDep,
     access: Annotated[Access, require(Action.RUN_WRITE)],
 ) -> Job:
-    if request.type in _MART_RUNS:
+    if request.type in _DEDICATED_RUNS:
         raise PlanValidationError(
-            f"{request.type.value} runs are created through /projects/{{id}}/mart-requests"
+            f"{request.type.value} runs are created through {_DEDICATED_RUNS[request.type]}"
         )
     job = state.executor.create(project_id, request, created_by=access.principal.id)
     state.runner.submit(job.id)

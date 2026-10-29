@@ -31,3 +31,6 @@ class HealthResponse(BaseModel):
         "lets the sign-in screen adapt before anyone is authenticated"
     )
     max_upload_mb: int = Field(description="Largest file accepted by an upload, in MB")
+    upload_chunk_mb: int = Field(
+        description="Chunk size of resumable uploads; larger files are sent in chunks"
+    )

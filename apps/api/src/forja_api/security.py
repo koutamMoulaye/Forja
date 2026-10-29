@@ -75,6 +75,9 @@ def _resolvers(catalog: Catalog) -> dict[str, Callable[[str], str]]:
         "run_id": lambda v: catalog.get_job(v).project_id,
         "mart_id": lambda v: catalog.get_mart_request(v).project_id,
         "proposal_id": lambda v: catalog.get_synonym_proposal(v).project_id,
+        "connection_id": lambda v: catalog.get_connection(v).project_id,
+        "schedule_id": lambda v: catalog.get_schedule(v).project_id,
+        "upload_id": lambda v: catalog.get_upload(v).project_id,
     }
 
 

@@ -1,15 +1,23 @@
 {
   "DELETE /auth/api-keys/{key_id}": {
     "body": {
-      "created_at": "2026-10-29T01:53:23.753763Z",
-      "id": "80fe09ac4e2b46569337a98eea399777",
+      "created_at": "2026-10-29T15:58:05.090215Z",
+      "id": "c7f68acd986b4700862d44948a5c92c7",
       "last_used_at": null,
       "name": "Power BI",
-      "prefix": "b650921f",
-      "revoked_at": "2026-10-29T01:53:23.786873Z",
-      "user_id": "586b93081e37418f82e092fa9f76538e"
+      "prefix": "7dd89f29",
+      "revoked_at": "2026-10-29T15:58:05.119682Z",
+      "user_id": "8928d26b3e2943f6b305baec7b063478"
     },
     "status": 200
+  },
+  "DELETE /connections/{connection_id}": {
+    "body": null,
+    "status": 204
+  },
+  "DELETE /connections/{connection_id}/schedule": {
+    "body": null,
+    "status": 204
   },
   "DELETE /projects/{project_id}/invitations/{invitation_id}": {
     "body": null,
@@ -18,6 +26,31 @@
   "DELETE /projects/{project_id}/members/{user_id}": {
     "body": null,
     "status": 204
+  },
+  "DELETE /sources/{source_id}/schedule": {
+    "body": null,
+    "status": 204
+  },
+  "DELETE /uploads/{upload_id}": {
+    "body": {
+      "chunk_size": 8388608,
+      "created_at": "2026-10-29T15:58:21.218252Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+      "error": null,
+      "expires_at": "2026-10-31T15:58:21.218252Z",
+      "filename": "gros.parquet",
+      "fingerprint": null,
+      "id": "83b5a57a90c140f49c3f99a168374dfd",
+      "job_id": null,
+      "mode": "auto",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "received": 0,
+      "size": 1000000000,
+      "source_id": null,
+      "status": "cancelled",
+      "updated_at": "2026-10-29T15:58:21.245471Z"
+    },
+    "status": 200
   },
   "GET /audit": {
     "body": {
@@ -28,60 +61,60 @@
         ],
         "objects": [
           "mart_request",
-          "user"
+          "connection"
         ],
         "users": [
           "ingenieur@demo.forja.local",
-          "analyste@demo.forja.local"
+          "admin@forja.local"
         ]
       },
       "items": [
         {
           "action": "settings.llm_test",
-          "at": "2026-10-29T01:53:37.036773Z",
+          "at": "2026-10-29T15:58:21.287695Z",
           "details": {
             "ok": true,
             "provider": "none"
           },
-          "id": "34916a2cb368495d83aef357724681fb",
+          "id": "087d5832008d44b0b50a2ea5a6fafdb8",
           "object_id": "llm",
           "object_type": "settings",
           "project_id": null,
           "user_email": "admin@forja.local",
-          "user_id": "586b93081e37418f82e092fa9f76538e"
+          "user_id": "8928d26b3e2943f6b305baec7b063478"
         },
         {
           "action": "settings.llm",
-          "at": "2026-10-29T01:53:37.020400Z",
+          "at": "2026-10-29T15:58:21.271660Z",
           "details": {
             "api_key_changed": false,
             "model": null,
             "provider": "none"
           },
-          "id": "42abed9f547a497586815ff255784105",
+          "id": "f3feef8875bc4a2abde9816001b65c35",
           "object_id": "llm",
           "object_type": "settings",
           "project_id": null,
           "user_email": "admin@forja.local",
-          "user_id": "586b93081e37418f82e092fa9f76538e"
+          "user_id": "8928d26b3e2943f6b305baec7b063478"
         }
       ],
       "limit": 2,
       "offset": 0,
-      "total": 54
+      "total": 69
     },
     "status": 200
   },
   "GET /auth/api-keys": {
     "body": [
       {
-        "created_at": "2026-10-29T01:53:23.753763Z",
-        "id": "80fe09ac4e2b46569337a98eea399777",
+        "created_at": "2026-10-29T15:58:05.090215Z",
+        "id": "c7f68acd986b4700862d44948a5c92c7",
         "last_used_at": null,
         "name": "Power BI",
-        "prefix": "b650921f",
+        "prefix": "7dd89f29",
         "revoked_at": null,
-        "user_id": "586b93081e37418f82e092fa9f76538e"
+        "user_id": "8928d26b3e2943f6b305baec7b063478"
       }
     ],
     "status": 200
@@ -91,10 +124,10 @@
       "auth_mode": "multi",
       "roles": {},
       "user": {
-        "created_at": "2026-10-29T01:52:51.375329Z",
+        "created_at": "2026-10-29T15:57:34.051977Z",
         "disabled": false,
         "email": "admin@forja.local",
-        "id": "586b93081e37418f82e092fa9f76538e",
+        "id": "8928d26b3e2943f6b305baec7b063478",
         "identity_provider": "password",
         "is_admin": true,
         "must_change_password": false,
@@ -107,20 +140,20 @@
   "GET /auth/users": {
     "body": [
       {
-        "created_at": "2026-10-29T01:52:51.375329Z",
+        "created_at": "2026-10-29T15:57:34.051977Z",
         "disabled": false,
         "email": "admin@forja.local",
-        "id": "586b93081e37418f82e092fa9f76538e",
+        "id": "8928d26b3e2943f6b305baec7b063478",
         "identity_provider": "password",
         "is_admin": true,
         "must_change_password": false,
         "name": null
       },
       {
-        "created_at": "2026-10-29T01:53:08.651665Z",
+        "created_at": "2026-10-29T15:57:50.631699Z",
         "disabled": false,
         "email": "ingenieur@demo.forja.local",
-        "id": "823aac3b0ef54b04a0ea9d115868a6d4",
+        "id": "ac14bd54f3324555bae64e0a69ab8adf",
         "identity_provider": "password",
         "is_admin": false,
         "must_change_password": false,
@@ -129,10 +162,174 @@
     ],
     "status": 200
   },
+  "GET /connections/{connection_id}": {
+    "body": {
+      "active_run": null,
+      "created_at": "2026-10-29T15:58:18.756527Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+      "id": "1492b9cf5dc14afebd2c4256ea80c249",
+      "last_loaded_at": "2026-10-29T15:58:19.902577Z",
+      "last_test": null,
+      "name": "Boutique en ligne (API)",
+      "params": {
+        "auth": {
+          "client_id": null,
+          "key_in": "header",
+          "key_name": null,
+          "kind": "bearer",
+          "scope": null,
+          "token_url": null,
+          "username": null
+        },
+        "backoff_seconds": 1.0,
+        "base_url": "http://127.0.0.1:56062/v1",
+        "endpoints": [
+          {
+            "incremental": {
+              "cursor_field": "updated_at",
+              "initial_value": null,
+              "param": "depuis"
+            },
+            "name": "commandes",
+            "params": {},
+            "path": "/commandes",
+            "primary_key": null,
+            "records_path": null
+          }
+        ],
+        "headers": {},
+        "max_retries": 5,
+        "pagination": {
+          "cursor_param": "cursor",
+          "cursor_path": null,
+          "kind": "page_number",
+          "limit_param": "limit",
+          "max_pages": 10000,
+          "next_url_path": null,
+          "offset_param": "offset",
+          "page_param": "page",
+          "page_size": 3,
+          "size_param": "per_page",
+          "start_page": 1
+        },
+        "rate_limit_per_second": 5.0,
+        "timeout_seconds": 30.0
+      },
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "schedule": null,
+      "secrets_set": [
+        "token"
+      ],
+      "sources": [
+        {
+          "cursor_column": "updated_at",
+          "last_loaded_at": "2026-10-29T15:58:19.586063Z",
+          "last_rows": 5,
+          "loaded": true,
+          "mode": "incremental",
+          "object": "commandes",
+          "source_id": "d512b699089248fe9fb92f206b5e97a8",
+          "source_name": "commandes_2"
+        },
+        {
+          "cursor_column": null,
+          "last_loaded_at": "2026-10-29T15:58:19.902577Z",
+          "last_rows": 6,
+          "loaded": true,
+          "mode": "incremental",
+          "object": "commandes.lignes",
+          "source_id": "e98ba6dcb37547ae890ae9a4f20cd2d3",
+          "source_name": "commandes__lignes"
+        }
+      ],
+      "type": "rest_api",
+      "updated_at": "2026-10-29T15:58:18.896898Z"
+    },
+    "status": 200
+  },
+  "GET /connections/{connection_id}/explore": {
+    "body": {
+      "connection_id": "1492b9cf5dc14afebd2c4256ea80c249",
+      "schemas": [
+        "public",
+        "ventes"
+      ],
+      "tables": [
+        {
+          "columns": [
+            {
+              "forja_type": "int64",
+              "name": "id",
+              "nullable": false,
+              "type": "INTEGER"
+            },
+            {
+              "forja_type": "decimal128(10, 2)",
+              "name": "montant",
+              "nullable": true,
+              "type": "NUMERIC(10, 2)"
+            }
+          ],
+          "cursor_candidates": [
+            {
+              "column": "modifie_le",
+              "kind": "timestamp",
+              "reason": "Date de modification : chaque chargement reprend les lignes ajoutées ou modifiées depuis le précédent."
+            },
+            {
+              "column": "id",
+              "kind": "increasing_id",
+              "reason": "Identifiant croissant : seules les nouvelles lignes sont lues, les modifications ne sont pas reprises."
+            }
+          ],
+          "estimated_rows": 1284310,
+          "kind": "table",
+          "name": "commandes",
+          "primary_key": [
+            "id"
+          ],
+          "schema_name": "ventes",
+          "source_id": null,
+          "suggested_cursor": "modifie_le"
+        }
+      ],
+      "truncated": false
+    },
+    "status": 200
+  },
+  "GET /connections/{connection_id}/schedule": {
+    "body": {
+      "created_at": "2026-10-29T15:58:20.050100Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+      "description": "Tous les jours à 06:00",
+      "enabled": true,
+      "id": "a313866c2d934196bfab75b35e29c880",
+      "last_job_id": null,
+      "last_run_at": null,
+      "last_status": null,
+      "next_run_at": "2026-10-30T05:00:00Z",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "spec": {
+        "cron": null,
+        "hour": 6,
+        "kind": "daily",
+        "minute": 0,
+        "weekdays": [
+          0
+        ]
+      },
+      "target_id": "1492b9cf5dc14afebd2c4256ea80c249",
+      "target_type": "connection",
+      "text": "tous les jours à 6 h",
+      "timezone": "Europe/Paris",
+      "updated_at": "2026-10-29T15:58:20.050100Z"
+    },
+    "status": 200
+  },
   "GET /health": {
     "body": {
       "auth_mode": "multi",
-      "max_upload_mb": 200,
+      "max_upload_mb": 10240,
       "status": "ok",
       "version": "0.1.0"
     },
@@ -146,10 +343,10 @@
       "bindings": {
         "vente": "metric:montant"
       },
-      "created_at": "2026-10-29T01:53:28.431410Z",
+      "created_at": "2026-10-29T15:58:09.787188Z",
       "destination": null,
       "exports": [],
-      "id": "34d64bb7e51b44e299f18d71f21acb39",
+      "id": "196b71fa441b4e7bad5840724f52487d",
       "iterations": [
         {
           "clarification": {
@@ -167,11 +364,11 @@
             "term": "ventes"
           },
           "context_tokens": 233,
-          "created_at": "2026-10-29T01:53:28.431410Z",
+          "created_at": "2026-10-29T15:58:09.787188Z",
           "effective": "Les ventes par produit en 2024",
           "error": null,
           "instruction": "Les ventes par produit en 2024",
-          "job_id": "64ddeaf048564d7583e8a8ca486e4252",
+          "job_id": "1cdd1ffb63b74fe89898a408fd760043",
           "kind": "question",
           "llm": null,
           "option_counts": [
@@ -205,11 +402,11 @@
         {
           "clarification": null,
           "context_tokens": 233,
-          "created_at": "2026-10-29T01:53:28.690294Z",
+          "created_at": "2026-10-29T15:58:10.003287Z",
           "effective": "Les ventes par produit en 2024",
           "error": null,
           "instruction": "Chiffre d'affaires",
-          "job_id": "ff77669693ea4fd7b2b2ea6956a4f902",
+          "job_id": "3b9b1ce62f864caebebb0f86ad1986fb",
           "kind": "answer",
           "llm": null,
           "option_counts": [],
@@ -323,9 +520,9 @@
       "model_sql": null,
       "model_summary": null,
       "owner_email": "analyste@demo.forja.local",
-      "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
+      "owner_id": "f1aea71a4b5a44d0b490de86e4fb9d9d",
       "owner_unmasked": false,
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "publish_error": null,
       "publish_job_id": null,
       "published_at": null,
@@ -336,7 +533,7 @@
       "rejection_reason": null,
       "semantic_version": 3,
       "status": "previewed",
-      "updated_at": "2026-10-29T01:53:29.426640Z",
+      "updated_at": "2026-10-29T15:58:10.679338Z",
       "validated_at": null
     },
     "status": 200
@@ -347,32 +544,32 @@
         {
           "action": {
             "label": "Ouvrir",
-            "target_id": "9aacf3c757884e7085039a6c1ac6edd8",
+            "target_id": "7116b239e17f426687be423cad98b197",
             "target_type": "mart"
           },
-          "created_at": "2026-10-29T01:53:36.945623Z",
+          "created_at": "2026-10-29T15:58:18.457962Z",
           "detail": "doublon",
-          "id": "9ddf73c24a2f406193601e50c52304dc",
+          "id": "358c143e7a134760a7cfa45c06f003c0",
           "kind": "mart_rejected",
-          "project_id": "0f0e2a12705747e3afac6be0235494d2",
+          "project_id": "88a84301e8eb4422b85f28b626c3d558",
           "read_at": null,
           "title": "Data mart rejeté",
-          "user_id": "377fa4fb58904d34af65f5933f6f7cdd"
+          "user_id": "f1aea71a4b5a44d0b490de86e4fb9d9d"
         },
         {
           "action": {
             "label": "Vérifier",
-            "target_id": "9aacf3c757884e7085039a6c1ac6edd8",
+            "target_id": "7116b239e17f426687be423cad98b197",
             "target_type": "mart"
           },
-          "created_at": "2026-10-29T01:53:36.901938Z",
+          "created_at": "2026-10-29T15:58:18.415356Z",
           "detail": "Panier moyen par segment.",
-          "id": "49dbb7def6eb4bb58fe1188a9d1e2e4f",
+          "id": "25c3a1bc086f425584e9d6d745a081a1",
           "kind": "ai_job_done",
-          "project_id": "0f0e2a12705747e3afac6be0235494d2",
+          "project_id": "88a84301e8eb4422b85f28b626c3d558",
           "read_at": null,
           "title": "Aperçu prêt à vérifier",
-          "user_id": "377fa4fb58904d34af65f5933f6f7cdd"
+          "user_id": "f1aea71a4b5a44d0b490de86e4fb9d9d"
         }
       ],
       "limit": 2,
@@ -386,16 +583,16 @@
     "body": [
       {
         "architecture": "medallion",
-        "created_at": "2026-10-29T01:52:51.701526Z",
+        "created_at": "2026-10-29T15:57:34.414115Z",
         "description": "Boutique en ligne fictive (données générées)",
-        "id": "0f0e2a12705747e3afac6be0235494d2",
+        "id": "88a84301e8eb4422b85f28b626c3d558",
         "name": "Démo e-commerce"
       },
       {
         "architecture": "medallion",
-        "created_at": "2026-10-29T01:53:23.831228Z",
+        "created_at": "2026-10-29T15:58:05.157414Z",
         "description": null,
-        "id": "c1a69ca6314c4814be73110a53d4662b",
+        "id": "3be6e64288314595ac6e882a07e8e3cf",
         "name": "Finance"
       }
     ],
@@ -403,8 +600,8 @@
   },
   "GET /projects/{project_id}/agent/overview": {
     "body": {
-      "data_updated_at": "2026-10-29T01:53:08.437577Z",
-      "gold_run_id": "54d198f4051a4ba6bb2b07078a2d3f3e",
+      "data_updated_at": "2026-10-29T15:57:50.514955Z",
+      "gold_run_id": "36923b4d3c3d403599655429fb1a81db",
       "semantic_version": 3,
       "suggestions": [
         "Chiffre d'affaires par mois en 2024",
@@ -422,7 +619,7 @@
         ],
         "objects": [
           "mart_request",
-          "synonym_proposal"
+          "connection"
         ],
         "users": [
           "ingenieur@demo.forja.local",
@@ -431,41 +628,130 @@
       },
       "items": [
         {
-          "action": "mart.reject",
-          "at": "2026-10-29T01:53:36.941089Z",
+          "action": "source.upload",
+          "at": "2026-10-29T15:58:21.193690Z",
           "details": {
-            "reason": "doublon"
+            "filename": "codes.csv",
+            "run_id": "42b1bc36570b4e619431eccae2ee8c70",
+            "size": 33
           },
-          "id": "bb6bd71c108c4ea4ae9e59e9b98a5c0d",
-          "object_id": "9aacf3c757884e7085039a6c1ac6edd8",
-          "object_type": "mart_request",
-          "project_id": "0f0e2a12705747e3afac6be0235494d2",
-          "user_email": "analyste@demo.forja.local",
-          "user_id": "377fa4fb58904d34af65f5933f6f7cdd"
+          "id": "082920fc764b4e53ab70aa7cdbd0d7b3",
+          "object_id": "847cf298eb0b47578b913f9711bb2f8b",
+          "object_type": "upload",
+          "project_id": "88a84301e8eb4422b85f28b626c3d558",
+          "user_email": "ingenieur@demo.forja.local",
+          "user_id": "ac14bd54f3324555bae64e0a69ab8adf"
         },
         {
-          "action": "agent.request",
-          "at": "2026-10-29T01:53:36.906686Z",
+          "action": "connection.delete",
+          "at": "2026-10-29T15:58:20.408429Z",
           "details": {
-            "question": "Panier moyen par segment"
+            "detached_sources": []
           },
-          "id": "fe2690b3f26c49bba049f1600da5883f",
-          "object_id": "9aacf3c757884e7085039a6c1ac6edd8",
-          "object_type": "mart_request",
-          "project_id": "0f0e2a12705747e3afac6be0235494d2",
-          "user_email": "analyste@demo.forja.local",
-          "user_id": "377fa4fb58904d34af65f5933f6f7cdd"
+          "id": "64d0fc6ab4254cfe8d2b831f616e1ef0",
+          "object_id": "75851603da3f4cb1b8ea196c05bc6c04",
+          "object_type": "connection",
+          "project_id": "88a84301e8eb4422b85f28b626c3d558",
+          "user_email": "ingenieur@demo.forja.local",
+          "user_id": "ac14bd54f3324555bae64e0a69ab8adf"
         }
       ],
       "limit": 2,
       "offset": 0,
-      "total": 43
+      "total": 57
     },
+    "status": 200
+  },
+  "GET /projects/{project_id}/connections": {
+    "body": [
+      {
+        "active_run": null,
+        "created_at": "2026-10-29T15:58:18.756527Z",
+        "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+        "id": "1492b9cf5dc14afebd2c4256ea80c249",
+        "last_loaded_at": "2026-10-29T15:58:19.902577Z",
+        "last_test": null,
+        "name": "Boutique en ligne (API)",
+        "params": {
+          "auth": {
+            "client_id": null,
+            "key_in": "header",
+            "key_name": null,
+            "kind": "bearer",
+            "scope": null,
+            "token_url": null,
+            "username": null
+          },
+          "backoff_seconds": 1.0,
+          "base_url": "http://127.0.0.1:56062/v1",
+          "endpoints": [
+            {
+              "incremental": {
+                "cursor_field": "updated_at",
+                "initial_value": null,
+                "param": "depuis"
+              },
+              "name": "commandes",
+              "params": {},
+              "path": "/commandes",
+              "primary_key": null,
+              "records_path": null
+            }
+          ],
+          "headers": {},
+          "max_retries": 5,
+          "pagination": {
+            "cursor_param": "cursor",
+            "cursor_path": null,
+            "kind": "page_number",
+            "limit_param": "limit",
+            "max_pages": 10000,
+            "next_url_path": null,
+            "offset_param": "offset",
+            "page_param": "page",
+            "page_size": 3,
+            "size_param": "per_page",
+            "start_page": 1
+          },
+          "rate_limit_per_second": 5.0,
+          "timeout_seconds": 30.0
+        },
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
+        "schedule": null,
+        "secrets_set": [
+          "token"
+        ],
+        "sources": [
+          {
+            "cursor_column": "updated_at",
+            "last_loaded_at": "2026-10-29T15:58:19.586063Z",
+            "last_rows": 5,
+            "loaded": true,
+            "mode": "incremental",
+            "object": "commandes",
+            "source_id": "d512b699089248fe9fb92f206b5e97a8",
+            "source_name": "commandes_2"
+          },
+          {
+            "cursor_column": null,
+            "last_loaded_at": "2026-10-29T15:58:19.902577Z",
+            "last_rows": 6,
+            "loaded": true,
+            "mode": "incremental",
+            "object": "commandes.lignes",
+            "source_id": "e98ba6dcb37547ae890ae9a4f20cd2d3",
+            "source_name": "commandes__lignes"
+          }
+        ],
+        "type": "rest_api",
+        "updated_at": "2026-10-29T15:58:18.896898Z"
+      }
+    ],
     "status": 200
   },
   "GET /projects/{project_id}/gold-plan": {
     "body": {
-      "created_at": "2026-10-29T01:53:01.207691Z",
+      "created_at": "2026-10-29T15:57:43.533291Z",
       "date_dimension": {
         "enabled": true,
         "explanation": "Dimension date générée : un jour par ligne de la plus ancienne à la plus récente date des faits, avec année, trimestre, mois, semaine et jour en français, et un membre inconnu (-1)."
@@ -549,7 +835,7 @@
               "dimension": "dim_produits",
               "explanation": "produit_key → dim_produits via la relation confirmée lignes_commande.code_produit → produits.code_produit.",
               "name": "produit_key",
-              "relation_id": "969b24a7adcd458a985935793f9cd1f1",
+              "relation_id": "5bbac6626ba54ba7ab42cf1d3aa837fc",
               "source": "lignes_commande"
             },
             {
@@ -557,7 +843,7 @@
               "dimension": "dim_clients",
               "explanation": "client_key → dim_clients via la relation confirmée commandes.id_client → clients.id_client.",
               "name": "client_key",
-              "relation_id": "79668b209ee64f45a44f9a5a7d57c904",
+              "relation_id": "7c062357d6204010924899111bb8885a",
               "source": "commandes"
             }
           ],
@@ -595,13 +881,13 @@
           "source": "lignes_commande"
         }
       ],
-      "id": "da9c496c272b49308ed9e9fdb9fd68d4",
+      "id": "9a0c9d94d2db4796872e429243911a6d",
       "issues": [],
       "origin": "heuristic",
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "status": "applied",
       "summary": "2 dimension(s), 1 fait(s), dimension date générée. Validation : 0 erreur(s), 0 avertissement(s).",
-      "updated_at": "2026-10-29T01:53:08.451794Z",
+      "updated_at": "2026-10-29T15:57:50.525882Z",
       "version": 1,
       "warnings": [
         "commandes.frais_port n'est pas repris comme mesure : il est au niveau de commandes, le sommer au grain de lignes_commande le multiplierait"
@@ -616,7 +902,7 @@
   "GET /projects/{project_id}/gold-plans": {
     "body": [
       {
-        "created_at": "2026-10-29T01:53:01.207691Z",
+        "created_at": "2026-10-29T15:57:43.533291Z",
         "date_dimension": {
           "enabled": true,
           "explanation": "Dimension date générée : un jour par ligne de la plus ancienne à la plus récente date des faits, avec année, trimestre, mois, semaine et jour en français, et un membre inconnu (-1)."
@@ -700,7 +986,7 @@
                 "dimension": "dim_produits",
                 "explanation": "produit_key → dim_produits via la relation confirmée lignes_commande.code_produit → produits.code_produit.",
                 "name": "produit_key",
-                "relation_id": "969b24a7adcd458a985935793f9cd1f1",
+                "relation_id": "5bbac6626ba54ba7ab42cf1d3aa837fc",
                 "source": "lignes_commande"
               },
               {
@@ -708,7 +994,7 @@
                 "dimension": "dim_clients",
                 "explanation": "client_key → dim_clients via la relation confirmée commandes.id_client → clients.id_client.",
                 "name": "client_key",
-                "relation_id": "79668b209ee64f45a44f9a5a7d57c904",
+                "relation_id": "7c062357d6204010924899111bb8885a",
                 "source": "commandes"
               }
             ],
@@ -746,13 +1032,13 @@
             "source": "lignes_commande"
           }
         ],
-        "id": "da9c496c272b49308ed9e9fdb9fd68d4",
+        "id": "9a0c9d94d2db4796872e429243911a6d",
         "issues": [],
         "origin": "heuristic",
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "status": "applied",
         "summary": "2 dimension(s), 1 fait(s), dimension date générée. Validation : 0 erreur(s), 0 avertissement(s).",
-        "updated_at": "2026-10-29T01:53:08.451794Z",
+        "updated_at": "2026-10-29T15:57:50.525882Z",
         "version": 1,
         "warnings": [
           "commandes.frais_port n'est pas repris comme mesure : il est au niveau de commandes, le sommer au grain de lignes_commande le multiplierait"
@@ -818,12 +1104,12 @@
           "pii_columns": [],
           "pii_count": 0,
           "quality_score": 100.0,
-          "ref": "1fbb02924d3c4096acf590db54f3c286",
+          "ref": "5f4e27b15fb34d57a1f476c6c98222ff",
           "review_count": 0,
           "run": {
-            "finished_at": "2026-10-29T01:53:27.176473Z",
+            "finished_at": "2026-10-29T15:58:08.555691Z",
             "percent": null,
-            "run_id": "5802aa6bcc0b4242baf2300ec4df2b8d",
+            "run_id": "7b7dcf954b8d48218858e616bb7a6bd5",
             "status": "succeeded",
             "type": "profile"
           },
@@ -849,15 +1135,15 @@
           "pii_columns": [],
           "pii_count": 0,
           "quality_score": null,
-          "ref": "1fbb02924d3c4096acf590db54f3c286",
+          "ref": "5f4e27b15fb34d57a1f476c6c98222ff",
           "review_count": 0,
           "run": null,
           "state": "pending",
           "type": "silver"
         }
       ],
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
-      "version": "3ecd01d9ddf79e2f"
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "version": "cf792edbc27f71ba"
     },
     "status": 200
   },
@@ -865,12 +1151,12 @@
     "body": [
       {
         "accepted_at": null,
-        "created_at": "2026-10-29T01:53:23.884214Z",
+        "created_at": "2026-10-29T15:58:05.211071Z",
         "email": "nouveau@exemple.fr",
-        "expires_at": "2026-11-05T01:53:23.884214Z",
-        "id": "d67ad22c6128467c9c917f0268860dd2",
-        "invited_by": "586b93081e37418f82e092fa9f76538e",
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "expires_at": "2026-11-05T15:58:05.211071Z",
+        "id": "11fa485b84114442b2cd648d589b1455",
+        "invited_by": "8928d26b3e2943f6b305baec7b063478",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "revoked_at": null,
         "role": "analyst",
         "token": null
@@ -888,19 +1174,19 @@
           "bindings": {
             "vente": "metric:montant"
           },
-          "created_at": "2026-10-29T01:53:28.431410Z",
+          "created_at": "2026-10-29T15:58:09.787188Z",
           "destination": null,
           "exports": [],
-          "id": "34d64bb7e51b44e299f18d71f21acb39",
+          "id": "196b71fa441b4e7bad5840724f52487d",
           "iterations": [
             {
               "clarification": null,
               "context_tokens": 152,
-              "created_at": "2026-10-29T01:53:28.928493Z",
+              "created_at": "2026-10-29T15:58:10.218086Z",
               "effective": "seulement le T1",
               "error": null,
               "instruction": "seulement le T1",
-              "job_id": "07bb9110fdda494890bf2fa248a024cb",
+              "job_id": "e58ec43001e44112b1298a0e1ad8e47e",
               "kind": "refinement",
               "llm": null,
               "option_counts": [],
@@ -1012,11 +1298,11 @@
             {
               "clarification": null,
               "context_tokens": 180,
-              "created_at": "2026-10-29T01:53:29.236719Z",
+              "created_at": "2026-10-29T15:58:10.503136Z",
               "effective": "Quantité vendue",
               "error": null,
               "instruction": "Chiffre d'affaires → Quantité vendue",
-              "job_id": "dcca97217e2243d7992d87b4f1e23de7",
+              "job_id": "2038a9e34b5c4393b9f1786f2811d714",
               "kind": "correction",
               "llm": null,
               "option_counts": [],
@@ -1148,9 +1434,9 @@
           "model_sql": null,
           "model_summary": null,
           "owner_email": "analyste@demo.forja.local",
-          "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
+          "owner_id": "f1aea71a4b5a44d0b490de86e4fb9d9d",
           "owner_unmasked": false,
-          "project_id": "0f0e2a12705747e3afac6be0235494d2",
+          "project_id": "88a84301e8eb4422b85f28b626c3d558",
           "publish_error": null,
           "publish_job_id": null,
           "published_at": null,
@@ -1161,7 +1447,7 @@
           "rejection_reason": null,
           "semantic_version": 3,
           "status": "previewed",
-          "updated_at": "2026-10-29T01:53:29.426640Z",
+          "updated_at": "2026-10-29T15:58:10.679338Z",
           "validated_at": null
         },
         {
@@ -1169,32 +1455,32 @@
           "approved_by": null,
           "approved_by_email": null,
           "bindings": {},
-          "created_at": "2026-10-29T01:53:16.439757Z",
+          "created_at": "2026-10-29T15:57:57.984989Z",
           "destination": null,
           "exports": [
             {
               "format": "parquet",
-              "path": "0f0e2a12705747e3afac6be0235494d2/exports/mart_quantite_par_categorie.parquet",
+              "path": "88a84301e8eb4422b85f28b626c3d558/exports/mart_quantite_par_categorie.parquet",
               "rows": 4,
               "table": "mart_quantite_par_categorie"
             },
             {
               "format": "csv",
-              "path": "0f0e2a12705747e3afac6be0235494d2/exports/mart_quantite_par_categorie.csv",
+              "path": "88a84301e8eb4422b85f28b626c3d558/exports/mart_quantite_par_categorie.csv",
               "rows": 4,
               "table": "mart_quantite_par_categorie"
             }
           ],
-          "id": "57e9ed3a28ab474cad9570693c71b899",
+          "id": "879bf5bb31144a88b72a63b75c8abc32",
           "iterations": [
             {
               "clarification": null,
               "context_tokens": 244,
-              "created_at": "2026-10-29T01:53:16.439757Z",
+              "created_at": "2026-10-29T15:57:57.984989Z",
               "effective": "Quantité vendue et prix moyen par catégorie de produit",
               "error": null,
               "instruction": "Quantité vendue et prix moyen par catégorie de produit",
-              "job_id": "e3b98c0131d14c6d9eb146c73e03c599",
+              "job_id": "3efbe21d389d4e13a117dbe7e6c1ef37",
               "kind": "question",
               "llm": null,
               "option_counts": [],
@@ -1319,24 +1605,24 @@
               "ref": "metric:quantite"
             }
           ],
-          "model_sql": "-- Data mart requested by analyste@demo.forja.local: Quantité vendue et prix moyen par catégorie de produit\n-- Quantité vendue et prix moyen unitaire par catégorie.\n-- Generated by Forja from mart request 57e9ed3a28ab474cad9570693c71b899 v1.\n-- Do not edit: this file is regenerated on each build.\n\n{{ config(materialized='table') }}\n\nwith base as (\n\n    select\n        produit.categorie as categorie…",
+          "model_sql": "-- Data mart requested by analyste@demo.forja.local: Quantité vendue et prix moyen par catégorie de produit\n-- Quantité vendue et prix moyen unitaire par catégorie.\n-- Generated by Forja from mart request 879bf5bb31144a88b72a63b75c8abc32 v1.\n-- Do not edit: this file is regenerated on each build.\n\n{{ config(materialized='table') }}\n\nwith base as (\n\n    select\n        produit.categorie as categorie…",
           "model_summary": "Quantité vendue et prix moyen unitaire par catégorie.",
           "owner_email": "analyste@demo.forja.local",
-          "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
+          "owner_id": "f1aea71a4b5a44d0b490de86e4fb9d9d",
           "owner_unmasked": false,
-          "project_id": "0f0e2a12705747e3afac6be0235494d2",
+          "project_id": "88a84301e8eb4422b85f28b626c3d558",
           "publish_error": null,
-          "publish_job_id": "6bc606186dd64d3289190cbc37635e2a",
-          "published_at": "2026-10-29T01:53:23.532227Z",
+          "publish_job_id": "c201c28e68ba4821b192182c4217f28a",
+          "published_at": "2026-10-29T15:58:04.863569Z",
           "published_name": "mart_quantite_par_categorie",
-          "published_table_id": "f81fa50b287947b78a55990f1a2136d7",
+          "published_table_id": "8d7d35c30d6b4d44a77e5a81c9e273ba",
           "question": "Quantité vendue et prix moyen par catégorie de produit",
           "rejected_by": null,
           "rejection_reason": null,
           "semantic_version": 1,
           "status": "published",
-          "updated_at": "2026-10-29T01:53:23.532227Z",
-          "validated_at": "2026-10-29T01:53:16.676862Z"
+          "updated_at": "2026-10-29T15:58:04.863569Z",
+          "validated_at": "2026-10-29T15:57:58.204273Z"
         }
       ],
       "limit": 50,
@@ -1348,18 +1634,18 @@
   "GET /projects/{project_id}/members": {
     "body": [
       {
-        "created_at": "2026-10-29T01:53:08.824139Z",
+        "created_at": "2026-10-29T15:57:50.768482Z",
         "email": "analyste@demo.forja.local",
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "role": "analyst",
-        "user_id": "377fa4fb58904d34af65f5933f6f7cdd"
+        "user_id": "f1aea71a4b5a44d0b490de86e4fb9d9d"
       },
       {
-        "created_at": "2026-10-29T01:53:08.724408Z",
+        "created_at": "2026-10-29T15:57:50.700121Z",
         "email": "ingenieur@demo.forja.local",
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "role": "engineer",
-        "user_id": "823aac3b0ef54b04a0ea9d115868a6d4"
+        "user_id": "ac14bd54f3324555bae64e0a69ab8adf"
       }
     ],
     "status": 200
@@ -1369,50 +1655,50 @@
       {
         "cardinality": "N-1",
         "confidence": 0.963,
-        "created_at": "2026-10-29T01:53:00.797855Z",
+        "created_at": "2026-10-29T15:57:43.202361Z",
         "explanation": "94 % des valeurs de commandes.id_client existent dans clients.id_client ; noms identiques ; relation N-1 : plusieurs lignes de commandes pour une ligne de clients.",
         "from_column": "id_client",
         "from_distinct": 16,
         "from_source": "commandes",
-        "from_source_id": "5ea383f529bc4ade897423617281c6e8",
+        "from_source_id": "96846060dbaf4612802992f8aaf43990",
         "from_table": "stg_commandes",
-        "id": "79668b209ee64f45a44f9a5a7d57c904",
+        "id": "7c062357d6204010924899111bb8885a",
         "inclusion_ratio": 0.9375,
         "name_similarity": 1.0,
         "origin": "detected",
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "sample_size": 16,
         "status": "confirmed",
         "to_column": "id_client",
         "to_source": "clients",
-        "to_source_id": "9dd3011becfb456b8809a565758bc759",
+        "to_source_id": "66876dccbc7b4283a4a34822a60566b5",
         "to_table": "stg_clients",
         "type_compatible": true,
-        "updated_at": "2026-10-29T01:53:01.153047Z"
+        "updated_at": "2026-10-29T15:57:43.483520Z"
       },
       {
         "cardinality": "N-1",
         "confidence": 0.95,
-        "created_at": "2026-10-29T01:53:00.982895Z",
+        "created_at": "2026-10-29T15:57:43.363746Z",
         "explanation": "92 % des valeurs de lignes_commande.code_produit existent dans produits.code_produit ; noms identiques ; relation N-1 : plusieurs lignes de lignes_commande pour une ligne de produits.",
         "from_column": "code_produit",
         "from_distinct": 12,
         "from_source": "lignes_commande",
-        "from_source_id": "1234e8c5d3ec446280dc3824b56d90d7",
+        "from_source_id": "fecdf3e6264641b69ac45aea49cb57ce",
         "from_table": "stg_lignes_commande",
-        "id": "969b24a7adcd458a985935793f9cd1f1",
+        "id": "5bbac6626ba54ba7ab42cf1d3aa837fc",
         "inclusion_ratio": 0.9167,
         "name_similarity": 1.0,
         "origin": "detected",
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "sample_size": 12,
         "status": "confirmed",
         "to_column": "code_produit",
         "to_source": "produits",
-        "to_source_id": "120bcf2cc92e4538a98ee7c9fa7df2b9",
+        "to_source_id": "ceebd3c697f749f5ba6359c4ee705ac0",
         "to_table": "stg_produits",
         "type_compatible": true,
-        "updated_at": "2026-10-29T01:53:01.159083Z"
+        "updated_at": "2026-10-29T15:57:43.488523Z"
       }
     ],
     "status": 200
@@ -1423,20 +1709,22 @@
         {
           "attempts": 1,
           "cancel_requested": false,
-          "created_at": "2026-10-29T01:53:26.283201Z",
-          "created_by": "823aac3b0ef54b04a0ea9d115868a6d4",
+          "created_at": "2026-10-29T15:58:07.772532Z",
+          "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
           "error": null,
-          "finished_at": "2026-10-29T01:53:27.176473Z",
-          "id": "5802aa6bcc0b4242baf2300ec4df2b8d",
+          "finished_at": "2026-10-29T15:58:08.555691Z",
+          "id": "7b7dcf954b8d48218858e616bb7a6bd5",
           "metrics": {
             "dbt_tests": null,
             "duplicates_removed": 0,
-            "duration_seconds": 0.876,
+            "duration_seconds": 0.769,
             "exports": [],
             "llm_calls": [],
+            "loads": [],
             "models": [],
             "profiled_sources": 5,
             "relations_detected": 0,
+            "rows_loaded": 0,
             "rows_read": 0,
             "rows_rejected": 0,
             "rows_valid": 0,
@@ -1445,6 +1733,8 @@
             "unknown_member_rows": []
           },
           "params": {
+            "chain": false,
+            "connection_id": null,
             "csv_delimiter": null,
             "formats": [
               "parquet",
@@ -1452,45 +1742,50 @@
             ],
             "full_refresh": false,
             "mart_request_id": null,
+            "schedule_id": null,
             "source_ids": null,
+            "trigger": "manual",
             "type": "profile",
+            "upload_id": null,
             "use_llm": true
           },
           "progress": {
             "done": [
-              "1fbb02924d3c4096acf590db54f3c286",
-              "9dd3011becfb456b8809a565758bc759"
+              "5f4e27b15fb34d57a1f476c6c98222ff",
+              "66876dccbc7b4283a4a34822a60566b5"
             ],
             "failed": [],
             "message": "profilage de produits",
             "percent": 100,
             "running": [],
             "step": "profile",
-            "updated_at": "2026-10-29T01:53:27.171113Z"
+            "updated_at": "2026-10-29T15:58:08.552186Z"
           },
-          "project_id": "0f0e2a12705747e3afac6be0235494d2",
+          "project_id": "88a84301e8eb4422b85f28b626c3d558",
           "result": null,
-          "started_at": "2026-10-29T01:53:26.289795Z",
+          "started_at": "2026-10-29T15:58:07.779531Z",
           "status": "succeeded",
           "type": "profile"
         },
         {
           "attempts": 1,
           "cancel_requested": false,
-          "created_at": "2026-10-29T01:53:26.041892Z",
-          "created_by": "823aac3b0ef54b04a0ea9d115868a6d4",
+          "created_at": "2026-10-29T15:58:07.549759Z",
+          "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
           "error": null,
-          "finished_at": "2026-10-29T01:53:26.132425Z",
-          "id": "4bb28e0ec9234a438880818958b938c1",
+          "finished_at": "2026-10-29T15:58:07.621615Z",
+          "id": "fbdcfbce84de4ad48d7224b073f50415",
           "metrics": {
             "dbt_tests": null,
             "duplicates_removed": 0,
-            "duration_seconds": 0.062,
+            "duration_seconds": 0.057,
             "exports": [],
             "llm_calls": [],
+            "loads": [],
             "models": [],
             "profiled_sources": 0,
             "relations_detected": 0,
+            "rows_loaded": 0,
             "rows_read": 0,
             "rows_rejected": 0,
             "rows_valid": 0,
@@ -1499,6 +1794,8 @@
             "unknown_member_rows": []
           },
           "params": {
+            "chain": false,
+            "connection_id": null,
             "csv_delimiter": null,
             "formats": [
               "parquet",
@@ -1506,8 +1803,11 @@
             ],
             "full_refresh": false,
             "mart_request_id": null,
+            "schedule_id": null,
             "source_ids": null,
+            "trigger": "manual",
             "type": "gold_proposal",
+            "upload_id": null,
             "use_llm": false
           },
           "progress": {
@@ -1517,9 +1817,9 @@
             "percent": 100,
             "running": [],
             "step": "validation",
-            "updated_at": "2026-10-29T01:53:26.127490Z"
+            "updated_at": "2026-10-29T15:58:07.618467Z"
           },
-          "project_id": "0f0e2a12705747e3afac6be0235494d2",
+          "project_id": "88a84301e8eb4422b85f28b626c3d558",
           "result": {
             "errors": 0,
             "gold_plan_version": 2,
@@ -1528,7 +1828,7 @@
               "commandes.frais_port n'est pas repris comme mesure : il est au niveau de commandes, le sommer au grain de lignes_commande le multiplierait"
             ]
           },
-          "started_at": "2026-10-29T01:53:26.050727Z",
+          "started_at": "2026-10-29T15:58:07.557459Z",
           "status": "succeeded",
           "type": "gold_proposal"
         }
@@ -1539,9 +1839,69 @@
     },
     "status": 200
   },
+  "GET /projects/{project_id}/schedules": {
+    "body": {
+      "schedules": [
+        {
+          "created_at": "2026-10-29T15:58:20.153704Z",
+          "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+          "description": "Toutes les heures",
+          "enabled": true,
+          "id": "92d8858b24f44ad69df24436bdda2456",
+          "last_job_id": null,
+          "last_run_at": null,
+          "last_status": null,
+          "next_run_at": "2026-10-29T16:00:00Z",
+          "project_id": "88a84301e8eb4422b85f28b626c3d558",
+          "spec": {
+            "cron": null,
+            "hour": 6,
+            "kind": "hourly",
+            "minute": 0,
+            "weekdays": [
+              0
+            ]
+          },
+          "target_id": "d512b699089248fe9fb92f206b5e97a8",
+          "target_type": "source",
+          "text": "toutes les heures",
+          "timezone": "Europe/Paris",
+          "updated_at": "2026-10-29T15:58:20.153704Z"
+        },
+        {
+          "created_at": "2026-10-29T15:58:20.050100Z",
+          "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+          "description": "Tous les jours à 06:00",
+          "enabled": true,
+          "id": "a313866c2d934196bfab75b35e29c880",
+          "last_job_id": null,
+          "last_run_at": null,
+          "last_status": null,
+          "next_run_at": "2026-10-30T05:00:00Z",
+          "project_id": "88a84301e8eb4422b85f28b626c3d558",
+          "spec": {
+            "cron": null,
+            "hour": 6,
+            "kind": "daily",
+            "minute": 0,
+            "weekdays": [
+              0
+            ]
+          },
+          "target_id": "1492b9cf5dc14afebd2c4256ea80c249",
+          "target_type": "connection",
+          "text": "tous les jours à 6 h",
+          "timezone": "Europe/Paris",
+          "updated_at": "2026-10-29T15:58:20.050100Z"
+        }
+      ],
+      "timezone": "Europe/Paris"
+    },
+    "status": 200
+  },
   "GET /projects/{project_id}/semantic-layer": {
     "body": {
-      "created_at": "2026-10-29T01:53:08.575202Z",
+      "created_at": "2026-10-29T15:57:50.593531Z",
       "created_by": null,
       "default_time_dimension": "date_commande",
       "dimensions": [
@@ -1643,7 +2003,7 @@
         }
       ],
       "gold_plan_version": 1,
-      "id": "2a61aa1e5532468799c66796ffefb8d5",
+      "id": "b71f642f7e3b4a9c8bb3cf4fd01fddcc",
       "metrics": [
         {
           "additivity": "additive",
@@ -1691,7 +2051,7 @@
         }
       ],
       "overrides": [],
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "version": 1
     },
     "status": 200
@@ -1699,11 +2059,11 @@
   "GET /projects/{project_id}/semantic-layer/synonym-proposals": {
     "body": [
       {
-        "created_at": "2026-10-29T01:53:27.844243Z",
-        "id": "e00d0855120e436d83cfd78ac593d3ed",
+        "created_at": "2026-10-29T15:58:09.218001Z",
+        "id": "916aebe1fa6d4bdd9e9ed1b6f7c8c19c",
         "mart_request_id": null,
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
-        "proposed_by": "377fa4fb58904d34af65f5933f6f7cdd",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
+        "proposed_by": "f1aea71a4b5a44d0b490de86e4fb9d9d",
         "reviewed_at": null,
         "reviewed_by": null,
         "status": "pending",
@@ -1722,7 +2082,39 @@
   "GET /projects/{project_id}/sources": {
     "body": [
       {
-        "bronze_path": "0f0e2a12705747e3afac6be0235494d2/bronze/clients/20261029T015251799927Z_v0001_clients.parquet",
+        "bronze_path": "88a84301e8eb4422b85f28b626c3d558/bronze/catalogue/20261029T155805973255Z_v0001_catalogue.parquet",
+        "column_count": 5,
+        "columns": [
+          {
+            "name": "code_produit",
+            "technical": false,
+            "type": "VARCHAR"
+          },
+          {
+            "name": "libelle",
+            "technical": false,
+            "type": "VARCHAR"
+          }
+        ],
+        "delimiter": ";",
+        "encoding": "utf-8",
+        "format": "csv",
+        "id": "5f4e27b15fb34d57a1f476c6c98222ff",
+        "ingested_at": "2026-10-29T15:58:05.973255Z",
+        "latest_version_id": "33da9908065e48bfaf0354abff3dc37d",
+        "name": "catalogue",
+        "origin": null,
+        "original_filename": "catalogue.csv",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
+        "quality_score": 100.0,
+        "row_count": 12,
+        "schema_drift": null,
+        "sheet_name": null,
+        "version": 1,
+        "warnings": []
+      },
+      {
+        "bronze_path": "88a84301e8eb4422b85f28b626c3d558/bronze/clients/20261029T155805588656Z_v0002_clients.parquet",
         "column_count": 7,
         "columns": [
           {
@@ -1739,48 +2131,24 @@
         "delimiter": ";",
         "encoding": "cp1252",
         "format": "csv",
-        "id": "9dd3011becfb456b8809a565758bc759",
-        "ingested_at": "2026-10-29T01:52:51.799927Z",
-        "latest_version_id": "fc564b076df94da09ba85ef0d233949f",
+        "id": "66876dccbc7b4283a4a34822a60566b5",
+        "ingested_at": "2026-10-29T15:58:05.588656Z",
+        "latest_version_id": "8bea495b6430480ab148cd11b9ec8574",
         "name": "clients",
+        "origin": null,
         "original_filename": "clients.csv",
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "quality_score": 100.0,
-        "row_count": 20,
-        "schema_drift": null,
+        "row_count": 21,
+        "schema_drift": {
+          "added": [],
+          "has_drift": false,
+          "previous_version": 1,
+          "removed": [],
+          "type_changed": []
+        },
         "sheet_name": null,
-        "version": 1,
-        "warnings": []
-      },
-      {
-        "bronze_path": "0f0e2a12705747e3afac6be0235494d2/bronze/commandes/20261029T015252387226Z_v0001_commandes.parquet",
-        "column_count": 5,
-        "columns": [
-          {
-            "name": "id_commande",
-            "technical": false,
-            "type": "VARCHAR"
-          },
-          {
-            "name": "id_client",
-            "technical": false,
-            "type": "VARCHAR"
-          }
-        ],
-        "delimiter": ";",
-        "encoding": "utf-8",
-        "format": "csv",
-        "id": "5ea383f529bc4ade897423617281c6e8",
-        "ingested_at": "2026-10-29T01:52:52.387226Z",
-        "latest_version_id": "bb52b43993824995898d3a92fb166f6c",
-        "name": "commandes",
-        "original_filename": "commandes.csv",
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
-        "quality_score": 100.0,
-        "row_count": 40,
-        "schema_drift": null,
-        "sheet_name": null,
-        "version": 1,
+        "version": 2,
         "warnings": []
       }
     ],
@@ -1789,7 +2157,7 @@
   "GET /projects/{project_id}/tables": {
     "body": [
       {
-        "built_at": "2026-10-29T01:53:08.389918Z",
+        "built_at": "2026-10-29T15:57:50.485781Z",
         "columns": [
           {
             "name": "client_key",
@@ -1802,20 +2170,20 @@
             "type": "VARCHAR"
           }
         ],
-        "id": "555dab079e9b46f2bde0e9a9a4d2e924",
-        "last_run_id": "54d198f4051a4ba6bb2b07078a2d3f3e",
+        "id": "114446842ed642c580b5ef7b2445bb62",
+        "last_run_id": "36923b4d3c3d403599655429fb1a81db",
         "layer": "gold",
         "name": "dim_clients",
         "owner_id": null,
         "plan_version": 1,
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "publish": true,
         "rejected_count": 0,
         "row_count": 21,
         "source_id": null
       },
       {
-        "built_at": "2026-10-29T01:53:08.437577Z",
+        "built_at": "2026-10-29T15:57:50.514955Z",
         "columns": [
           {
             "name": "date_key",
@@ -1828,13 +2196,13 @@
             "type": "DATE"
           }
         ],
-        "id": "55996fc577b34b199ff665c972041a84",
-        "last_run_id": "54d198f4051a4ba6bb2b07078a2d3f3e",
+        "id": "0be09847e3fd4ff0b0603d074e20b6a1",
+        "last_run_id": "36923b4d3c3d403599655429fb1a81db",
         "layer": "gold",
         "name": "dim_date",
         "owner_id": null,
         "plan_version": 1,
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "publish": true,
         "rejected_count": 0,
         "row_count": 323,
@@ -1847,26 +2215,26 @@
     "body": {
       "cardinality": "N-1",
       "confidence": 0.963,
-      "created_at": "2026-10-29T01:53:00.797855Z",
+      "created_at": "2026-10-29T15:57:43.202361Z",
       "explanation": "94 % des valeurs de commandes.id_client existent dans clients.id_client ; noms identiques ; relation N-1 : plusieurs lignes de commandes pour une ligne de clients.",
       "from_column": "id_client",
       "from_distinct": 16,
       "from_source": "commandes",
-      "from_source_id": "5ea383f529bc4ade897423617281c6e8",
+      "from_source_id": "96846060dbaf4612802992f8aaf43990",
       "from_table": "stg_commandes",
-      "id": "79668b209ee64f45a44f9a5a7d57c904",
+      "id": "7c062357d6204010924899111bb8885a",
       "inclusion_ratio": 0.9375,
       "name_similarity": 1.0,
       "origin": "detected",
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "sample_size": 16,
       "status": "confirmed",
       "to_column": "id_client",
       "to_source": "clients",
-      "to_source_id": "9dd3011becfb456b8809a565758bc759",
+      "to_source_id": "66876dccbc7b4283a4a34822a60566b5",
       "to_table": "stg_clients",
       "type_compatible": true,
-      "updated_at": "2026-10-29T01:53:01.153047Z"
+      "updated_at": "2026-10-29T15:57:43.483520Z"
     },
     "status": 200
   },
@@ -1874,20 +2242,22 @@
     "body": {
       "attempts": 1,
       "cancel_requested": false,
-      "created_at": "2026-10-29T01:53:26.283201Z",
-      "created_by": "823aac3b0ef54b04a0ea9d115868a6d4",
+      "created_at": "2026-10-29T15:58:07.772532Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
       "error": null,
-      "finished_at": "2026-10-29T01:53:27.176473Z",
-      "id": "5802aa6bcc0b4242baf2300ec4df2b8d",
+      "finished_at": "2026-10-29T15:58:08.555691Z",
+      "id": "7b7dcf954b8d48218858e616bb7a6bd5",
       "metrics": {
         "dbt_tests": null,
         "duplicates_removed": 0,
-        "duration_seconds": 0.876,
+        "duration_seconds": 0.769,
         "exports": [],
         "llm_calls": [],
+        "loads": [],
         "models": [],
         "profiled_sources": 5,
         "relations_detected": 0,
+        "rows_loaded": 0,
         "rows_read": 0,
         "rows_rejected": 0,
         "rows_valid": 0,
@@ -1896,6 +2266,8 @@
         "unknown_member_rows": []
       },
       "params": {
+        "chain": false,
+        "connection_id": null,
         "csv_delimiter": null,
         "formats": [
           "parquet",
@@ -1903,32 +2275,45 @@
         ],
         "full_refresh": false,
         "mart_request_id": null,
+        "schedule_id": null,
         "source_ids": null,
+        "trigger": "manual",
         "type": "profile",
+        "upload_id": null,
         "use_llm": true
       },
       "progress": {
         "done": [
-          "1fbb02924d3c4096acf590db54f3c286",
-          "9dd3011becfb456b8809a565758bc759"
+          "5f4e27b15fb34d57a1f476c6c98222ff",
+          "66876dccbc7b4283a4a34822a60566b5"
         ],
         "failed": [],
         "message": "profilage de produits",
         "percent": 100,
         "running": [],
         "step": "profile",
-        "updated_at": "2026-10-29T01:53:27.171113Z"
+        "updated_at": "2026-10-29T15:58:08.552186Z"
       },
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "result": null,
-      "started_at": "2026-10-29T01:53:26.289795Z",
+      "started_at": "2026-10-29T15:58:07.779531Z",
       "status": "succeeded",
       "type": "profile"
     },
     "status": 200
   },
   "GET /runs/{run_id}/logs": {
-    "body": "[02:53:26] profile started\n[02:53:26] [profile] profilage de catalogue\n[02:53:26] catalogue v1: quality score 100.0, 0 PII column(s)\n[02:53:26] [profile] profilage de clients\n[02:53:26] clients v2: quality score 100.0, 3 PII column(s)\n[02:53:26] [profile] profilage de commandes\n[02:53:26] commandes v1: quality score 100.0, 0 PII column(s)\n[02:53:26] [profile] profilage de lignes_commande\n[02:53:27…",
+    "body": "[16:58:07] profile started\n[16:58:07] [profile] profilage de catalogue\n[16:58:07] catalogue v1: quality score 100.0, 0 PII column(s)\n[16:58:07] [profile] profilage de clients\n[16:58:08] clients v2: quality score 100.0, 3 PII column(s)\n[16:58:08] [profile] profilage de commandes\n[16:58:08] commandes v1: quality score 100.0, 0 PII column(s)\n[16:58:08] [profile] profilage de lignes_commande\n[16:58:08…",
+    "status": 200
+  },
+  "GET /settings/connectors": {
+    "body": {
+      "allowed_hosts": [],
+      "editable": true,
+      "environment_hosts": [
+        "127.0.0.1"
+      ]
+    },
     "status": 200
   },
   "GET /settings/llm": {
@@ -1949,7 +2334,7 @@
   },
   "GET /sources/{source_id}": {
     "body": {
-      "bronze_path": "0f0e2a12705747e3afac6be0235494d2/bronze/clients/20261029T015324255758Z_v0002_clients.parquet",
+      "bronze_path": "88a84301e8eb4422b85f28b626c3d558/bronze/clients/20261029T155805588656Z_v0002_clients.parquet",
       "column_count": 7,
       "columns": [
         {
@@ -1966,12 +2351,13 @@
       "delimiter": ";",
       "encoding": "cp1252",
       "format": "csv",
-      "id": "9dd3011becfb456b8809a565758bc759",
-      "ingested_at": "2026-10-29T01:53:24.255758Z",
-      "latest_version_id": "8bb6fe3cff044f2e80af4bc6f113f6d4",
+      "id": "66876dccbc7b4283a4a34822a60566b5",
+      "ingested_at": "2026-10-29T15:58:05.588656Z",
+      "latest_version_id": "8bea495b6430480ab148cd11b9ec8574",
       "name": "clients",
+      "origin": null,
       "original_filename": "clients.csv",
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "quality_score": 100.0,
       "row_count": 21,
       "schema_drift": {
@@ -2064,13 +2450,13 @@
           "target_type": "varchar"
         }
       ],
-      "created_at": "2026-10-29T01:52:52.110679Z",
+      "created_at": "2026-10-29T15:57:34.835687Z",
       "deduplication": {
         "duplicate_rows": 0,
         "enabled": true,
         "explanation": "Déduplication exacte : aucun doublon au profiling, une seule occurrence conservée si des doublons apparaissent."
       },
-      "id": "f76ac007336b44668784fd5ce6ed78bf",
+      "id": "0af1e4d678584752a2606ee63211400d",
       "model_name": "stg_clients",
       "primary_key": {
         "columns": [
@@ -2079,13 +2465,13 @@
         "explanation": "Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
         "quasi_unique": false
       },
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "reviews": {},
-      "source_id": "9dd3011becfb456b8809a565758bc759",
+      "source_id": "66876dccbc7b4283a4a34822a60566b5",
       "source_name": "clients",
       "status": "applied",
       "summary": "7 colonne(s) publiée(s) sur 7, 3 règle(s) de validité, 3 colonne(s) personnelle(s). Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
-      "updated_at": "2026-10-29T01:53:00.537216Z",
+      "updated_at": "2026-10-29T15:57:43.006701Z",
       "version": 1,
       "warnings": []
     },
@@ -2125,7 +2511,7 @@
           "title": "Supprimer les espaces superflus"
         }
       ],
-      "source_id": "9dd3011becfb456b8809a565758bc759",
+      "source_id": "66876dccbc7b4283a4a34822a60566b5",
       "status": "draft",
       "validated": 0
     },
@@ -2161,13 +2547,13 @@
           "treatment": "hash",
           "values": [
             {
-              "after": "c6390c17f74d1316ff866b9a2faddca340cc0574138b73590ab2d5e000ed0ec7",
+              "after": "2c570276c547bf0bf9d510e1a67c6aa9de93e590b93fc3e61bb117b3e68a90e2",
               "before": "A***",
               "count": 1,
               "invalid": false
             },
             {
-              "after": "f5afa8c626cb6a784af153ac739e178ca37f76910835420a2193c491b084205d",
+              "after": "0869e3f345ff19c338df410389da75cb6b61b65b7c3a959d5315ec6a107464a6",
               "before": "B***",
               "count": 1,
               "invalid": false
@@ -2177,7 +2563,7 @@
       ],
       "plan_version": 2,
       "sample_rows": 21,
-      "source_id": "9dd3011becfb456b8809a565758bc759"
+      "source_id": "66876dccbc7b4283a4a34822a60566b5"
     },
     "status": 200
   },
@@ -2259,13 +2645,13 @@
             "target_type": "varchar"
           }
         ],
-        "created_at": "2026-10-29T01:52:52.110679Z",
+        "created_at": "2026-10-29T15:57:34.835687Z",
         "deduplication": {
           "duplicate_rows": 0,
           "enabled": true,
           "explanation": "Déduplication exacte : aucun doublon au profiling, une seule occurrence conservée si des doublons apparaissent."
         },
-        "id": "f76ac007336b44668784fd5ce6ed78bf",
+        "id": "0af1e4d678584752a2606ee63211400d",
         "model_name": "stg_clients",
         "primary_key": {
           "columns": [
@@ -2274,13 +2660,13 @@
           "explanation": "Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
           "quasi_unique": false
         },
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "reviews": {},
-        "source_id": "9dd3011becfb456b8809a565758bc759",
+        "source_id": "66876dccbc7b4283a4a34822a60566b5",
         "source_name": "clients",
         "status": "applied",
         "summary": "7 colonne(s) publiée(s) sur 7, 3 règle(s) de validité, 3 colonne(s) personnelle(s). Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
-        "updated_at": "2026-10-29T01:53:00.537216Z",
+        "updated_at": "2026-10-29T15:57:43.006701Z",
         "version": 1,
         "warnings": []
       }
@@ -2296,8 +2682,8 @@
       "limit": 2,
       "rows": [
         {
-          "_batch_id": "8bb6fe3cff044f2e80af4bc6f113f6d4",
-          "_ingested_at": "2026-10-29T02:53:24.255758+01:00",
+          "_batch_id": "8bea495b6430480ab148cd11b9ec8574",
+          "_ingested_at": "2026-10-29T16:58:05.588656+01:00",
           "_row_hash": "a7ffac631f30c7b07070990bd3ab2dd2610861364842ab8fefafc521c225e613",
           "_source_file": "clients.csv",
           "date_inscription": "09/04/2022",
@@ -2309,8 +2695,8 @@
           "ville": "Nantes"
         },
         {
-          "_batch_id": "8bb6fe3cff044f2e80af4bc6f113f6d4",
-          "_ingested_at": "2026-10-29T02:53:24.255758+01:00",
+          "_batch_id": "8bea495b6430480ab148cd11b9ec8574",
+          "_ingested_at": "2026-10-29T16:58:05.588656+01:00",
           "_row_hash": "cb9825b31beb8c8e49458226e5a361b717050d583225a2643add891bf05b497d",
           "_source_file": "clients.csv",
           "date_inscription": "22/04/2022",
@@ -2322,7 +2708,7 @@
           "ville": "Lille"
         }
       ],
-      "source_id": "9dd3011becfb456b8809a565758bc759",
+      "source_id": "66876dccbc7b4283a4a34822a60566b5",
       "total_rows": 21
     },
     "status": 200
@@ -2439,6 +2825,7 @@
         "duplicate_pct": 0.0,
         "duplicate_rows": 0
       },
+      "duration_ms": 107,
       "pii": [
         {
           "column": "nom",
@@ -2459,7 +2846,7 @@
           "pii_type": "first_name"
         }
       ],
-      "profiled_at": "2026-10-29T01:53:24.513444Z",
+      "profiled_at": "2026-10-29T15:58:05.873653Z",
       "profiler_version": "2",
       "quality": {
         "components": [
@@ -2486,10 +2873,12 @@
         "score": 100.0
       },
       "row_count": 21,
-      "source_id": "9dd3011becfb456b8809a565758bc759",
+      "sample_rows": null,
+      "sampled": false,
+      "source_id": "66876dccbc7b4283a4a34822a60566b5",
       "source_name": "clients",
       "version": 2,
-      "version_id": "8bb6fe3cff044f2e80af4bc6f113f6d4"
+      "version_id": "8bea495b6430480ab148cd11b9ec8574"
     },
     "status": 200
   },
@@ -2503,16 +2892,45 @@
       "reasons": [],
       "rows": [],
       "runs": [],
-      "source_id": "9dd3011becfb456b8809a565758bc759",
+      "source_id": "66876dccbc7b4283a4a34822a60566b5",
       "table": "stg_clients__rejects",
       "total_rows": 0
+    },
+    "status": 200
+  },
+  "GET /sources/{source_id}/schedule": {
+    "body": {
+      "created_at": "2026-10-29T15:58:20.153704Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+      "description": "Toutes les heures",
+      "enabled": true,
+      "id": "92d8858b24f44ad69df24436bdda2456",
+      "last_job_id": null,
+      "last_run_at": null,
+      "last_status": null,
+      "next_run_at": "2026-10-29T16:00:00Z",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "spec": {
+        "cron": null,
+        "hour": 6,
+        "kind": "hourly",
+        "minute": 0,
+        "weekdays": [
+          0
+        ]
+      },
+      "target_id": "d512b699089248fe9fb92f206b5e97a8",
+      "target_type": "source",
+      "text": "toutes les heures",
+      "timezone": "Europe/Paris",
+      "updated_at": "2026-10-29T15:58:20.153704Z"
     },
     "status": 200
   },
   "GET /sources/{source_id}/versions": {
     "body": [
       {
-        "bronze_path": "0f0e2a12705747e3afac6be0235494d2/bronze/clients/20261029T015251799927Z_v0001_clients.parquet",
+        "bronze_path": "88a84301e8eb4422b85f28b626c3d558/bronze/clients/20261029T155734440464Z_v0001_clients.parquet",
         "columns": [
           {
             "name": "id_client",
@@ -2528,19 +2946,19 @@
         "delimiter": ";",
         "encoding": "cp1252",
         "format": "csv",
-        "id": "fc564b076df94da09ba85ef0d233949f",
-        "ingested_at": "2026-10-29T01:52:51.799927Z",
+        "id": "4867984f8435486da31321be844d208c",
+        "ingested_at": "2026-10-29T15:57:34.440464Z",
         "new_row_count": 20,
         "original_filename": "clients.csv",
         "row_count": 20,
         "schema_drift": null,
         "sheet_name": null,
-        "source_id": "9dd3011becfb456b8809a565758bc759",
+        "source_id": "66876dccbc7b4283a4a34822a60566b5",
         "version": 1,
         "warnings": []
       },
       {
-        "bronze_path": "0f0e2a12705747e3afac6be0235494d2/bronze/clients/20261029T015324255758Z_v0002_clients.parquet",
+        "bronze_path": "88a84301e8eb4422b85f28b626c3d558/bronze/clients/20261029T155805588656Z_v0002_clients.parquet",
         "columns": [
           {
             "name": "id_client",
@@ -2556,8 +2974,8 @@
         "delimiter": ";",
         "encoding": "cp1252",
         "format": "csv",
-        "id": "8bb6fe3cff044f2e80af4bc6f113f6d4",
-        "ingested_at": "2026-10-29T01:53:24.255758Z",
+        "id": "8bea495b6430480ab148cd11b9ec8574",
+        "ingested_at": "2026-10-29T15:58:05.588656Z",
         "new_row_count": 2,
         "original_filename": "clients.csv",
         "row_count": 21,
@@ -2569,7 +2987,7 @@
           "type_changed": []
         },
         "sheet_name": null,
-        "source_id": "9dd3011becfb456b8809a565758bc759",
+        "source_id": "66876dccbc7b4283a4a34822a60566b5",
         "version": 2,
         "warnings": []
       }
@@ -2578,7 +2996,7 @@
   },
   "GET /tables/{table_id}": {
     "body": {
-      "built_at": "2026-10-29T01:53:08.424140Z",
+      "built_at": "2026-10-29T15:57:50.505952Z",
       "columns": [
         {
           "name": "id_commande",
@@ -2591,13 +3009,13 @@
           "type": "BIGINT"
         }
       ],
-      "id": "7c2e9f80d8ca4751981269885a52f1f7",
-      "last_run_id": "54d198f4051a4ba6bb2b07078a2d3f3e",
+      "id": "5e5bae4a355448eba3cd792168e832c7",
+      "last_run_id": "36923b4d3c3d403599655429fb1a81db",
       "layer": "gold",
       "name": "fct_ventes",
       "owner_id": null,
       "plan_version": 1,
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "publish": true,
       "rejected_count": 0,
       "row_count": 79,
@@ -2614,38 +3032,123 @@
       "limit": 2,
       "rows": [
         {
-          "client_key": "57397f1f16ab0004ecdba2695f0aea57",
-          "date_commande_key": 20240213,
-          "id_commande": "CMD-00001",
-          "montant": 179.7,
+          "client_key": "5f0b8d7093d31e6393b0d0e70aaeac4f",
+          "date_commande_key": 20240308,
+          "id_commande": "CMD-00003",
+          "montant": 55.6,
           "nb_lignes": 1,
           "num_ligne": 3,
-          "prix_unitaire": 59.9,
-          "produit_key": "f756531b8cd3e0bc9854608164852288",
-          "quantite": 3,
-          "statut": "annulée"
+          "prix_unitaire": 27.8,
+          "produit_key": "8dc34b9b499bf75c5727ef667ff7b5df",
+          "quantite": 2,
+          "statut": "livrée"
         },
         {
-          "client_key": "5e870b38f31226bc65a045cacfa86039",
-          "date_commande_key": 20241021,
-          "id_commande": "CMD-00012",
-          "montant": 66.0,
+          "client_key": "804a333bbb0ff329ca7ec20e52b1bec4",
+          "date_commande_key": 20240214,
+          "id_commande": "CMD-00006",
+          "montant": 135.0,
           "nb_lignes": 1,
-          "num_ligne": 3,
-          "prix_unitaire": 22.0,
-          "produit_key": "af17146164059d95a5b09a00b14a1319",
+          "num_ligne": 2,
+          "prix_unitaire": 45.0,
+          "produit_key": "2bbc0416b3024a05a84f4809f5c0322a",
           "quantite": 3,
           "statut": "expédiée"
         }
       ],
-      "table_id": "7c2e9f80d8ca4751981269885a52f1f7",
+      "table_id": "5e5bae4a355448eba3cd792168e832c7",
       "total_rows": 79
+    },
+    "status": 200
+  },
+  "GET /uploads/{upload_id}": {
+    "body": {
+      "chunk_size": 8388608,
+      "created_at": "2026-10-29T15:58:20.798671Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+      "error": null,
+      "expires_at": "2026-10-31T15:58:20.798671Z",
+      "filename": "codes.csv",
+      "fingerprint": null,
+      "id": "847cf298eb0b47578b913f9711bb2f8b",
+      "job_id": null,
+      "mode": "auto",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "received": 33,
+      "size": 33,
+      "source_id": null,
+      "status": "complete",
+      "updated_at": "2026-10-29T15:58:20.834484Z"
+    },
+    "status": 200
+  },
+  "PATCH /connections/{connection_id}": {
+    "body": {
+      "active_run": null,
+      "created_at": "2026-10-29T15:58:18.756527Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+      "id": "1492b9cf5dc14afebd2c4256ea80c249",
+      "last_loaded_at": null,
+      "last_test": null,
+      "name": "Boutique en ligne (API)",
+      "params": {
+        "auth": {
+          "client_id": null,
+          "key_in": "header",
+          "key_name": null,
+          "kind": "bearer",
+          "scope": null,
+          "token_url": null,
+          "username": null
+        },
+        "backoff_seconds": 1.0,
+        "base_url": "http://127.0.0.1:56062/v1",
+        "endpoints": [
+          {
+            "incremental": {
+              "cursor_field": "updated_at",
+              "initial_value": null,
+              "param": "depuis"
+            },
+            "name": "commandes",
+            "params": {},
+            "path": "/commandes",
+            "primary_key": null,
+            "records_path": null
+          }
+        ],
+        "headers": {},
+        "max_retries": 5,
+        "pagination": {
+          "cursor_param": "cursor",
+          "cursor_path": null,
+          "kind": "page_number",
+          "limit_param": "limit",
+          "max_pages": 10000,
+          "next_url_path": null,
+          "offset_param": "offset",
+          "page_param": "page",
+          "page_size": 3,
+          "size_param": "per_page",
+          "start_page": 1
+        },
+        "rate_limit_per_second": 5.0,
+        "timeout_seconds": 30.0
+      },
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "schedule": null,
+      "secrets_set": [
+        "token"
+      ],
+      "sources": [],
+      "type": "rest_api",
+      "updated_at": "2026-10-29T15:58:18.896898Z"
     },
     "status": 200
   },
   "PATCH /projects/{project_id}/gold-plan": {
     "body": {
-      "created_at": "2026-10-29T01:53:26.200829Z",
+      "created_at": "2026-10-29T15:58:07.687764Z",
       "date_dimension": {
         "enabled": true,
         "explanation": "Dimension date générée : un jour par ligne de la plus ancienne à la plus récente date des faits, avec année, trimestre, mois, semaine et jour en français, et un membre inconnu (-1)."
@@ -2729,7 +3232,7 @@
               "dimension": "dim_produits",
               "explanation": "produit_key → dim_produits via la relation confirmée lignes_commande.code_produit → produits.code_produit.",
               "name": "produit_key",
-              "relation_id": "969b24a7adcd458a985935793f9cd1f1",
+              "relation_id": "5bbac6626ba54ba7ab42cf1d3aa837fc",
               "source": "lignes_commande"
             },
             {
@@ -2737,7 +3240,7 @@
               "dimension": "dim_clients",
               "explanation": "client_key → dim_clients via la relation confirmée commandes.id_client → clients.id_client.",
               "name": "client_key",
-              "relation_id": "79668b209ee64f45a44f9a5a7d57c904",
+              "relation_id": "7c062357d6204010924899111bb8885a",
               "source": "commandes"
             }
           ],
@@ -2775,13 +3278,13 @@
           "source": "lignes_commande"
         }
       ],
-      "id": "30da6d659f3640b09fe10c8839a5e1e8",
+      "id": "92ccc0a71a41460cb6b010485da7b55a",
       "issues": [],
       "origin": "heuristic",
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "status": "draft",
       "summary": "2 dimension(s), 1 fait(s), dimension date générée. Validation : 0 erreur(s), 0 avertissement(s).",
-      "updated_at": "2026-10-29T01:53:26.200829Z",
+      "updated_at": "2026-10-29T15:58:07.687764Z",
       "version": 3,
       "warnings": []
     },
@@ -2789,8 +3292,8 @@
   },
   "PATCH /projects/{project_id}/semantic-layer": {
     "body": {
-      "created_at": "2026-10-29T01:53:27.797185Z",
-      "created_by": "823aac3b0ef54b04a0ea9d115868a6d4",
+      "created_at": "2026-10-29T15:58:09.177671Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
       "default_time_dimension": "date_commande",
       "dimensions": [
         {
@@ -2891,7 +3394,7 @@
         }
       ],
       "gold_plan_version": 1,
-      "id": "66858af2949e4a44a5ff0264bc4cbb01",
+      "id": "7812b600c6f64ea38f743b4570341186",
       "metrics": [
         {
           "additivity": "additive",
@@ -2948,11 +3451,11 @@
           "label": null,
           "synonyms": null,
           "target": "metric:montant",
-          "updated_at": "2026-10-29T01:53:27.753347Z",
-          "updated_by": "823aac3b0ef54b04a0ea9d115868a6d4"
+          "updated_at": "2026-10-29T15:58:09.129771Z",
+          "updated_by": "ac14bd54f3324555bae64e0a69ab8adf"
         }
       ],
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "version": 2
     },
     "status": 200
@@ -3034,13 +3537,13 @@
           "target_type": "varchar"
         }
       ],
-      "created_at": "2026-10-29T01:52:52.110679Z",
+      "created_at": "2026-10-29T15:57:34.835687Z",
       "deduplication": {
         "duplicate_rows": 0,
         "enabled": true,
         "explanation": "Déduplication exacte : aucun doublon au profiling, une seule occurrence conservée si des doublons apparaissent."
       },
-      "id": "f0a5187f669b422b87540d3570469e89",
+      "id": "d51c4481205945908ce145c85733b1e0",
       "model_name": "stg_clients",
       "primary_key": {
         "columns": [
@@ -3049,13 +3552,13 @@
         "explanation": "Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
         "quasi_unique": false
       },
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "reviews": {},
-      "source_id": "9dd3011becfb456b8809a565758bc759",
+      "source_id": "66876dccbc7b4283a4a34822a60566b5",
       "source_name": "clients",
       "status": "draft",
       "summary": "7 colonne(s) publiée(s) sur 7, 3 règle(s) de validité, 3 colonne(s) personnelle(s). Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
-      "updated_at": "2026-10-29T01:53:25.062205Z",
+      "updated_at": "2026-10-29T15:58:06.512284Z",
       "version": 2,
       "warnings": []
     },
@@ -3063,7 +3566,7 @@
   },
   "PATCH /tables/{table_id}": {
     "body": {
-      "built_at": "2026-10-29T01:53:08.424140Z",
+      "built_at": "2026-10-29T15:57:50.505952Z",
       "columns": [
         {
           "name": "id_commande",
@@ -3076,13 +3579,13 @@
           "type": "BIGINT"
         }
       ],
-      "id": "7c2e9f80d8ca4751981269885a52f1f7",
-      "last_run_id": "54d198f4051a4ba6bb2b07078a2d3f3e",
+      "id": "5e5bae4a355448eba3cd792168e832c7",
+      "last_run_id": "36923b4d3c3d403599655429fb1a81db",
       "layer": "gold",
       "name": "fct_ventes",
       "owner_id": null,
       "plan_version": 1,
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "publish": true,
       "rejected_count": 0,
       "row_count": 79,
@@ -3092,21 +3595,21 @@
   },
   "POST /auth/api-keys": {
     "body": {
-      "created_at": "2026-10-29T01:53:23.753763Z",
-      "id": "80fe09ac4e2b46569337a98eea399777",
-      "key": "fja_b650921f_…",
+      "created_at": "2026-10-29T15:58:05.090215Z",
+      "id": "c7f68acd986b4700862d44948a5c92c7",
+      "key": "fja_7dd89f29_…",
       "last_used_at": null,
       "name": "Power BI",
-      "prefix": "b650921f",
+      "prefix": "7dd89f29",
       "revoked_at": null,
-      "user_id": "586b93081e37418f82e092fa9f76538e"
+      "user_id": "8928d26b3e2943f6b305baec7b063478"
     },
     "status": 201
   },
   "POST /auth/invitations/lookup": {
     "body": {
       "email": "nouveau@exemple.fr",
-      "expires_at": "2026-11-05T01:53:23.884214Z",
+      "expires_at": "2026-11-05T15:58:05.211071Z",
       "project_name": "Démo e-commerce",
       "role": "analyst",
       "status": "valid"
@@ -3157,6 +3660,141 @@
     },
     "status": 201
   },
+  "POST /connections/{connection_id}/import": {
+    "body": {
+      "feeds": [
+        {
+          "connection_id": "1492b9cf5dc14afebd2c4256ea80c249",
+          "created_at": "2026-10-29T15:58:18.944665Z",
+          "cursor_column": "updated_at",
+          "cursor_value": null,
+          "include_children": true,
+          "last_loaded_at": null,
+          "last_rows": null,
+          "mode": "incremental",
+          "name": "commandes",
+          "object": {
+            "child_path": [],
+            "endpoint": "commandes",
+            "schema_name": null,
+            "table": null
+          },
+          "source_id": "d512b699089248fe9fb92f206b5e97a8",
+          "updated_at": "2026-10-29T15:58:18.944665Z"
+        }
+      ],
+      "run": null
+    },
+    "status": 201
+  },
+  "POST /connections/{connection_id}/load": {
+    "body": {
+      "attempts": 1,
+      "cancel_requested": false,
+      "created_at": "2026-10-29T15:58:18.984431Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+      "error": null,
+      "finished_at": "2026-10-29T15:58:19.917677Z",
+      "id": "29b35519876349bd9fe7486d0c8dda30",
+      "metrics": {
+        "dbt_tests": null,
+        "duplicates_removed": 0,
+        "duration_seconds": 0.915,
+        "exports": [],
+        "llm_calls": [],
+        "loads": [
+          {
+            "batches": 2,
+            "blocking_drift": false,
+            "cursor_value": "2025-01-15T08:00:00Z",
+            "duration_seconds": 0.561,
+            "mode": "incremental",
+            "object": "commandes",
+            "rows": 5,
+            "skipped": null,
+            "source_id": "d512b699089248fe9fb92f206b5e97a8",
+            "source_name": "commandes_2",
+            "version": 1
+          },
+          {
+            "batches": 2,
+            "blocking_drift": false,
+            "cursor_value": null,
+            "duration_seconds": 0.878,
+            "mode": "incremental",
+            "object": "commandes.lignes",
+            "rows": 6,
+            "skipped": null,
+            "source_id": "e98ba6dcb37547ae890ae9a4f20cd2d3",
+            "source_name": "commandes__lignes",
+            "version": 1
+          }
+        ],
+        "models": [],
+        "profiled_sources": 0,
+        "relations_detected": 0,
+        "rows_loaded": 11,
+        "rows_read": 0,
+        "rows_rejected": 0,
+        "rows_valid": 0,
+        "serving_path": null,
+        "sources": [],
+        "unknown_member_rows": []
+      },
+      "params": {
+        "chain": false,
+        "connection_id": "1492b9cf5dc14afebd2c4256ea80c249",
+        "csv_delimiter": null,
+        "formats": [
+          "parquet",
+          "csv"
+        ],
+        "full_refresh": false,
+        "mart_request_id": null,
+        "schedule_id": null,
+        "source_ids": null,
+        "trigger": "manual",
+        "type": "load",
+        "upload_id": null,
+        "use_llm": true
+      },
+      "progress": {
+        "done": [
+          "d512b699089248fe9fb92f206b5e97a8"
+        ],
+        "failed": [],
+        "message": "commandes : 3 enregistrement(s), 1 page(s)",
+        "percent": 100,
+        "running": [],
+        "step": "extract",
+        "updated_at": "2026-10-29T15:58:19.912844Z"
+      },
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "result": {
+        "blocked": [],
+        "rows": 11,
+        "sources": [
+          "d512b699089248fe9fb92f206b5e97a8",
+          "e98ba6dcb37547ae890ae9a4f20cd2d3"
+        ]
+      },
+      "started_at": "2026-10-29T15:58:18.994467Z",
+      "status": "succeeded",
+      "type": "load"
+    },
+    "status": 202
+  },
+  "POST /connections/{connection_id}/test": {
+    "body": {
+      "duration_ms": 20,
+      "message": "L'API répond (200).",
+      "ok": true,
+      "read_only": null,
+      "server_version": null,
+      "tested_at": "2026-10-29T15:58:18.854417Z"
+    },
+    "status": 200
+  },
   "POST /mart-requests/{mart_id}/answer": {
     "body": {
       "mart_request": {
@@ -3166,10 +3804,10 @@
         "bindings": {
           "vente": "metric:montant"
         },
-        "created_at": "2026-10-29T01:53:28.431410Z",
+        "created_at": "2026-10-29T15:58:09.787188Z",
         "destination": null,
         "exports": [],
-        "id": "34d64bb7e51b44e299f18d71f21acb39",
+        "id": "196b71fa441b4e7bad5840724f52487d",
         "iterations": [
           {
             "clarification": {
@@ -3187,11 +3825,11 @@
               "term": "ventes"
             },
             "context_tokens": 233,
-            "created_at": "2026-10-29T01:53:28.431410Z",
+            "created_at": "2026-10-29T15:58:09.787188Z",
             "effective": "Les ventes par produit en 2024",
             "error": null,
             "instruction": "Les ventes par produit en 2024",
-            "job_id": "64ddeaf048564d7583e8a8ca486e4252",
+            "job_id": "1cdd1ffb63b74fe89898a408fd760043",
             "kind": "question",
             "llm": null,
             "option_counts": [
@@ -3225,11 +3863,11 @@
           {
             "clarification": null,
             "context_tokens": 233,
-            "created_at": "2026-10-29T01:53:28.690294Z",
+            "created_at": "2026-10-29T15:58:10.003287Z",
             "effective": "Les ventes par produit en 2024",
             "error": null,
             "instruction": "Chiffre d'affaires",
-            "job_id": "ff77669693ea4fd7b2b2ea6956a4f902",
+            "job_id": "3b9b1ce62f864caebebb0f86ad1986fb",
             "kind": "answer",
             "llm": null,
             "option_counts": [],
@@ -3343,9 +3981,9 @@
         "model_sql": null,
         "model_summary": null,
         "owner_email": "analyste@demo.forja.local",
-        "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
+        "owner_id": "f1aea71a4b5a44d0b490de86e4fb9d9d",
         "owner_unmasked": false,
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "publish_error": null,
         "publish_job_id": null,
         "published_at": null,
@@ -3356,32 +3994,37 @@
         "rejection_reason": null,
         "semantic_version": 3,
         "status": "previewed",
-        "updated_at": "2026-10-29T01:53:28.881184Z",
+        "updated_at": "2026-10-29T15:58:10.174205Z",
         "validated_at": null
       },
       "run": {
         "attempts": 0,
         "cancel_requested": false,
-        "created_at": "2026-10-29T01:53:28.691925Z",
-        "created_by": "377fa4fb58904d34af65f5933f6f7cdd",
+        "created_at": "2026-10-29T15:58:10.004792Z",
+        "created_by": "f1aea71a4b5a44d0b490de86e4fb9d9d",
         "error": null,
         "finished_at": null,
-        "id": "ff77669693ea4fd7b2b2ea6956a4f902",
+        "id": "3b9b1ce62f864caebebb0f86ad1986fb",
         "metrics": null,
         "params": {
+          "chain": false,
+          "connection_id": null,
           "csv_delimiter": null,
           "formats": [
             "parquet",
             "csv"
           ],
           "full_refresh": false,
-          "mart_request_id": "34d64bb7e51b44e299f18d71f21acb39",
+          "mart_request_id": "196b71fa441b4e7bad5840724f52487d",
+          "schedule_id": null,
           "source_ids": null,
+          "trigger": "manual",
           "type": "mart_request",
+          "upload_id": null,
           "use_llm": true
         },
         "progress": null,
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "result": null,
         "started_at": null,
         "status": "queued",
@@ -3393,29 +4036,29 @@
   "POST /mart-requests/{mart_id}/approve": {
     "body": {
       "mart_request": {
-        "approved_at": "2026-10-29T01:53:29.562090Z",
-        "approved_by": "823aac3b0ef54b04a0ea9d115868a6d4",
+        "approved_at": "2026-10-29T15:58:10.806441Z",
+        "approved_by": "ac14bd54f3324555bae64e0a69ab8adf",
         "approved_by_email": "ingenieur@demo.forja.local",
         "bindings": {
           "vente": "metric:montant"
         },
-        "created_at": "2026-10-29T01:53:28.431410Z",
+        "created_at": "2026-10-29T15:58:09.787188Z",
         "destination": "powerbi",
         "exports": [
           {
             "format": "parquet",
-            "path": "0f0e2a12705747e3afac6be0235494d2/exports/mart_montant_par_libelle_2024.parquet",
+            "path": "88a84301e8eb4422b85f28b626c3d558/exports/mart_montant_par_libelle_2024.parquet",
             "rows": 10,
             "table": "mart_montant_par_libelle_2024"
           },
           {
             "format": "csv",
-            "path": "0f0e2a12705747e3afac6be0235494d2/exports/mart_montant_par_libelle_2024.csv",
+            "path": "88a84301e8eb4422b85f28b626c3d558/exports/mart_montant_par_libelle_2024.csv",
             "rows": 10,
             "table": "mart_montant_par_libelle_2024"
           }
         ],
-        "id": "34d64bb7e51b44e299f18d71f21acb39",
+        "id": "196b71fa441b4e7bad5840724f52487d",
         "iterations": [
           {
             "clarification": {
@@ -3433,11 +4076,11 @@
               "term": "ventes"
             },
             "context_tokens": 233,
-            "created_at": "2026-10-29T01:53:28.431410Z",
+            "created_at": "2026-10-29T15:58:09.787188Z",
             "effective": "Les ventes par produit en 2024",
             "error": null,
             "instruction": "Les ventes par produit en 2024",
-            "job_id": "64ddeaf048564d7583e8a8ca486e4252",
+            "job_id": "1cdd1ffb63b74fe89898a408fd760043",
             "kind": "question",
             "llm": null,
             "option_counts": [
@@ -3471,11 +4114,11 @@
           {
             "clarification": null,
             "context_tokens": 233,
-            "created_at": "2026-10-29T01:53:28.690294Z",
+            "created_at": "2026-10-29T15:58:10.003287Z",
             "effective": "Les ventes par produit en 2024",
             "error": null,
             "instruction": "Chiffre d'affaires",
-            "job_id": "ff77669693ea4fd7b2b2ea6956a4f902",
+            "job_id": "3b9b1ce62f864caebebb0f86ad1986fb",
             "kind": "answer",
             "llm": null,
             "option_counts": [],
@@ -3603,48 +4246,53 @@
             "ref": "metric:quantite"
           }
         ],
-        "model_sql": "-- Data mart requested by analyste@demo.forja.local: Les ventes par produit en 2024\n-- Quantité vendue par produit, sur T1 2024.\n-- Generated by Forja from mart request 34d64bb7e51b44e299f18d71f21acb39 v4.\n-- Do not edit: this file is regenerated on each build.\n\n{{ config(materialized='table') }}\n\nwith base as (\n\n    select\n        produit.libelle as libelle,\n        f.quantite as _m_quantite\n    …",
+        "model_sql": "-- Data mart requested by analyste@demo.forja.local: Les ventes par produit en 2024\n-- Quantité vendue par produit, sur T1 2024.\n-- Generated by Forja from mart request 196b71fa441b4e7bad5840724f52487d v4.\n-- Do not edit: this file is regenerated on each build.\n\n{{ config(materialized='table') }}\n\nwith base as (\n\n    select\n        produit.libelle as libelle,\n        f.quantite as _m_quantite\n    …",
         "model_summary": "Quantité vendue par produit, sur T1 2024.",
         "owner_email": "analyste@demo.forja.local",
-        "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
+        "owner_id": "f1aea71a4b5a44d0b490de86e4fb9d9d",
         "owner_unmasked": false,
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "publish_error": null,
-        "publish_job_id": "82f798931bf74d5eabebc03dcf4733de",
-        "published_at": "2026-10-29T01:53:36.630344Z",
+        "publish_job_id": "65f348dfbed94835a383f287aee9cb37",
+        "published_at": "2026-10-29T15:58:18.141297Z",
         "published_name": "mart_montant_par_libelle_2024",
-        "published_table_id": "962effd38372447195f2a45765c9e694",
+        "published_table_id": "130cf05317fd469b8c65236d058c6cf1",
         "question": "Les ventes par produit en 2024",
         "rejected_by": null,
         "rejection_reason": null,
         "semantic_version": 3,
         "status": "published",
-        "updated_at": "2026-10-29T01:53:36.630344Z",
-        "validated_at": "2026-10-29T01:53:29.515739Z"
+        "updated_at": "2026-10-29T15:58:18.141297Z",
+        "validated_at": "2026-10-29T15:58:10.763691Z"
       },
       "run": {
         "attempts": 0,
         "cancel_requested": false,
-        "created_at": "2026-10-29T01:53:29.582121Z",
-        "created_by": "823aac3b0ef54b04a0ea9d115868a6d4",
+        "created_at": "2026-10-29T15:58:10.822538Z",
+        "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
         "error": null,
         "finished_at": null,
-        "id": "82f798931bf74d5eabebc03dcf4733de",
+        "id": "65f348dfbed94835a383f287aee9cb37",
         "metrics": null,
         "params": {
+          "chain": false,
+          "connection_id": null,
           "csv_delimiter": null,
           "formats": [
             "parquet",
             "csv"
           ],
           "full_refresh": false,
-          "mart_request_id": "34d64bb7e51b44e299f18d71f21acb39",
+          "mart_request_id": "196b71fa441b4e7bad5840724f52487d",
+          "schedule_id": null,
           "source_ids": null,
+          "trigger": "manual",
           "type": "publish_mart",
+          "upload_id": null,
           "use_llm": true
         },
         "progress": null,
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "result": null,
         "started_at": null,
         "status": "queued",
@@ -3662,10 +4310,10 @@
         "bindings": {
           "vente": "metric:montant"
         },
-        "created_at": "2026-10-29T01:53:28.431410Z",
+        "created_at": "2026-10-29T15:58:09.787188Z",
         "destination": null,
         "exports": [],
-        "id": "34d64bb7e51b44e299f18d71f21acb39",
+        "id": "196b71fa441b4e7bad5840724f52487d",
         "iterations": [
           {
             "clarification": {
@@ -3683,11 +4331,11 @@
               "term": "ventes"
             },
             "context_tokens": 233,
-            "created_at": "2026-10-29T01:53:28.431410Z",
+            "created_at": "2026-10-29T15:58:09.787188Z",
             "effective": "Les ventes par produit en 2024",
             "error": null,
             "instruction": "Les ventes par produit en 2024",
-            "job_id": "64ddeaf048564d7583e8a8ca486e4252",
+            "job_id": "1cdd1ffb63b74fe89898a408fd760043",
             "kind": "question",
             "llm": null,
             "option_counts": [
@@ -3721,11 +4369,11 @@
           {
             "clarification": null,
             "context_tokens": 233,
-            "created_at": "2026-10-29T01:53:28.690294Z",
+            "created_at": "2026-10-29T15:58:10.003287Z",
             "effective": "Les ventes par produit en 2024",
             "error": null,
             "instruction": "Chiffre d'affaires",
-            "job_id": "ff77669693ea4fd7b2b2ea6956a4f902",
+            "job_id": "3b9b1ce62f864caebebb0f86ad1986fb",
             "kind": "answer",
             "llm": null,
             "option_counts": [],
@@ -3839,9 +4487,9 @@
         "model_sql": null,
         "model_summary": null,
         "owner_email": "analyste@demo.forja.local",
-        "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
+        "owner_id": "f1aea71a4b5a44d0b490de86e4fb9d9d",
         "owner_unmasked": false,
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "publish_error": null,
         "publish_job_id": null,
         "published_at": null,
@@ -3852,32 +4500,37 @@
         "rejection_reason": null,
         "semantic_version": 3,
         "status": "previewed",
-        "updated_at": "2026-10-29T01:53:29.426640Z",
+        "updated_at": "2026-10-29T15:58:10.679338Z",
         "validated_at": null
       },
       "run": {
         "attempts": 0,
         "cancel_requested": false,
-        "created_at": "2026-10-29T01:53:29.239722Z",
-        "created_by": "377fa4fb58904d34af65f5933f6f7cdd",
+        "created_at": "2026-10-29T15:58:10.505141Z",
+        "created_by": "f1aea71a4b5a44d0b490de86e4fb9d9d",
         "error": null,
         "finished_at": null,
-        "id": "dcca97217e2243d7992d87b4f1e23de7",
+        "id": "2038a9e34b5c4393b9f1786f2811d714",
         "metrics": null,
         "params": {
+          "chain": false,
+          "connection_id": null,
           "csv_delimiter": null,
           "formats": [
             "parquet",
             "csv"
           ],
           "full_refresh": false,
-          "mart_request_id": "34d64bb7e51b44e299f18d71f21acb39",
+          "mart_request_id": "196b71fa441b4e7bad5840724f52487d",
+          "schedule_id": null,
           "source_ids": null,
+          "trigger": "manual",
           "type": "mart_request",
+          "upload_id": null,
           "use_llm": true
         },
         "progress": null,
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "result": null,
         "started_at": null,
         "status": "queued",
@@ -3895,10 +4548,10 @@
         "bindings": {
           "vente": "metric:montant"
         },
-        "created_at": "2026-10-29T01:53:28.431410Z",
+        "created_at": "2026-10-29T15:58:09.787188Z",
         "destination": null,
         "exports": [],
-        "id": "34d64bb7e51b44e299f18d71f21acb39",
+        "id": "196b71fa441b4e7bad5840724f52487d",
         "iterations": [
           {
             "clarification": {
@@ -3916,11 +4569,11 @@
               "term": "ventes"
             },
             "context_tokens": 233,
-            "created_at": "2026-10-29T01:53:28.431410Z",
+            "created_at": "2026-10-29T15:58:09.787188Z",
             "effective": "Les ventes par produit en 2024",
             "error": null,
             "instruction": "Les ventes par produit en 2024",
-            "job_id": "64ddeaf048564d7583e8a8ca486e4252",
+            "job_id": "1cdd1ffb63b74fe89898a408fd760043",
             "kind": "question",
             "llm": null,
             "option_counts": [
@@ -3954,11 +4607,11 @@
           {
             "clarification": null,
             "context_tokens": 233,
-            "created_at": "2026-10-29T01:53:28.690294Z",
+            "created_at": "2026-10-29T15:58:10.003287Z",
             "effective": "Les ventes par produit en 2024",
             "error": null,
             "instruction": "Chiffre d'affaires",
-            "job_id": "ff77669693ea4fd7b2b2ea6956a4f902",
+            "job_id": "3b9b1ce62f864caebebb0f86ad1986fb",
             "kind": "answer",
             "llm": null,
             "option_counts": [],
@@ -4072,9 +4725,9 @@
         "model_sql": null,
         "model_summary": null,
         "owner_email": "analyste@demo.forja.local",
-        "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
+        "owner_id": "f1aea71a4b5a44d0b490de86e4fb9d9d",
         "owner_unmasked": false,
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "publish_error": null,
         "publish_job_id": null,
         "published_at": null,
@@ -4085,32 +4738,37 @@
         "rejection_reason": null,
         "semantic_version": 3,
         "status": "previewed",
-        "updated_at": "2026-10-29T01:53:29.122039Z",
+        "updated_at": "2026-10-29T15:58:10.388250Z",
         "validated_at": null
       },
       "run": {
         "attempts": 0,
         "cancel_requested": false,
-        "created_at": "2026-10-29T01:53:28.930501Z",
-        "created_by": "377fa4fb58904d34af65f5933f6f7cdd",
+        "created_at": "2026-10-29T15:58:10.219084Z",
+        "created_by": "f1aea71a4b5a44d0b490de86e4fb9d9d",
         "error": null,
         "finished_at": null,
-        "id": "07bb9110fdda494890bf2fa248a024cb",
+        "id": "e58ec43001e44112b1298a0e1ad8e47e",
         "metrics": null,
         "params": {
+          "chain": false,
+          "connection_id": null,
           "csv_delimiter": null,
           "formats": [
             "parquet",
             "csv"
           ],
           "full_refresh": false,
-          "mart_request_id": "34d64bb7e51b44e299f18d71f21acb39",
+          "mart_request_id": "196b71fa441b4e7bad5840724f52487d",
+          "schedule_id": null,
           "source_ids": null,
+          "trigger": "manual",
           "type": "mart_request",
+          "upload_id": null,
           "use_llm": true
         },
         "progress": null,
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "result": null,
         "started_at": null,
         "status": "queued",
@@ -4125,19 +4783,19 @@
       "approved_by": null,
       "approved_by_email": null,
       "bindings": {},
-      "created_at": "2026-10-29T01:53:36.686899Z",
+      "created_at": "2026-10-29T15:58:18.194212Z",
       "destination": null,
       "exports": [],
-      "id": "9aacf3c757884e7085039a6c1ac6edd8",
+      "id": "7116b239e17f426687be423cad98b197",
       "iterations": [
         {
           "clarification": null,
           "context_tokens": 220,
-          "created_at": "2026-10-29T01:53:36.686899Z",
+          "created_at": "2026-10-29T15:58:18.194212Z",
           "effective": "Panier moyen par segment",
           "error": null,
           "instruction": "Panier moyen par segment",
-          "job_id": "8e49131399fe4c4c8f2363f91bbc1a69",
+          "job_id": "8043e23250094ff1b27837a4fa031cfc",
           "kind": "question",
           "llm": null,
           "option_counts": [],
@@ -4245,20 +4903,20 @@
       "model_sql": null,
       "model_summary": null,
       "owner_email": "analyste@demo.forja.local",
-      "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
+      "owner_id": "f1aea71a4b5a44d0b490de86e4fb9d9d",
       "owner_unmasked": false,
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "publish_error": null,
       "publish_job_id": null,
       "published_at": null,
       "published_name": null,
       "published_table_id": null,
       "question": "Panier moyen par segment",
-      "rejected_by": "377fa4fb58904d34af65f5933f6f7cdd",
+      "rejected_by": "f1aea71a4b5a44d0b490de86e4fb9d9d",
       "rejection_reason": "doublon",
       "semantic_version": 3,
       "status": "rejected",
-      "updated_at": "2026-10-29T01:53:36.930726Z",
+      "updated_at": "2026-10-29T15:58:18.445589Z",
       "validated_at": null
     },
     "status": 200
@@ -4272,10 +4930,10 @@
         "bindings": {
           "vente": "metric:montant"
         },
-        "created_at": "2026-10-29T01:53:28.431410Z",
+        "created_at": "2026-10-29T15:58:09.787188Z",
         "destination": "powerbi",
         "exports": [],
-        "id": "34d64bb7e51b44e299f18d71f21acb39",
+        "id": "196b71fa441b4e7bad5840724f52487d",
         "iterations": [
           {
             "clarification": {
@@ -4293,11 +4951,11 @@
               "term": "ventes"
             },
             "context_tokens": 233,
-            "created_at": "2026-10-29T01:53:28.431410Z",
+            "created_at": "2026-10-29T15:58:09.787188Z",
             "effective": "Les ventes par produit en 2024",
             "error": null,
             "instruction": "Les ventes par produit en 2024",
-            "job_id": "64ddeaf048564d7583e8a8ca486e4252",
+            "job_id": "1cdd1ffb63b74fe89898a408fd760043",
             "kind": "question",
             "llm": null,
             "option_counts": [
@@ -4331,11 +4989,11 @@
           {
             "clarification": null,
             "context_tokens": 233,
-            "created_at": "2026-10-29T01:53:28.690294Z",
+            "created_at": "2026-10-29T15:58:10.003287Z",
             "effective": "Les ventes par produit en 2024",
             "error": null,
             "instruction": "Chiffre d'affaires",
-            "job_id": "ff77669693ea4fd7b2b2ea6956a4f902",
+            "job_id": "3b9b1ce62f864caebebb0f86ad1986fb",
             "kind": "answer",
             "llm": null,
             "option_counts": [],
@@ -4449,9 +5107,9 @@
         "model_sql": null,
         "model_summary": null,
         "owner_email": "analyste@demo.forja.local",
-        "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
+        "owner_id": "f1aea71a4b5a44d0b490de86e4fb9d9d",
         "owner_unmasked": false,
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "publish_error": null,
         "publish_job_id": null,
         "published_at": null,
@@ -4462,8 +5120,8 @@
         "rejection_reason": null,
         "semantic_version": 3,
         "status": "validated",
-        "updated_at": "2026-10-29T01:53:29.426640Z",
-        "validated_at": "2026-10-29T01:53:29.515739Z"
+        "updated_at": "2026-10-29T15:58:10.679338Z",
+        "validated_at": "2026-10-29T15:58:10.763691Z"
       },
       "run": null
     },
@@ -4479,16 +5137,184 @@
   "POST /projects": {
     "body": {
       "architecture": "medallion",
-      "created_at": "2026-10-29T01:53:23.831228Z",
+      "created_at": "2026-10-29T15:58:05.157414Z",
       "description": null,
-      "id": "c1a69ca6314c4814be73110a53d4662b",
+      "id": "3be6e64288314595ac6e882a07e8e3cf",
       "name": "Finance"
     },
     "status": 201
   },
+  "POST /projects/{project_id}/connections": {
+    "body": {
+      "active_run": null,
+      "created_at": "2026-10-29T15:58:20.339583Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+      "id": "75851603da3f4cb1b8ea196c05bc6c04",
+      "last_loaded_at": null,
+      "last_test": null,
+      "name": "Essai",
+      "params": {
+        "auth": {
+          "client_id": null,
+          "key_in": "header",
+          "key_name": null,
+          "kind": "bearer",
+          "scope": null,
+          "token_url": null,
+          "username": null
+        },
+        "backoff_seconds": 1.0,
+        "base_url": "http://127.0.0.1:56062/v1",
+        "endpoints": [
+          {
+            "incremental": {
+              "cursor_field": "updated_at",
+              "initial_value": null,
+              "param": "depuis"
+            },
+            "name": "commandes",
+            "params": {},
+            "path": "/commandes",
+            "primary_key": null,
+            "records_path": null
+          }
+        ],
+        "headers": {},
+        "max_retries": 5,
+        "pagination": {
+          "cursor_param": "cursor",
+          "cursor_path": null,
+          "kind": "page_number",
+          "limit_param": "limit",
+          "max_pages": 10000,
+          "next_url_path": null,
+          "offset_param": "offset",
+          "page_param": "page",
+          "page_size": 3,
+          "size_param": "per_page",
+          "start_page": 1
+        },
+        "rate_limit_per_second": 5.0,
+        "timeout_seconds": 30.0
+      },
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "schedule": null,
+      "secrets_set": [
+        "token"
+      ],
+      "sources": [],
+      "type": "rest_api",
+      "updated_at": "2026-10-29T15:58:20.339583Z"
+    },
+    "status": 201
+  },
+  "POST /projects/{project_id}/connections/preview": {
+    "body": {
+      "duration_ms": 21,
+      "endpoint": "commandes",
+      "has_next_page": true,
+      "record_count": 3,
+      "records_path": "data",
+      "records_path_detected": true,
+      "relations": [
+        {
+          "from_column": "commandes_id",
+          "from_table": "commandes__lignes",
+          "to_column": "id",
+          "to_table": "commandes"
+        }
+      ],
+      "status_code": 200,
+      "tables": [
+        {
+          "columns": [
+            {
+              "name": "id",
+              "type": "integer"
+            },
+            {
+              "name": "updated_at",
+              "type": "string"
+            }
+          ],
+          "name": "commandes",
+          "parent": null,
+          "parent_key": null,
+          "path": [],
+          "record_count": 3,
+          "rows": [
+            {
+              "client.nom": "***",
+              "client.ville": "Lyon",
+              "id": 1,
+              "montant": 52.5,
+              "statut": "payée",
+              "updated_at": "2025-01-11T08:00:00Z"
+            },
+            {
+              "client.nom": "***",
+              "client.ville": "Nantes",
+              "id": 2,
+              "montant": 65.0,
+              "statut": "en attente",
+              "updated_at": "2025-01-12T08:00:00Z"
+            }
+          ]
+        },
+        {
+          "columns": [
+            {
+              "name": "_forja_key",
+              "type": "string"
+            },
+            {
+              "name": "commandes_id",
+              "type": "integer"
+            }
+          ],
+          "name": "commandes__lignes",
+          "parent": "commandes",
+          "parent_key": "commandes_id",
+          "path": [
+            "lignes"
+          ],
+          "record_count": 3,
+          "rows": [
+            {
+              "_forja_key": "9caec84c15a7cc6f6274821d2a0ca8ab",
+              "_position": 0,
+              "commandes_id": 1,
+              "quantite": 1,
+              "sku": "P-10"
+            },
+            {
+              "_forja_key": "5e82686e50cd0a94b7dbfc9e7d34e1b8",
+              "_position": 0,
+              "commandes_id": 2,
+              "quantite": 1,
+              "sku": "P-20"
+            }
+          ]
+        }
+      ],
+      "url": "http://127.0.0.1:56062/v1/commandes"
+    },
+    "status": 200
+  },
+  "POST /projects/{project_id}/connections/test": {
+    "body": {
+      "duration_ms": 72,
+      "message": "L'API répond (200).",
+      "ok": true,
+      "read_only": null,
+      "server_version": null,
+      "tested_at": "2026-10-29T15:58:18.661638Z"
+    },
+    "status": 200
+  },
   "POST /projects/{project_id}/gold-plan/approve": {
     "body": {
-      "created_at": "2026-10-29T01:53:26.200829Z",
+      "created_at": "2026-10-29T15:58:07.687764Z",
       "date_dimension": {
         "enabled": true,
         "explanation": "Dimension date générée : un jour par ligne de la plus ancienne à la plus récente date des faits, avec année, trimestre, mois, semaine et jour en français, et un membre inconnu (-1)."
@@ -4572,7 +5398,7 @@
               "dimension": "dim_produits",
               "explanation": "produit_key → dim_produits via la relation confirmée lignes_commande.code_produit → produits.code_produit.",
               "name": "produit_key",
-              "relation_id": "969b24a7adcd458a985935793f9cd1f1",
+              "relation_id": "5bbac6626ba54ba7ab42cf1d3aa837fc",
               "source": "lignes_commande"
             },
             {
@@ -4580,7 +5406,7 @@
               "dimension": "dim_clients",
               "explanation": "client_key → dim_clients via la relation confirmée commandes.id_client → clients.id_client.",
               "name": "client_key",
-              "relation_id": "79668b209ee64f45a44f9a5a7d57c904",
+              "relation_id": "7c062357d6204010924899111bb8885a",
               "source": "commandes"
             }
           ],
@@ -4618,13 +5444,13 @@
           "source": "lignes_commande"
         }
       ],
-      "id": "30da6d659f3640b09fe10c8839a5e1e8",
+      "id": "92ccc0a71a41460cb6b010485da7b55a",
       "issues": [],
       "origin": "heuristic",
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "status": "approved",
       "summary": "2 dimension(s), 1 fait(s), dimension date générée. Validation : 0 erreur(s), 0 avertissement(s).",
-      "updated_at": "2026-10-29T01:53:26.256791Z",
+      "updated_at": "2026-10-29T15:58:07.748577Z",
       "version": 3,
       "warnings": []
     },
@@ -4634,20 +5460,22 @@
     "body": {
       "attempts": 1,
       "cancel_requested": false,
-      "created_at": "2026-10-29T01:53:26.041892Z",
-      "created_by": "823aac3b0ef54b04a0ea9d115868a6d4",
+      "created_at": "2026-10-29T15:58:07.549759Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
       "error": null,
-      "finished_at": "2026-10-29T01:53:26.132425Z",
-      "id": "4bb28e0ec9234a438880818958b938c1",
+      "finished_at": "2026-10-29T15:58:07.621615Z",
+      "id": "fbdcfbce84de4ad48d7224b073f50415",
       "metrics": {
         "dbt_tests": null,
         "duplicates_removed": 0,
-        "duration_seconds": 0.062,
+        "duration_seconds": 0.057,
         "exports": [],
         "llm_calls": [],
+        "loads": [],
         "models": [],
         "profiled_sources": 0,
         "relations_detected": 0,
+        "rows_loaded": 0,
         "rows_read": 0,
         "rows_rejected": 0,
         "rows_valid": 0,
@@ -4656,6 +5484,8 @@
         "unknown_member_rows": []
       },
       "params": {
+        "chain": false,
+        "connection_id": null,
         "csv_delimiter": null,
         "formats": [
           "parquet",
@@ -4663,8 +5493,11 @@
         ],
         "full_refresh": false,
         "mart_request_id": null,
+        "schedule_id": null,
         "source_ids": null,
+        "trigger": "manual",
         "type": "gold_proposal",
+        "upload_id": null,
         "use_llm": false
       },
       "progress": {
@@ -4674,9 +5507,9 @@
         "percent": 100,
         "running": [],
         "step": "validation",
-        "updated_at": "2026-10-29T01:53:26.127490Z"
+        "updated_at": "2026-10-29T15:58:07.618467Z"
       },
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "result": {
         "errors": 0,
         "gold_plan_version": 2,
@@ -4685,7 +5518,7 @@
           "commandes.frais_port n'est pas repris comme mesure : il est au niveau de commandes, le sommer au grain de lignes_commande le multiplierait"
         ]
       },
-      "started_at": "2026-10-29T01:53:26.050727Z",
+      "started_at": "2026-10-29T15:58:07.557459Z",
       "status": "succeeded",
       "type": "gold_proposal"
     },
@@ -4694,12 +5527,12 @@
   "POST /projects/{project_id}/invitations": {
     "body": {
       "accepted_at": null,
-      "created_at": "2026-10-29T01:53:23.916333Z",
+      "created_at": "2026-10-29T15:58:05.240402Z",
       "email": "erreur@exemple.fr",
-      "expires_at": "2026-11-05T01:53:23.916333Z",
-      "id": "9db54509e267405783cceb25e42dfaf4",
-      "invited_by": "586b93081e37418f82e092fa9f76538e",
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "expires_at": "2026-11-05T15:58:05.240402Z",
+      "id": "0accf81c00c64345836206bf50e6ba09",
+      "invited_by": "8928d26b3e2943f6b305baec7b063478",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "revoked_at": null,
       "role": "analyst",
       "token": "…"
@@ -4713,19 +5546,19 @@
         "approved_by": null,
         "approved_by_email": null,
         "bindings": {},
-        "created_at": "2026-10-29T01:53:36.686899Z",
+        "created_at": "2026-10-29T15:58:18.194212Z",
         "destination": null,
         "exports": [],
-        "id": "9aacf3c757884e7085039a6c1ac6edd8",
+        "id": "7116b239e17f426687be423cad98b197",
         "iterations": [
           {
             "clarification": null,
             "context_tokens": 220,
-            "created_at": "2026-10-29T01:53:36.686899Z",
+            "created_at": "2026-10-29T15:58:18.194212Z",
             "effective": "Panier moyen par segment",
             "error": null,
             "instruction": "Panier moyen par segment",
-            "job_id": "8e49131399fe4c4c8f2363f91bbc1a69",
+            "job_id": "8043e23250094ff1b27837a4fa031cfc",
             "kind": "question",
             "llm": null,
             "option_counts": [],
@@ -4833,9 +5666,9 @@
         "model_sql": null,
         "model_summary": null,
         "owner_email": "analyste@demo.forja.local",
-        "owner_id": "377fa4fb58904d34af65f5933f6f7cdd",
+        "owner_id": "f1aea71a4b5a44d0b490de86e4fb9d9d",
         "owner_unmasked": false,
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "publish_error": null,
         "publish_job_id": null,
         "published_at": null,
@@ -4846,32 +5679,37 @@
         "rejection_reason": null,
         "semantic_version": 3,
         "status": "previewed",
-        "updated_at": "2026-10-29T01:53:36.874860Z",
+        "updated_at": "2026-10-29T15:58:18.393419Z",
         "validated_at": null
       },
       "run": {
         "attempts": 0,
         "cancel_requested": false,
-        "created_at": "2026-10-29T01:53:36.688413Z",
-        "created_by": "377fa4fb58904d34af65f5933f6f7cdd",
+        "created_at": "2026-10-29T15:58:18.197129Z",
+        "created_by": "f1aea71a4b5a44d0b490de86e4fb9d9d",
         "error": null,
         "finished_at": null,
-        "id": "8e49131399fe4c4c8f2363f91bbc1a69",
+        "id": "8043e23250094ff1b27837a4fa031cfc",
         "metrics": null,
         "params": {
+          "chain": false,
+          "connection_id": null,
           "csv_delimiter": null,
           "formats": [
             "parquet",
             "csv"
           ],
           "full_refresh": false,
-          "mart_request_id": "9aacf3c757884e7085039a6c1ac6edd8",
+          "mart_request_id": "7116b239e17f426687be423cad98b197",
+          "schedule_id": null,
           "source_ids": null,
+          "trigger": "manual",
           "type": "mart_request",
+          "upload_id": null,
           "use_llm": true
         },
         "progress": null,
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "result": null,
         "started_at": null,
         "status": "queued",
@@ -4884,26 +5722,26 @@
     "body": {
       "cardinality": "N-1",
       "confidence": 1.0,
-      "created_at": "2026-10-29T01:53:25.538173Z",
+      "created_at": "2026-10-29T15:58:07.066487Z",
       "explanation": "Ajoutée manuellement. 94 % des valeurs de commandes.id_client existent dans clients.id_client ; noms identiques ; relation N-1 : plusieurs lignes de commandes pour une ligne de clients.",
       "from_column": "id_client",
       "from_distinct": 16,
       "from_source": "commandes",
-      "from_source_id": "5ea383f529bc4ade897423617281c6e8",
+      "from_source_id": "96846060dbaf4612802992f8aaf43990",
       "from_table": "stg_commandes",
-      "id": "79668b209ee64f45a44f9a5a7d57c904",
+      "id": "7c062357d6204010924899111bb8885a",
       "inclusion_ratio": 0.9375,
       "name_similarity": 1.0,
       "origin": "manual",
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "sample_size": 16,
       "status": "confirmed",
       "to_column": "id_client",
       "to_source": "clients",
-      "to_source_id": "9dd3011becfb456b8809a565758bc759",
+      "to_source_id": "66876dccbc7b4283a4a34822a60566b5",
       "to_table": "stg_clients",
       "type_compatible": true,
-      "updated_at": "2026-10-29T01:53:25.538173Z"
+      "updated_at": "2026-10-29T15:58:07.066487Z"
     },
     "status": 201
   },
@@ -4912,50 +5750,50 @@
       {
         "cardinality": "N-1",
         "confidence": 0.963,
-        "created_at": "2026-10-29T01:53:25.538173Z",
+        "created_at": "2026-10-29T15:58:07.066487Z",
         "explanation": "94 % des valeurs de commandes.id_client existent dans clients.id_client ; noms identiques ; relation N-1 : plusieurs lignes de commandes pour une ligne de clients.",
         "from_column": "id_client",
         "from_distinct": 16,
         "from_source": "commandes",
-        "from_source_id": "5ea383f529bc4ade897423617281c6e8",
+        "from_source_id": "96846060dbaf4612802992f8aaf43990",
         "from_table": "stg_commandes",
-        "id": "79668b209ee64f45a44f9a5a7d57c904",
+        "id": "7c062357d6204010924899111bb8885a",
         "inclusion_ratio": 0.9375,
         "name_similarity": 1.0,
         "origin": "manual",
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "sample_size": 16,
         "status": "confirmed",
         "to_column": "id_client",
         "to_source": "clients",
-        "to_source_id": "9dd3011becfb456b8809a565758bc759",
+        "to_source_id": "66876dccbc7b4283a4a34822a60566b5",
         "to_table": "stg_clients",
         "type_compatible": true,
-        "updated_at": "2026-10-29T01:53:25.915313Z"
+        "updated_at": "2026-10-29T15:58:07.427344Z"
       },
       {
         "cardinality": "N-1",
         "confidence": 0.95,
-        "created_at": "2026-10-29T01:53:00.982895Z",
+        "created_at": "2026-10-29T15:57:43.363746Z",
         "explanation": "92 % des valeurs de lignes_commande.code_produit existent dans produits.code_produit ; noms identiques ; relation N-1 : plusieurs lignes de lignes_commande pour une ligne de produits.",
         "from_column": "code_produit",
         "from_distinct": 12,
         "from_source": "lignes_commande",
-        "from_source_id": "1234e8c5d3ec446280dc3824b56d90d7",
+        "from_source_id": "fecdf3e6264641b69ac45aea49cb57ce",
         "from_table": "stg_lignes_commande",
-        "id": "969b24a7adcd458a985935793f9cd1f1",
+        "id": "5bbac6626ba54ba7ab42cf1d3aa837fc",
         "inclusion_ratio": 0.9167,
         "name_similarity": 1.0,
         "origin": "detected",
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "sample_size": 12,
         "status": "confirmed",
         "to_column": "code_produit",
         "to_source": "produits",
-        "to_source_id": "120bcf2cc92e4538a98ee7c9fa7df2b9",
+        "to_source_id": "ceebd3c697f749f5ba6359c4ee705ac0",
         "to_table": "stg_produits",
         "type_compatible": true,
-        "updated_at": "2026-10-29T01:53:25.918420Z"
+        "updated_at": "2026-10-29T15:58:07.430373Z"
       }
     ],
     "status": 200
@@ -4964,41 +5802,45 @@
     "body": {
       "attempts": 1,
       "cancel_requested": false,
-      "created_at": "2026-10-29T01:53:37.093659Z",
-      "created_by": "586b93081e37418f82e092fa9f76538e",
+      "created_at": "2026-10-29T15:58:21.338513Z",
+      "created_by": "8928d26b3e2943f6b305baec7b063478",
       "error": null,
-      "finished_at": "2026-10-29T01:53:38.575525Z",
-      "id": "7cde13e464dc442586d810a5ed7c9b41",
+      "finished_at": "2026-10-29T15:58:22.909825Z",
+      "id": "6d03aee2451849b2b67dace6070fc7e3",
       "metrics": {
         "dbt_tests": null,
         "duplicates_removed": 0,
-        "duration_seconds": 1.463,
+        "duration_seconds": 1.557,
         "exports": [
           {
             "format": "parquet",
-            "path": "0f0e2a12705747e3afac6be0235494d2/exports/dim_clients.parquet",
+            "path": "88a84301e8eb4422b85f28b626c3d558/exports/dim_clients.parquet",
             "rows": 21,
             "table": "dim_clients"
           },
           {
             "format": "csv",
-            "path": "0f0e2a12705747e3afac6be0235494d2/exports/dim_clients.csv",
+            "path": "88a84301e8eb4422b85f28b626c3d558/exports/dim_clients.csv",
             "rows": 21,
             "table": "dim_clients"
           }
         ],
         "llm_calls": [],
+        "loads": [],
         "models": [],
         "profiled_sources": 0,
         "relations_detected": 0,
+        "rows_loaded": 0,
         "rows_read": 0,
         "rows_rejected": 0,
         "rows_valid": 0,
-        "serving_path": "0f0e2a12705747e3afac6be0235494d2/serving/demo_e_commerce.duckdb",
+        "serving_path": "88a84301e8eb4422b85f28b626c3d558/serving/demo_e_commerce.duckdb",
         "sources": [],
         "unknown_member_rows": []
       },
       "params": {
+        "chain": false,
+        "connection_id": null,
         "csv_delimiter": null,
         "formats": [
           "parquet",
@@ -5006,22 +5848,48 @@
         ],
         "full_refresh": false,
         "mart_request_id": null,
+        "schedule_id": null,
         "source_ids": null,
+        "trigger": "manual",
         "type": "export",
+        "upload_id": null,
         "use_llm": true
       },
       "progress": null,
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "result": null,
-      "started_at": "2026-10-29T01:53:37.102154Z",
+      "started_at": "2026-10-29T15:58:21.345782Z",
       "status": "succeeded",
       "type": "export"
     },
     "status": 202
   },
+  "POST /projects/{project_id}/schedules/interpret": {
+    "body": {
+      "cron": "30 6 * * 1,2,3,4,5",
+      "description": "Du lundi au vendredi à 06:30",
+      "next_runs": [
+        "2026-10-30T05:30:00Z",
+        "2026-11-02T05:30:00Z"
+      ],
+      "spec": {
+        "cron": null,
+        "hour": 6,
+        "kind": "weekly",
+        "minute": 30,
+        "weekdays": [
+          0,
+          1
+        ]
+      },
+      "text": "du lundi au vendredi à 6 h 30",
+      "timezone": "Europe/Paris"
+    },
+    "status": 200
+  },
   "POST /projects/{project_id}/semantic-layer/regenerate": {
     "body": {
-      "created_at": "2026-10-29T01:53:08.575202Z",
+      "created_at": "2026-10-29T15:57:50.593531Z",
       "created_by": null,
       "default_time_dimension": "date_commande",
       "dimensions": [
@@ -5123,7 +5991,7 @@
         }
       ],
       "gold_plan_version": 1,
-      "id": "2a61aa1e5532468799c66796ffefb8d5",
+      "id": "b71f642f7e3b4a9c8bb3cf4fd01fddcc",
       "metrics": [
         {
           "additivity": "additive",
@@ -5171,18 +6039,18 @@
         }
       ],
       "overrides": [],
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "version": 1
     },
     "status": 200
   },
   "POST /projects/{project_id}/semantic-layer/synonym-proposals": {
     "body": {
-      "created_at": "2026-10-29T01:53:27.978207Z",
-      "id": "9905744b02024154b239a984f68ceff0",
+      "created_at": "2026-10-29T15:58:09.354900Z",
+      "id": "9ab32a9f09b94c0385903e74633d5900",
       "mart_request_id": null,
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
-      "proposed_by": "377fa4fb58904d34af65f5933f6f7cdd",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "proposed_by": "f1aea71a4b5a44d0b490de86e4fb9d9d",
       "reviewed_at": null,
       "reviewed_by": null,
       "status": "pending",
@@ -5194,7 +6062,7 @@
   "POST /projects/{project_id}/sources": {
     "body": [
       {
-        "bronze_path": "0f0e2a12705747e3afac6be0235494d2/bronze/catalogue/20261029T015324586883Z_v0001_catalogue.parquet",
+        "bronze_path": "88a84301e8eb4422b85f28b626c3d558/bronze/catalogue/20261029T155805973255Z_v0001_catalogue.parquet",
         "column_count": 5,
         "columns": [
           {
@@ -5211,12 +6079,13 @@
         "delimiter": ";",
         "encoding": "utf-8",
         "format": "csv",
-        "id": "1fbb02924d3c4096acf590db54f3c286",
-        "ingested_at": "2026-10-29T01:53:24.586883Z",
-        "latest_version_id": "fe6eae0270ff4c989f5ccaab9cf25395",
+        "id": "5f4e27b15fb34d57a1f476c6c98222ff",
+        "ingested_at": "2026-10-29T15:58:05.973255Z",
+        "latest_version_id": "33da9908065e48bfaf0354abff3dc37d",
         "name": "catalogue",
+        "origin": null,
         "original_filename": "catalogue.csv",
-        "project_id": "0f0e2a12705747e3afac6be0235494d2",
+        "project_id": "88a84301e8eb4422b85f28b626c3d558",
         "quality_score": 100.0,
         "row_count": 12,
         "schema_drift": null,
@@ -5227,30 +6096,51 @@
     ],
     "status": 201
   },
+  "POST /projects/{project_id}/uploads": {
+    "body": {
+      "chunk_size": 8388608,
+      "created_at": "2026-10-29T15:58:21.218252Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+      "error": null,
+      "expires_at": "2026-10-31T15:58:21.218252Z",
+      "filename": "gros.parquet",
+      "fingerprint": null,
+      "id": "83b5a57a90c140f49c3f99a168374dfd",
+      "job_id": null,
+      "mode": "auto",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "received": 0,
+      "size": 1000000000,
+      "source_id": null,
+      "status": "receiving",
+      "updated_at": "2026-10-29T15:58:21.218252Z"
+    },
+    "status": 201
+  },
   "POST /relations/{relation_id}/confirm": {
     "body": {
       "cardinality": "N-1",
       "confidence": 0.963,
-      "created_at": "2026-10-29T01:53:00.797855Z",
+      "created_at": "2026-10-29T15:57:43.202361Z",
       "explanation": "94 % des valeurs de commandes.id_client existent dans clients.id_client ; noms identiques ; relation N-1 : plusieurs lignes de commandes pour une ligne de clients.",
       "from_column": "id_client",
       "from_distinct": 16,
       "from_source": "commandes",
-      "from_source_id": "5ea383f529bc4ade897423617281c6e8",
+      "from_source_id": "96846060dbaf4612802992f8aaf43990",
       "from_table": "stg_commandes",
-      "id": "79668b209ee64f45a44f9a5a7d57c904",
+      "id": "7c062357d6204010924899111bb8885a",
       "inclusion_ratio": 0.9375,
       "name_similarity": 1.0,
       "origin": "detected",
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "sample_size": 16,
       "status": "confirmed",
       "to_column": "id_client",
       "to_source": "clients",
-      "to_source_id": "9dd3011becfb456b8809a565758bc759",
+      "to_source_id": "66876dccbc7b4283a4a34822a60566b5",
       "to_table": "stg_clients",
       "type_compatible": true,
-      "updated_at": "2026-10-29T01:53:25.448564Z"
+      "updated_at": "2026-10-29T15:58:06.971075Z"
     },
     "status": 200
   },
@@ -5258,26 +6148,26 @@
     "body": {
       "cardinality": "N-1",
       "confidence": 0.963,
-      "created_at": "2026-10-29T01:53:00.797855Z",
+      "created_at": "2026-10-29T15:57:43.202361Z",
       "explanation": "94 % des valeurs de commandes.id_client existent dans clients.id_client ; noms identiques ; relation N-1 : plusieurs lignes de commandes pour une ligne de clients.",
       "from_column": "id_client",
       "from_distinct": 16,
       "from_source": "commandes",
-      "from_source_id": "5ea383f529bc4ade897423617281c6e8",
+      "from_source_id": "96846060dbaf4612802992f8aaf43990",
       "from_table": "stg_commandes",
-      "id": "79668b209ee64f45a44f9a5a7d57c904",
+      "id": "7c062357d6204010924899111bb8885a",
       "inclusion_ratio": 0.9375,
       "name_similarity": 1.0,
       "origin": "detected",
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "sample_size": 16,
       "status": "rejected",
       "to_column": "id_client",
       "to_source": "clients",
-      "to_source_id": "9dd3011becfb456b8809a565758bc759",
+      "to_source_id": "66876dccbc7b4283a4a34822a60566b5",
       "to_table": "stg_clients",
       "type_compatible": true,
-      "updated_at": "2026-10-29T01:53:25.424043Z"
+      "updated_at": "2026-10-29T15:58:06.945047Z"
     },
     "status": 200
   },
@@ -5285,13 +6175,15 @@
     "body": {
       "attempts": 0,
       "cancel_requested": true,
-      "created_at": "2026-10-29T01:53:27.332723Z",
+      "created_at": "2026-10-29T15:58:08.719346Z",
       "created_by": null,
       "error": "cancelled",
-      "finished_at": "2026-10-29T01:53:27.354307Z",
-      "id": "1d9a5b5e42684924954d98c7465c54da",
+      "finished_at": "2026-10-29T15:58:08.739249Z",
+      "id": "c124cdf5724241c180a7b8d972780f87",
       "metrics": null,
       "params": {
+        "chain": false,
+        "connection_id": null,
         "csv_delimiter": null,
         "formats": [
           "parquet",
@@ -5299,12 +6191,15 @@
         ],
         "full_refresh": false,
         "mart_request_id": null,
+        "schedule_id": null,
         "source_ids": null,
+        "trigger": "manual",
         "type": "export",
+        "upload_id": null,
         "use_llm": true
       },
       "progress": null,
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "result": null,
       "started_at": null,
       "status": "cancelled",
@@ -5314,7 +6209,7 @@
   },
   "POST /settings/llm/test": {
     "body": {
-      "checked_at": "2026-10-29T01:53:37.035773Z",
+      "checked_at": "2026-10-29T15:58:21.286182Z",
       "duration_ms": 0,
       "message": "Aucun fournisseur : les heuristiques de Forja sont utilisées.",
       "model": null,
@@ -5400,13 +6295,13 @@
           "target_type": "varchar"
         }
       ],
-      "created_at": "2026-10-29T01:52:52.110679Z",
+      "created_at": "2026-10-29T15:57:34.835687Z",
       "deduplication": {
         "duplicate_rows": 0,
         "enabled": true,
         "explanation": "Déduplication exacte : aucun doublon au profiling, une seule occurrence conservée si des doublons apparaissent."
       },
-      "id": "f0a5187f669b422b87540d3570469e89",
+      "id": "d51c4481205945908ce145c85733b1e0",
       "model_name": "stg_clients",
       "primary_key": {
         "columns": [
@@ -5415,7 +6310,7 @@
         "explanation": "Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
         "quasi_unique": false
       },
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "reviews": {
         "cast:date_inscription": "validated",
         "deduplicate": "validated",
@@ -5427,11 +6322,11 @@
         "pii:prénom": "validated",
         "primary_key": "validated"
       },
-      "source_id": "9dd3011becfb456b8809a565758bc759",
+      "source_id": "66876dccbc7b4283a4a34822a60566b5",
       "source_name": "clients",
       "status": "approved",
       "summary": "7 colonne(s) publiée(s) sur 7, 3 règle(s) de validité, 3 colonne(s) personnelle(s). Clé primaire retenue : id_client. Une ligne plus récente de même clé remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises en quarantaine.",
-      "updated_at": "2026-10-29T01:53:25.253446Z",
+      "updated_at": "2026-10-29T15:58:06.709446Z",
       "version": 2,
       "warnings": []
     },
@@ -5471,7 +6366,7 @@
           "title": "Supprimer les espaces superflus"
         }
       ],
-      "source_id": "9dd3011becfb456b8809a565758bc759",
+      "source_id": "66876dccbc7b4283a4a34822a60566b5",
       "status": "draft",
       "validated": 9
     },
@@ -5479,7 +6374,7 @@
   },
   "POST /sources/{source_id}/versions": {
     "body": {
-      "bronze_path": "0f0e2a12705747e3afac6be0235494d2/bronze/clients/20261029T015324255758Z_v0002_clients.parquet",
+      "bronze_path": "88a84301e8eb4422b85f28b626c3d558/bronze/clients/20261029T155805588656Z_v0002_clients.parquet",
       "column_count": 7,
       "columns": [
         {
@@ -5496,12 +6391,13 @@
       "delimiter": ";",
       "encoding": "cp1252",
       "format": "csv",
-      "id": "9dd3011becfb456b8809a565758bc759",
-      "ingested_at": "2026-10-29T01:53:24.255758Z",
-      "latest_version_id": "8bb6fe3cff044f2e80af4bc6f113f6d4",
+      "id": "66876dccbc7b4283a4a34822a60566b5",
+      "ingested_at": "2026-10-29T15:58:05.588656Z",
+      "latest_version_id": "8bea495b6430480ab148cd11b9ec8574",
       "name": "clients",
+      "origin": null,
       "original_filename": "clients.csv",
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "quality_score": 100.0,
       "row_count": 21,
       "schema_drift": {
@@ -5519,13 +6415,13 @@
   },
   "POST /synonym-proposals/{proposal_id}/accept": {
     "body": {
-      "created_at": "2026-10-29T01:53:27.844243Z",
-      "id": "e00d0855120e436d83cfd78ac593d3ed",
+      "created_at": "2026-10-29T15:58:09.218001Z",
+      "id": "916aebe1fa6d4bdd9e9ed1b6f7c8c19c",
       "mart_request_id": null,
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
-      "proposed_by": "377fa4fb58904d34af65f5933f6f7cdd",
-      "reviewed_at": "2026-10-29T01:53:27.891400Z",
-      "reviewed_by": "823aac3b0ef54b04a0ea9d115868a6d4",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "proposed_by": "f1aea71a4b5a44d0b490de86e4fb9d9d",
+      "reviewed_at": "2026-10-29T15:58:09.269031Z",
+      "reviewed_by": "ac14bd54f3324555bae64e0a69ab8adf",
       "status": "accepted",
       "synonym": "encaissements",
       "target": "metric:montant"
@@ -5534,26 +6430,148 @@
   },
   "POST /synonym-proposals/{proposal_id}/reject": {
     "body": {
-      "created_at": "2026-10-29T01:53:27.978207Z",
-      "id": "9905744b02024154b239a984f68ceff0",
+      "created_at": "2026-10-29T15:58:09.354900Z",
+      "id": "9ab32a9f09b94c0385903e74633d5900",
       "mart_request_id": null,
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
-      "proposed_by": "377fa4fb58904d34af65f5933f6f7cdd",
-      "reviewed_at": "2026-10-29T01:53:28.009240Z",
-      "reviewed_by": "823aac3b0ef54b04a0ea9d115868a6d4",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "proposed_by": "f1aea71a4b5a44d0b490de86e4fb9d9d",
+      "reviewed_at": "2026-10-29T15:58:09.381880Z",
+      "reviewed_by": "ac14bd54f3324555bae64e0a69ab8adf",
       "status": "rejected",
       "synonym": "cité",
       "target": "attribute:client.ville"
     },
     "status": 200
   },
+  "POST /uploads/{upload_id}/complete": {
+    "body": {
+      "attempts": 1,
+      "cancel_requested": false,
+      "created_at": "2026-10-29T15:58:20.875799Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+      "error": null,
+      "finished_at": "2026-10-29T15:58:21.183529Z",
+      "id": "42b1bc36570b4e619431eccae2ee8c70",
+      "metrics": {
+        "dbt_tests": null,
+        "duplicates_removed": 0,
+        "duration_seconds": 0.276,
+        "exports": [],
+        "llm_calls": [],
+        "loads": [
+          {
+            "batches": 0,
+            "blocking_drift": false,
+            "cursor_value": null,
+            "duration_seconds": 0.0,
+            "mode": "full",
+            "object": "codes.csv",
+            "rows": 2,
+            "skipped": null,
+            "source_id": "1149c3668f004cbcbaf7c18cf0431a94",
+            "source_name": "codes",
+            "version": 1
+          }
+        ],
+        "models": [],
+        "profiled_sources": 1,
+        "relations_detected": 0,
+        "rows_loaded": 2,
+        "rows_read": 0,
+        "rows_rejected": 0,
+        "rows_valid": 0,
+        "serving_path": null,
+        "sources": [],
+        "unknown_member_rows": []
+      },
+      "params": {
+        "chain": false,
+        "connection_id": null,
+        "csv_delimiter": null,
+        "formats": [
+          "parquet",
+          "csv"
+        ],
+        "full_refresh": false,
+        "mart_request_id": null,
+        "schedule_id": null,
+        "source_ids": null,
+        "trigger": "manual",
+        "type": "ingest",
+        "upload_id": "847cf298eb0b47578b913f9711bb2f8b",
+        "use_llm": true
+      },
+      "progress": {
+        "done": [],
+        "failed": [],
+        "message": "lecture de codes.csv",
+        "percent": 100,
+        "running": [],
+        "step": "bronze",
+        "updated_at": "2026-10-29T15:58:21.177900Z"
+      },
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "result": {
+        "sources": [
+          "1149c3668f004cbcbaf7c18cf0431a94"
+        ],
+        "upload_id": "847cf298eb0b47578b913f9711bb2f8b"
+      },
+      "started_at": "2026-10-29T15:58:20.899117Z",
+      "status": "succeeded",
+      "type": "ingest"
+    },
+    "status": 202
+  },
+  "PUT /connections/{connection_id}/schedule": {
+    "body": {
+      "created_at": "2026-10-29T15:58:20.050100Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+      "description": "Tous les jours à 06:00",
+      "enabled": true,
+      "id": "a313866c2d934196bfab75b35e29c880",
+      "last_job_id": null,
+      "last_run_at": null,
+      "last_status": null,
+      "next_run_at": "2026-10-30T05:00:00Z",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "spec": {
+        "cron": null,
+        "hour": 6,
+        "kind": "daily",
+        "minute": 0,
+        "weekdays": [
+          0
+        ]
+      },
+      "target_id": "1492b9cf5dc14afebd2c4256ea80c249",
+      "target_type": "connection",
+      "text": "tous les jours à 6 h",
+      "timezone": "Europe/Paris",
+      "updated_at": "2026-10-29T15:58:20.050100Z"
+    },
+    "status": 200
+  },
   "PUT /projects/{project_id}/members/{user_id}": {
     "body": {
-      "created_at": "2026-10-29T01:53:24.036364Z",
+      "created_at": "2026-10-29T15:58:05.352573Z",
       "email": "nouveau@exemple.fr",
-      "project_id": "0f0e2a12705747e3afac6be0235494d2",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
       "role": "engineer",
-      "user_id": "4de75bb9afb7484c8fba9074bbbb4d1e"
+      "user_id": "e5df29bd56b246c9b9a3d6342bf20b6f"
+    },
+    "status": 200
+  },
+  "PUT /settings/connectors": {
+    "body": {
+      "allowed_hosts": [
+        "10.0.0.0/8",
+        "crm.interne"
+      ],
+      "editable": true,
+      "environment_hosts": [
+        "127.0.0.1"
+      ]
     },
     "status": 200
   },
@@ -5570,6 +6588,56 @@
       "ollama_base_url": "http://localhost:11434",
       "provider": "none",
       "source": "saved"
+    },
+    "status": 200
+  },
+  "PUT /sources/{source_id}/schedule": {
+    "body": {
+      "created_at": "2026-10-29T15:58:20.153704Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+      "description": "Toutes les heures",
+      "enabled": true,
+      "id": "92d8858b24f44ad69df24436bdda2456",
+      "last_job_id": null,
+      "last_run_at": null,
+      "last_status": null,
+      "next_run_at": "2026-10-29T16:00:00Z",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "spec": {
+        "cron": null,
+        "hour": 6,
+        "kind": "hourly",
+        "minute": 0,
+        "weekdays": [
+          0
+        ]
+      },
+      "target_id": "d512b699089248fe9fb92f206b5e97a8",
+      "target_type": "source",
+      "text": "toutes les heures",
+      "timezone": "Europe/Paris",
+      "updated_at": "2026-10-29T15:58:20.153704Z"
+    },
+    "status": 200
+  },
+  "PUT /uploads/{upload_id}/chunks": {
+    "body": {
+      "chunk_size": 8388608,
+      "created_at": "2026-10-29T15:58:20.798671Z",
+      "created_by": "ac14bd54f3324555bae64e0a69ab8adf",
+      "error": null,
+      "expires_at": "2026-10-31T15:58:20.798671Z",
+      "filename": "codes.csv",
+      "fingerprint": null,
+      "id": "847cf298eb0b47578b913f9711bb2f8b",
+      "job_id": null,
+      "mode": "auto",
+      "project_id": "88a84301e8eb4422b85f28b626c3d558",
+      "received": 33,
+      "size": 33,
+      "source_id": null,
+      "status": "complete",
+      "updated_at": "2026-10-29T15:58:20.834484Z"
     },
     "status": 200
   }

@@ -8,23 +8,32 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
+from forja_core import duck
 from forja_core.agent.service import MartService
 from forja_core.auth.service import AuthService
 from forja_core.catalog import Catalog
 from forja_core.config import Settings
+from forja_core.connectors.service import ConnectorService
+from forja_core.connectors.vault import SecretVault
+from forja_core.errors import ForjaError
 from forja_core.gold.build import GoldBuilder
 from forja_core.gold.service import GoldPlanService
 from forja_core.ingestion import IngestionService
 from forja_core.ingestion.service import IngestedVersion
+from forja_core.ingestion.uploads import UploadService
 from forja_core.jobs.executor import JobExecutor
-from forja_core.jobs.models import Job, JobType
+from forja_core.jobs.models import Job, JobType, LoadMetrics, RunMetrics, RunRequest
 from forja_core.jobs.runner import InlineJobRunner, JobRunner, ThreadJobRunner
+from forja_core.jobs.scope import report, stage
 from forja_core.locks import WarehouseLocks
+from forja_core.models import UploadStatus
 from forja_core.notifications.bus import EventBus
 from forja_core.notifications.service import NotificationService
 from forja_core.profiling.profiler import Profiler
 from forja_core.relations.detector import RelationDetector
 from forja_core.relations.service import RelationService
+from forja_core.scheduling.models import Schedule
+from forja_core.scheduling.service import Scheduler, ScheduleService
 from forja_core.semantic.service import SemanticService
 from forja_core.serving import Publisher
 from forja_core.silver.build import SilverBuilder
@@ -62,9 +71,14 @@ class AppState:
     llm_settings: LLMSettings
     events: EventBus
     notifications: NotificationService
+    connectors: ConnectorService
+    uploads: UploadService
+    schedules: ScheduleService
+    scheduler: Scheduler
 
     @classmethod
     def build(cls, settings: Settings) -> AppState:
+        duckdb_settings = duck.configure(settings)
         catalog = Catalog(settings.catalog_path)
         workspace = Workspace(settings.data_dir)
         profiler = Profiler(settings)
@@ -73,7 +87,9 @@ class AppState:
         ingestion.subscribe(plans.on_version_ingested)
 
         locks = WarehouseLocks()
-        generator = DbtProjectGenerator(workspace, threads=settings.dbt_threads)
+        generator = DbtProjectGenerator(
+            workspace, threads=settings.dbt_threads, duckdb_settings=duckdb_settings
+        )
         dbt = DbtRunner(
             settings.dbt_executable,
             timeout_seconds=settings.dbt_timeout_seconds,
@@ -146,6 +162,105 @@ class AppState:
                 )
 
         ingestion.subscribe(plan_to_review)
+
+        connectors = ConnectorService(
+            catalog, settings, ingestion, SecretVault(settings.secrets_dir)
+        )
+        connectors.on_blocking_drift = lambda source, columns: notifications.blocking_drift(
+            source.project_id, source.id, source.name, columns
+        )
+        uploads = UploadService(catalog, workspace, settings)
+        schedules = ScheduleService(catalog, settings)
+
+        def run_load(job: Job, log_line: Callable[[str], None]) -> RunMetrics:
+            with stage(0, 50 if job.params.chain else 100):
+                outcome = connectors.load(job, log_line)
+            metrics = outcome.metrics
+            if job.params.chain:
+                blocked = {s.id for s in outcome.blocked}
+                loaded = [s.id for s in outcome.loaded if s.id not in blocked]
+                with stage(50, 100):
+                    built = executor.build_after_load(job, loaded, log_line)
+                built.loads, built.rows_loaded = metrics.loads, metrics.rows_loaded
+                metrics = built
+            job.result = {
+                "sources": [m.source_id for m in outcome.metrics.loads if m.version is not None],
+                "rows": outcome.metrics.rows_loaded,
+                "blocked": [s.id for s in outcome.blocked],
+            }
+            return metrics
+
+        def run_ingest(job: Job, log_line: Callable[[str], None]) -> RunMetrics:
+            session = uploads.get(job.params.upload_id or "")
+            report("bronze", f"lecture de {session.filename}", 5)
+            try:
+                sources = ingestion.ingest_file(
+                    job.project_id,
+                    uploads.staged_path(session),
+                    session.filename,
+                    mode=session.mode,
+                    target_source_id=session.source_id,
+                )
+            except ForjaError as exc:
+                uploads.mark(session, UploadStatus.FAILED, error=exc.message)
+                uploads.discard(session)
+                raise
+            uploads.mark(session, UploadStatus.INGESTED)
+            uploads.discard(session)
+            metrics = RunMetrics(profiled_sources=len(sources))
+            for source in sources:
+                metrics.loads.append(
+                    LoadMetrics(
+                        source_id=source.id,
+                        source_name=source.name,
+                        object=session.filename,
+                        rows=source.row_count,
+                        version=source.version,
+                    )
+                )
+                log_line(
+                    f"{session.filename} -> {source.name} v{source.version}, "
+                    f"{source.row_count} row(s)"
+                )
+            metrics.rows_loaded = sum(m.rows for m in metrics.loads)
+            job.result = {"sources": [s.id for s in sources], "upload_id": session.id}
+            return metrics
+
+        executor.register(JobType.LOAD, run_load)
+        executor.register(JobType.INGEST, run_ingest)
+        executor.refresh_marts = marts.refresh_published
+        executor.on_finish.append(schedules.job_finished)
+
+        def target_connection(schedule: Schedule) -> str:
+            if schedule.target_type == "connection":
+                return schedule.target_id
+            feed = catalog.get_feed(schedule.target_id)
+            if feed is None:
+                raise ForjaError("the scheduled source is no longer loaded from a connection")
+            return feed.connection_id
+
+        def launch(schedule: Schedule) -> Job:
+            job = executor.create(
+                schedule.project_id,
+                RunRequest(
+                    type=JobType.LOAD,
+                    connection_id=target_connection(schedule),
+                    source_ids=[schedule.target_id] if schedule.target_type == "source" else None,
+                    trigger="schedule",
+                    schedule_id=schedule.id,
+                    chain=True,
+                ),
+                created_by=None,
+            )
+            runner.submit(job.id)
+            return job
+
+        scheduler = Scheduler(
+            schedules,
+            launch,
+            lambda schedule: connectors.active_load(target_connection(schedule)),
+            tick_seconds=settings.scheduler_tick_seconds,
+        )
         return cls(
             settings=settings,
             catalog=catalog,
@@ -168,6 +283,10 @@ class AppState:
             llm_settings=llm_settings,
             events=events,
             notifications=notifications,
+            connectors=connectors,
+            uploads=uploads,
+            schedules=schedules,
+            scheduler=scheduler,
         )
 
     def configure_llm(self) -> None:
@@ -184,8 +303,12 @@ class AppState:
     def start(self) -> None:
         self.auth.bootstrap()
         self.runner.start()
+        self.uploads.purge_expired()
+        if self.settings.scheduler_enabled:
+            self.scheduler.start()
 
     def close(self) -> None:
+        self.scheduler.stop()
         self.events.close()
         self.runner.stop(timeout=30)
         self.catalog.close()

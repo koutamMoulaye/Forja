@@ -171,7 +171,7 @@ projets et seul à pouvoir créer un projet (il en devient membre `admin`).
 
 Chaque route déclare l'action qu'elle effectue ; le projet est déduit du chemin
 (projet, source, relation, table, run, demande de data mart, proposition de
-synonyme). Un utilisateur sans rôle dans le projet reçoit `403`. Ce tableau est
+synonyme, connexion, planification, upload). Un utilisateur sans rôle dans le projet reçoit `403`. Ce tableau est
 vérifié par `tests/test_permissions.py` contre `forja_core.auth.models.ROLE_ACTIONS`.
 
 | Action | Description | admin | engineer | analyst |
@@ -200,6 +200,7 @@ vérifié par `tests/test_permissions.py` contre `forja_core.auth.models.ROLE_AC
 | `mart.request` | Interroger l'agent, gérer ses propres data marts | ✓ | ✓ | ✓ |
 | `mart.read_all` | Voir les data marts de tous les utilisateurs | ✓ | ✓ | — |
 | `mart.approve` | Approuver ou rejeter un data mart | ✓ | ✓ | — |
+| `connection.manage` | Gérer les connexions, leurs chargements et planifications | ✓ | ✓ | — |
 
 Règles complémentaires :
 
@@ -242,6 +243,7 @@ personnelle de contenu.
 | Publication | `table.publish`, `table.unpublish`, `table.export` (format, lignes, pseudonymisation) |
 | Sémantique | `semantic.regenerate`, `semantic.edit`, `synonym.propose`, `synonym.accept`, `synonym.reject` |
 | Agent | `agent.request` (question), `agent.answer`, `agent.refine`, `mart.validate`, `mart.approve`, `mart.reject`, `mart.publish` |
+| Connexions | `connection.create`, `connection.update`, `connection.delete`, `connection.test`, `connection.explore`, `connection.preview`, `connection.import`, `connection.load`, `schedule.set`, `schedule.delete`, `settings.connectors` (jamais d'identifiant ni de valeur) |
 
 Lecture : `GET /projects/{id}/audit` (admin du projet), `GET /audit` (administrateur de
 l'instance), filtres `action` et `limit`.

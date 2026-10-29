@@ -16,6 +16,7 @@ from forja_api import openapi
 from forja_api.errors import register_error_handlers
 from forja_api.routes import (
     auth,
+    connections,
     gold,
     graph,
     marts,
@@ -27,6 +28,7 @@ from forja_api.routes import (
     semantic,
     sources,
     tables,
+    uploads,
 )
 from forja_api.routes import settings as instance_settings
 from forja_api.schemas import HealthResponse
@@ -100,11 +102,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             version=__version__,
             auth_mode=settings.auth_mode,
             max_upload_mb=settings.max_upload_mb,
+            upload_chunk_mb=settings.upload_chunk_mb,
         )
 
     app.include_router(auth.router)
     app.include_router(projects.router)
     app.include_router(sources.router)
+    app.include_router(uploads.router)
+    app.include_router(connections.router)
     app.include_router(plans.router)
     app.include_router(runs.router)
     app.include_router(graph.router)

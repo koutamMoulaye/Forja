@@ -417,6 +417,136 @@ ROUTE_DOCS: dict[tuple[str, str], tuple[str, str]] = {
         "Rejeter une demande",
         "Avec un motif. Auteur de la demande ou engineer.",
     ),
+    # --- Téléversements découpés ----------------------------------------------------
+    ("post", "/projects/{project_id}/uploads"): (
+        "Ouvrir un téléversement découpé",
+        "Nom et taille du fichier (jusqu'à FORJA_MAX_UPLOAD_MB, 10 Go par défaut). Avec une "
+        "empreinte (fingerprint), le téléversement inachevé du même fichier est repris au lieu "
+        f"de recommencer. Renvoie la taille des morceaux à envoyer. {ENG}",
+    ),
+    ("get", "/uploads/{upload_id}"): (
+        "État d'un téléversement",
+        f"Octets reçus (pour reprendre après une coupure), statut et run d'ingestion. {ENG}",
+    ),
+    ("put", "/uploads/{upload_id}/chunks"): (
+        "Envoyer un morceau",
+        "Octets bruts (application/octet-stream) écrits à l'offset où s'arrêtent les données "
+        "reçues ; un autre offset répond 409 avec l'offset attendu. Le dernier morceau "
+        f"complète le fichier. {ENG}",
+    ),
+    ("post", "/uploads/{upload_id}/complete"): (
+        "Ingérer le fichier téléversé",
+        "Lance un run ingest : lecture en flux par DuckDB vers Bronze, profil, plan Silver. "
+        f"Le fichier temporaire est supprimé ensuite. {ENG}",
+    ),
+    ("delete", "/uploads/{upload_id}"): (
+        "Abandonner un téléversement",
+        f"Supprime les données reçues. {ENG}",
+    ),
+    # --- Connexions -----------------------------------------------------------------
+    ("get", "/projects/{project_id}/connections"): (
+        "Connexions du projet",
+        "Bases de données et API REST, leurs sources, leur planification, le chargement en "
+        f"cours. Les identifiants ne sont jamais renvoyés (secrets_set). {ENG}",
+    ),
+    ("post", "/projects/{project_id}/connections"): (
+        "Créer une connexion",
+        "PostgreSQL, MySQL/MariaDB, SQL Server ou API REST. Les identifiants sont chiffrés "
+        "(AES-256-GCM, clé dans FORJA_SECRETS_DIR), jamais renvoyés, journalisés ni transmis "
+        "au modèle de langage. Une API sur une adresse privée ou locale est refusée sauf "
+        f"autorisation de l'administrateur. {ENG}",
+    ),
+    ("post", "/projects/{project_id}/connections/test"): (
+        "Tester une configuration",
+        f"Avant de l'enregistrer : connexion, version du serveur, compte en lecture seule. {ENG}",
+    ),
+    ("post", "/projects/{project_id}/connections/preview"): (
+        "Aperçu d'une API REST",
+        "Première page d'un endpoint : chemin des enregistrements (détecté s'il n'est pas "
+        "donné), colonnes aplaties, tables enfants des listes imbriquées et relations "
+        f"proposées. {ENG}",
+    ),
+    ("get", "/connections/{connection_id}"): (
+        "Connexion",
+        f"Paramètres, sources alimentées, planification, dernier test. {ENG}",
+    ),
+    ("patch", "/connections/{connection_id}"): (
+        "Modifier une connexion",
+        "Nom, paramètres ou identifiants ; un identifiant absent est conservé, vide il est "
+        f"supprimé. {ENG}",
+    ),
+    ("delete", "/connections/{connection_id}"): (
+        "Supprimer une connexion",
+        "Ses sources restent, avec leurs versions, mais ne sont plus chargées ; leurs "
+        f"planifications sont supprimées. {ENG}",
+    ),
+    ("post", "/connections/{connection_id}/test"): (
+        "Tester une connexion",
+        f"Résultat conservé (last_test). {ENG}",
+    ),
+    ("get", "/connections/{connection_id}/explore"): (
+        "Explorer une base de données",
+        "Schémas, tables et vues, colonnes et types (et leur type Bronze), nombre de lignes "
+        f"estimé, clé primaire, colonnes curseur proposées pour l'incrémental. {ENG}",
+    ),
+    ("post", "/connections/{connection_id}/import"): (
+        "Sélectionner les tables à charger",
+        "Tables (mode complet ou incrémental sur une colonne curseur) ou endpoints ; chacun "
+        "devient une source Forja au premier chargement, lancé aussitôt si load_now. Les "
+        f"noms viennent de l'introspection de la base, jamais d'une saisie libre. {ENG}",
+    ),
+    ("post", "/connections/{connection_id}/load"): (
+        "Charger maintenant",
+        "Run load : extraction par lots vers Bronze (les sources incrémentales ne lisent que "
+        "les nouvelles lignes), profil et plan ; avec chain, Silver, Gold, data marts publiés "
+        f"et serving selon les plans approuvés. 409 si un chargement est en cours. {ENG}",
+    ),
+    # --- Planifications ---------------------------------------------------------------
+    ("post", "/projects/{project_id}/schedules/interpret"): (
+        "Comprendre une planification",
+        "Une phrase (« tous les jours à 6 h », « du lundi au vendredi à 7h30 ») ou une "
+        f"expression cron : sa traduction et ses trois prochaines exécutions. {ENG}",
+    ),
+    ("get", "/projects/{project_id}/schedules"): (
+        "Planifications du projet",
+        f"Prochaine exécution d'abord, avec le fuseau horaire de l'instance. {ENG}",
+    ),
+    ("get", "/connections/{connection_id}/schedule"): (
+        "Planification d'une connexion",
+        f"null si les chargements sont manuels. {ENG}",
+    ),
+    ("put", "/connections/{connection_id}/schedule"): (
+        "Planifier une connexion",
+        "Toutes ses sources sont chargées puis Silver, Gold, data marts et serving sont "
+        "reconstruits selon les plans approuvés. Pas de chevauchement, rattrapage unique "
+        f"après un arrêt, notification en cas d'échec. {ENG}",
+    ),
+    ("delete", "/connections/{connection_id}/schedule"): (
+        "Retirer la planification d'une connexion",
+        f"Les chargements redeviennent manuels. {ENG}",
+    ),
+    ("get", "/sources/{source_id}/schedule"): (
+        "Planification d'une source",
+        f"null si elle n'en a pas. {ENG}",
+    ),
+    ("put", "/sources/{source_id}/schedule"): (
+        "Planifier une source",
+        "Une source chargée depuis une connexion ; une source fichier se met à jour par une "
+        f"nouvelle version. {ENG}",
+    ),
+    ("delete", "/sources/{source_id}/schedule"): (
+        "Retirer la planification d'une source",
+        f"Les chargements redeviennent manuels. {ENG}",
+    ),
+    ("get", "/settings/connectors"): (
+        "Adresses autorisées des API",
+        "Adresses privées ou locales (hôtes, IP, plages CIDR) que les connexions API REST "
+        f"peuvent joindre, depuis l'interface et l'environnement. {ANY_USER}",
+    ),
+    ("put", "/settings/connectors"): (
+        "Autoriser des adresses privées",
+        f"Protection SSRF : les adresses privées et locales sont refusées par défaut. {INSTANCE}",
+    ),
 }
 
 TAGS = [
@@ -434,7 +564,14 @@ TAGS = [
     {"name": "gold", "description": "Modèle en étoile Gold."},
     {"name": "semantic layer", "description": "Couche sémantique et synonymes."},
     {"name": "agent", "description": "Agent métier : demandes de data marts en français."},
-    {"name": "settings", "description": "Réglages de l'instance : fournisseur IA."},
+    {
+        "name": "connections",
+        "description": "Connexions aux bases de données et aux API, chargements, planifications.",
+    },
+    {
+        "name": "settings",
+        "description": "Réglages de l'instance : fournisseur IA, adresses autorisées.",
+    },
 ]
 
 

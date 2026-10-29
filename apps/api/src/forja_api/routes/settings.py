@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import re
 import time
 
@@ -84,6 +85,64 @@ def _view(state: AppState, *, editable: bool) -> LLMConfigView:
         last_check=saved.last_check,
         editable=editable,
     )
+
+
+class ConnectorSettings(BaseModel):
+    """Private or local addresses REST API connections may reach (SSRF protection)."""
+
+    allowed_hosts: list[str] = Field(description="Saved from the interface")
+    environment_hosts: list[str] = Field(description="FORJA_CONNECTOR_ALLOWED_HOSTS")
+    editable: bool
+
+
+class ConnectorSettingsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    allowed_hosts: list[str] = Field(max_length=100)
+
+    @field_validator("allowed_hosts")
+    @classmethod
+    def _hosts(cls, value: list[str]) -> list[str]:
+        for host in value:
+            entry = host.strip()
+            if not entry:
+                continue
+            try:
+                ipaddress.ip_network(entry, strict=False)
+            except ValueError:
+                if not re.fullmatch(r"[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?", entry):
+                    raise ValueError(
+                        f"'{entry}' is neither a host name, an IP nor a range"
+                    ) from None
+        return value
+
+
+def _connector_view(state: AppState, *, editable: bool) -> ConnectorSettings:
+    return ConnectorSettings(
+        allowed_hosts=state.connectors.saved_allowed_hosts(),
+        environment_hosts=list(state.settings.connector_allowed_hosts),
+        editable=editable,
+    )
+
+
+@router.get("/connectors", summary="Private addresses REST API connections may reach")
+def get_connector_settings(principal: PrincipalDep, state: StateDep) -> ConnectorSettings:
+    return _connector_view(state, editable=principal.user.is_admin)
+
+
+@router.put("/connectors", summary="Allow private addresses (instance administrator)")
+def put_connector_settings(
+    update: ConnectorSettingsUpdate, admin: AdminDep, state: StateDep
+) -> ConnectorSettings:
+    hosts = state.connectors.set_allowed_hosts(update.allowed_hosts)
+    state.auth.audit(
+        admin,
+        "settings.connectors",
+        object_type="settings",
+        object_id="connectors",
+        details={"allowed_hosts": hosts},
+    )
+    return _connector_view(state, editable=True)
 
 
 @router.get("/llm", summary="Language model provider in use (keys are never returned)")

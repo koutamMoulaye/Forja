@@ -6,6 +6,9 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from forja_core.auth.throttle import TooManyAttemptsError
+from forja_core.connectors.database import DatabaseError
+from forja_core.connectors.rest import ApiError
+from forja_core.connectors.ssrf import BlockedAddressError
 from forja_core.errors import (
     ConflictError,
     FileTooLargeError,
@@ -19,7 +22,10 @@ from forja_core.errors import (
     UnauthorizedError,
     UnsupportedFormatError,
 )
+from forja_core.ingestion.uploads import UploadIncompleteError
 from forja_core.logging import get_logger
+from forja_core.scheduling.cron import CronError
+from forja_core.scheduling.phrases import SchedulePhraseError
 
 log = get_logger(__name__)
 
@@ -35,6 +41,13 @@ _STATUS_BY_ERROR: tuple[tuple[type[ForjaError], int], ...] = (
     (PlanValidationError, status.HTTP_422_UNPROCESSABLE_CONTENT),
     (RelationValidationError, status.HTTP_422_UNPROCESSABLE_CONTENT),
     (GoldProposalError, status.HTTP_422_UNPROCESSABLE_CONTENT),
+    (BlockedAddressError, status.HTTP_422_UNPROCESSABLE_CONTENT),
+    (CronError, status.HTTP_422_UNPROCESSABLE_CONTENT),
+    (SchedulePhraseError, status.HTTP_422_UNPROCESSABLE_CONTENT),
+    (UploadIncompleteError, status.HTTP_409_CONFLICT),
+    # The database or the API Forja connects to answered with an error.
+    (ApiError, status.HTTP_502_BAD_GATEWAY),
+    (DatabaseError, status.HTTP_502_BAD_GATEWAY),
 )
 
 
