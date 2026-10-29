@@ -22,6 +22,8 @@ jobs:
       # Mocked LLM only: no provider is configured, no secret is needed, and the tests
       # against real providers are skipped.
       FORJA_SKIP_REAL_LLM_TESTS: "1"
+      # PostgreSQL and MySQL containers (docker/compose.test-db.yml) must start here.
+      FORJA_TEST_DATABASES: require
       PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v5
@@ -55,6 +57,66 @@ jobs:
       - name: Report failed tests as annotations
         if: failure()
         run: uv run python .github/report_failures.py pytest-report.xml
+
+  sqlserver:
+    name: SQL Server connector
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FORJA_SKIP_REAL_LLM_TESTS: "1"
+      FORJA_TEST_DATABASES: require
+      # The SQL Server image is about 1.5 GB: tested in CI only.
+      FORJA_TEST_SQLSERVER: "1"
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Database connectors, SQL Server included
+        run: uv run pytest -q -rf tests/test_connectors_db.py
+
+  volume:
+    name: Volume, one million rows
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FORJA_SKIP_REAL_LLM_TESTS: "1"
+      FORJA_VOLUME_ROWS: "1000000"
+      FORJA_VOLUME_REPORT: volume-report.json
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Ingestion, profile and Silver build of a generated file
+        run: uv run pytest -q -s tests/test_volume.py
+
+      - name: Measures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: volume-report
+          path: volume-report.json
+          if-no-files-found: ignore
+          retention-days: 30
 
   web:
     name: Web, lint, types, tests and build
