@@ -7,17 +7,24 @@ requires-python = ">=3.12"
 dependencies = [
     "argon2-cffi>=23.1",
     "charset-normalizer>=3.3",
+    "cryptography>=43",
     "dbt-core>=1.12.6,<1.13",
     "dbt-duckdb>=1.11.0,<1.12",
     "duckdb>=2.0.0,<2.1",
+    "httpx>=0.27",
     "openpyxl>=3.1",
+    "psycopg[binary]>=3.2",
     "pyarrow>=17.0",
     "pydantic>=2.7",
     "pydantic-settings>=2.4",
     "pyjwt>=2.9",
+    "pymssql>=2.3.2",
+    "pymysql>=1.1",
     "pyyaml>=6.0",
+    "sqlalchemy>=2.0.36",
     "sqlglot>=25.0",
     "structlog>=24.1",
+    "tzdata>=2024.1",
 ]
 
 [build-system]
