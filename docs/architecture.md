@@ -207,6 +207,19 @@ permissions (`forja_api.security.require`) ; le projet est déduit du chemin. Le
 services du cœur reçoivent le `Principal` quand ils en ont besoin (propriétaire d'une
 demande, accès aux données en clair) et n'importent pas FastAPI.
 
+## Notifications et flux d'événements
+
+`forja_core.notifications` : un `EventBus` en mémoire relie les services, qui tournent
+dans les threads des workers, aux flux ouverts par `GET /events` (Server-Sent Events,
+une file asyncio par connexion, remplie par `call_soon_threadsafe`). L'exécuteur de
+jobs publie chaque changement d'état ou de progression d'un run (`on_change`) et sa fin
+(`on_finish`) ; `NotificationService` en tire les notifications (table `notifications`,
+lue ou non, avec une action vers un run, une source, le modèle, un aperçu ou une
+conversation) et les pousse au flux de leur destinataire. Plans Silver à revoir (après
+ingestion), data marts à approuver, approuvés, rejetés ou publiés viennent des services
+concernés. Un flux ne reçoit que ce que son utilisateur peut voir ; il se ferme avec le
+jeton d'accès. Le bus suppose une seule instance d'API ([D26](decisions.md)).
+
 ## Jobs
 
 Table `jobs` du catalogue : type (`profile`, `build_silver`, `build_gold`, `export`,

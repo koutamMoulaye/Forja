@@ -402,3 +402,45 @@ prompt.
   secret ni donnée personnelle.
 - La couche sémantique est générée depuis le dernier plan Gold **appliqué** : un plan
   approuvé mais pas encore construit ne décrit pas l'entrepôt.
+
+
+## D26 — Notifications côté serveur et flux d'événements (SSE)
+
+**Décision.** Les notifications sont stockées par utilisateur dans le catalogue
+(`notifications`) et produites par le serveur : run terminé ou en échec, plan Silver à
+revoir, data mart à approuver, approuvé, rejeté (avec le motif) ou publié, proposition
+du modèle ou réponse de l'agent prête. Un bus d'événements en mémoire relie les threads
+de travail aux flux ouverts ; `GET /events` (Server-Sent Events, relayé par le proxy Next
+avec le cookie de session) pousse les notifications et l'état des runs que l'appelant
+peut suivre. Un `ping` toutes les 15 s garde la connexion ouverte et permet au
+navigateur de détecter un flux mort ; le flux se ferme à l'expiration du jeton d'accès
+ou à la révocation de la session, et le navigateur se reconnecte (le proxy rafraîchit
+alors les jetons). Tant que le flux est ouvert, le front n'interroge plus les runs ni
+l'agent ; s'il tombe, l'interrogation périodique reprend, et une reconnexion
+rafraîchit ce qui a pu être manqué.
+
+**Pourquoi.** Les notifications dérivées côté front (calculées à partir des runs et des
+demandes interrogés toutes les quelques secondes) ne voyaient que le projet ouvert,
+oubliaient l'état lu d'un navigateur à l'autre et multipliaient les requêtes. SSE plutôt
+que WebSocket : le flux est descendant, passe par le proxy HTTP existant et se
+reconnecte nativement.
+
+**Limite.** Le bus est en mémoire : une seule instance d'API. Plusieurs instances
+demanderaient un bus partagé (Postgres LISTEN/NOTIFY, Redis).
+
+
+## D27 — CSP stricte avec nonces, rendu dynamique de toutes les pages
+
+**Décision.** Chaque page reçoit du proxy une Content-Security-Policy avec un nonce
+neuf : `script-src 'self' 'nonce-…' 'strict-dynamic'`, styles par nonce, aucun cadre
+(`frame-ancestors 'none'`), aucun objet, formulaires et connexions vers l'origine seule.
+Next.js pose le nonce sur ses scripts, le layout racine sur le script de thème. Seuls
+les attributs `style` restent autorisés (`style-src-attr`), car les composants rendus
+côté serveur s'en servent et un attribut n'exécute rien. Les routes `/api` répondent
+avec `default-src 'none'`. En production derrière HTTPS : `Strict-Transport-Security`.
+Un test de bout en bout échoue sur toute violation signalée dans la console.
+
+**Conséquence.** Un nonce est propre à une requête : les pages ne peuvent plus être
+prérendues. `cacheComponents` et le préchargement partiel sont désactivés, toutes les
+pages sont rendues à la demande. Le coût est faible ici : les écrans sont derrière une
+session et leurs données se chargent côté client.

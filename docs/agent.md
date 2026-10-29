@@ -108,6 +108,11 @@ devient une Clarification (valeurs proches) ou un refus. Pas de filtre sur la va
 d'une donnée personnelle. Une granularité ou une période sans date dans le fait est
 refusée. Rien n'est deviné.
 
+Un axe sur un attribut qu'un filtre fige à une seule valeur (« CA par ville à Lyon ») ne
+donnerait qu'une colonne constante : un modèle le demande parfois. Forja retire l'axe,
+de façon déterministe, et le dit à la fin du résumé (« Axe « Ville » retiré : le filtre
+ne garde que Lyon. »). Un filtre sur plusieurs valeurs garde son axe.
+
 ## 5. SQL
 
 `forja_core.agent.compile` écrit une requête unique à partir de templates :
@@ -190,7 +195,16 @@ MartSpec, Clarification ou refus, résumé, SQL, aperçu.
 | `POST` | `/mart-requests/{id}/approve` | engineer : approuve et publie |
 | `POST` | `/mart-requests/{id}/reject` | `{"reason"}` |
 
-Un engineer (droit d'approuver) qui valide sa propre demande l'approuve du même coup.
+Un engineer (droit d'approuver) qui valide sa propre demande l'approuve du même coup
+si `FORJA_MART_ALLOW_SELF_APPROVAL` le permet : vrai par défaut en mode local, faux en
+mode multi, où un autre engineer approuve. L'aperçu garde les étapes de publication
+(validé, en attente d'approbation quand elle a eu lieu, approuvé par, publié) ; chaque
+décision est notifiée à l'auteur, le rejet avec son motif.
+
+`GET /projects/{id}/mart-requests` renvoie une page (`limit`, `offset`, `status`) des
+demandes les plus récemment modifiées ; par défaut chacune n'y porte que sa dernière
+version, et la dernière avec un aperçu (`versions=all` pour l'historique complet, que
+donne aussi `GET /mart-requests/{id}`).
 `GET /projects/{id}/agent/overview` donne la date du dernier build Gold réussi et des
 questions suggérées : écrites depuis la couche sémantique (métriques par défaut, axes
 nommés, jamais de code ni d'identifiant), elles ne sont gardées que si le parseur les

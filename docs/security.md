@@ -113,8 +113,28 @@ proxy : ses route handlers appellent l'API côté serveur (`FORJA_API_URL`).
   Derrière un reverse proxy, c'est lui qui doit fixer cet en-tête ; si le serveur web
   est exposé directement, un client peut le falsifier et contourner la limite par IP
   (la limite par compte reste appliquée).
-- **En-têtes** : `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`,
-  `Permissions-Policy` sur toutes les pages.
+- **Content-Security-Policy** : chaque page reçoit du proxy une politique avec un nonce
+  neuf (`script-src 'self' 'nonce-…' 'strict-dynamic'`) ; Next.js pose ce nonce sur ses
+  scripts, le layout racine sur le script de thème, et les bibliothèques qui insèrent un
+  élément `<style>` le reçoivent aussi (animations, verrou de défilement des dialogues,
+  liste des menus déroulants). La feuille de style de la bibliothèque de notifications
+  est autorisée par son empreinte SHA-256, vérifiée par un test. Seuls les attributs
+  `style` sont permis (`style-src-attr 'unsafe-inline'`). Aucun cadre
+  (`frame-ancestors 'none'`), aucun objet, formulaires et connexions vers l'origine
+  seule ; les routes `/api` répondent avec `default-src 'none'`. Toutes les pages sont
+  rendues à la demande, condition des nonces ([D27](decisions.md)). Un test de bout en
+  bout échoue sur toute violation signalée par le navigateur.
+- **En-têtes** : `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+  `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (caméra,
+  micro, géolocalisation, paiement, USB coupés) ; `Strict-Transport-Security` (un an)
+  en production servie en HTTPS (`FORJA_WEB_SECURE_COOKIES` vrai).
+- **Flux d'événements** : `GET /api/forja/events` relaie le flux Server-Sent Events de
+  l'API avec la session du cookie, sans compression ni mise en tampon ; l'appel à l'API
+  s'arrête quand le navigateur quitte la page. Le flux ne porte que ce que l'utilisateur
+  peut voir : ses notifications, et les runs d'un projet dont il est membre (tous pour
+  un engineer, les siens pour un analyst).
+- **Pages d'erreur** : 404 et 500 dans le style de l'application ; une erreur ne montre
+  que sa référence (`digest`), jamais sa pile.
 
 ## Invitations (mode multi)
 
