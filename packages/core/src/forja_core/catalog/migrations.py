@@ -353,6 +353,50 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         CREATE INDEX notifications_user ON notifications (user_id, created_at);
         """,
     ),
+    (
+        16,
+        """
+        CREATE TABLE connections (
+            id VARCHAR PRIMARY KEY,
+            project_id VARCHAR NOT NULL,
+            name VARCHAR NOT NULL,
+            type VARCHAR NOT NULL,
+            params JSON NOT NULL,
+            secrets VARCHAR,
+            secret_fields JSON NOT NULL,
+            last_test JSON,
+            created_by VARCHAR,
+            created_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP NOT NULL,
+            UNIQUE (project_id, name)
+        );
+        CREATE TABLE source_feeds (
+            source_id VARCHAR PRIMARY KEY,
+            connection_id VARCHAR NOT NULL,
+            data JSON NOT NULL
+        );
+        CREATE TABLE schedules (
+            id VARCHAR PRIMARY KEY,
+            project_id VARCHAR NOT NULL,
+            target_type VARCHAR NOT NULL,
+            target_id VARCHAR NOT NULL,
+            data JSON NOT NULL,
+            next_run_at TIMESTAMP,
+            UNIQUE (target_type, target_id)
+        );
+        CREATE TABLE uploads (
+            id VARCHAR PRIMARY KEY,
+            project_id VARCHAR NOT NULL,
+            data JSON NOT NULL,
+            updated_at TIMESTAMP NOT NULL
+        );
+        CREATE TABLE instance_settings (
+            key VARCHAR PRIMARY KEY,
+            data JSON NOT NULL,
+            updated_at TIMESTAMP NOT NULL
+        );
+        """,
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]

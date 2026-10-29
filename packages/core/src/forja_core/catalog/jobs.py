@@ -166,6 +166,15 @@ class JobsMixin(PlansMixin):
         )
         return int(row[0]) if row else 0
 
+    def active_jobs(self, job_type: JobType) -> list[Job]:
+        """Queued or running jobs of a type, oldest first."""
+        rows = self._fetchall(
+            f"SELECT {_JOB_COLUMNS} FROM jobs WHERE type = ? AND status IN (?, ?) "
+            "ORDER BY created_at",
+            [job_type.value, JobStatus.QUEUED.value, JobStatus.RUNNING.value],
+        )
+        return [_job(row) for row in rows]
+
     def queued_job_ids(self) -> list[str]:
         rows = self._fetchall(
             "SELECT id FROM jobs WHERE status = ? ORDER BY created_at", [JobStatus.QUEUED.value]

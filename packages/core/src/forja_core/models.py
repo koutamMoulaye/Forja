@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
+from forja_core.connectors.models import SourceOrigin
+
 TECHNICAL_COLUMNS: tuple[str, ...] = ("_batch_id", "_ingested_at", "_source_file", "_row_hash")
 
 
@@ -26,6 +28,8 @@ class SourceFormat(StrEnum):
     EXCEL = "excel"
     PARQUET = "parquet"
     JSON = "json"
+    DATABASE = "database"
+    API = "api"
 
 
 class IngestMode(StrEnum):
@@ -128,3 +132,52 @@ class Source(BaseModel):
     latest_version_id: str | None = None
     schema_drift: SchemaDrift | None = None
     quality_score: float | None = None
+    origin: SourceOrigin | None = Field(
+        default=None, description="The connection the source is loaded from, if any"
+    )
+
+
+class UploadStatus(StrEnum):
+    RECEIVING = "receiving"
+    COMPLETE = "complete"
+    INGESTED = "ingested"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class UploadCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    filename: str = Field(min_length=1, max_length=255)
+    size: int = Field(gt=0)
+    mode: IngestMode = IngestMode.AUTO
+    source_id: str | None = None
+    fingerprint: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Client-side identity of the file (name, size, date): an unfinished "
+        "session for the same file is resumed instead of starting over",
+    )
+
+
+class UploadSession(BaseModel):
+    id: str
+    project_id: str
+    filename: str
+    size: int
+    received: int = 0
+    chunk_size: int
+    mode: IngestMode = IngestMode.AUTO
+    source_id: str | None = None
+    fingerprint: str | None = None
+    status: UploadStatus = UploadStatus.RECEIVING
+    job_id: str | None = Field(default=None, description="The run ingesting the file")
+    error: str | None = None
+    created_by: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    expires_at: datetime
+
+    @property
+    def complete(self) -> bool:
+        return self.received >= self.size

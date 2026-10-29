@@ -48,6 +48,7 @@ class Action(StrEnum):
     MART_REQUEST = "mart.request"
     MART_READ_ALL = "mart.read_all"
     MART_APPROVE = "mart.approve"
+    CONNECTION_MANAGE = "connection.manage"
 
 
 ACTION_DESCRIPTIONS: dict[Action, str] = {
@@ -75,6 +76,7 @@ ACTION_DESCRIPTIONS: dict[Action, str] = {
     Action.MART_REQUEST: "Interroger l'agent, gérer ses propres data marts",
     Action.MART_READ_ALL: "Voir les data marts de tous les utilisateurs",
     Action.MART_APPROVE: "Approuver ou rejeter un data mart",
+    Action.CONNECTION_MANAGE: "Gérer les connexions, leurs chargements et planifications",
 }
 
 _ANALYST = frozenset(
@@ -103,6 +105,7 @@ _ENGINEER = _ANALYST | {
     Action.SYNONYM_REVIEW,
     Action.MART_READ_ALL,
     Action.MART_APPROVE,
+    Action.CONNECTION_MANAGE,
 }
 
 ROLE_ACTIONS: dict[Role, frozenset[Action]] = {

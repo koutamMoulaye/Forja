@@ -9,6 +9,7 @@ import duckdb
 
 from forja_core.catalog.base import from_db_timestamp_required, to_db_timestamp
 from forja_core.catalog.projects import ProjectsMixin
+from forja_core.connectors.models import ConnectionType, SourceFeed, SourceOrigin
 from forja_core.errors import (
     ConflictError,
     ProfileNotFoundError,
@@ -20,12 +21,15 @@ from forja_core.profiling.models import ProfileReport
 _SOURCE_COLUMNS = (
     "s.id, s.project_id, s.name, s.format, s.original_filename, s.sheet_name, s.encoding, "
     "s.delimiter, s.row_count, s.column_count, s.columns, s.bronze_path, s.warnings, "
-    "s.ingested_at, s.current_version, s.latest_version_id, v.schema_drift, p.quality_score"
+    "s.ingested_at, s.current_version, s.latest_version_id, v.schema_drift, p.quality_score, "
+    "f.data, c.name, c.type"
 )
 _SOURCE_FROM = (
     "FROM sources s "
     "LEFT JOIN source_versions v ON v.id = s.latest_version_id "
-    "LEFT JOIN profiles p ON p.version_id = s.latest_version_id"
+    "LEFT JOIN profiles p ON p.version_id = s.latest_version_id "
+    "LEFT JOIN source_feeds f ON f.source_id = s.id "
+    "LEFT JOIN connections c ON c.id = f.connection_id"
 )
 _VERSION_COLUMNS = (
     "id, source_id, version, format, original_filename, sheet_name, encoding, delimiter, "
@@ -61,6 +65,22 @@ def _source(row: tuple[Any, ...]) -> Source:
         latest_version_id=row[15],
         schema_drift=_drift(row[16]),
         quality_score=row[17],
+        origin=_origin(row[18], row[19], row[20]),
+    )
+
+
+def _origin(feed: str | None, name: str | None, kind: str | None) -> SourceOrigin | None:
+    if feed is None or name is None or kind is None:
+        return None
+    data = SourceFeed.model_validate_json(feed)
+    return SourceOrigin(
+        connection_id=data.connection_id,
+        connection_name=name,
+        connection_type=ConnectionType(kind),
+        object=data.object.label,
+        mode=data.mode,
+        cursor_column=data.cursor_column,
+        last_loaded_at=data.last_loaded_at,
     )
 
 
