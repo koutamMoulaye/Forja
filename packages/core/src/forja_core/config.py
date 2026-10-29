@@ -35,7 +35,13 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8000
 
-    max_upload_mb: int = Field(default=200, gt=0)
+    max_upload_mb: int = Field(
+        default=10 * 1024, gt=0, description="Largest file accepted, chunked uploads included"
+    )
+    upload_chunk_mb: int = Field(default=8, gt=0, le=64, description="Size of an upload chunk")
+    upload_session_hours: int = Field(
+        default=48, gt=0, description="An unfinished chunked upload is discarded after this"
+    )
     preview_max_rows: int = Field(default=1000, gt=0)
     allow_bronze_preview: bool = Field(
         default=False,
@@ -47,6 +53,24 @@ class Settings(BaseSettings):
     profiling_sample_size: int = Field(default=50_000, gt=0)
     profiling_top_values: int = Field(default=5, ge=0)
     profiling_max_key_columns: int = Field(default=15, ge=2)
+    profiling_full_scan_rows: int = Field(
+        default=1_000_000,
+        gt=0,
+        description="Above this many rows, type inference, top values and statistics are "
+        "computed on a sample of profiling_sample_rows; counts stay exact",
+    )
+    profiling_sample_rows: int = Field(default=200_000, gt=0)
+
+    duckdb_memory_limit: str = Field(
+        default="6GB",
+        pattern=r"^\d+(\.\d+)?\s*(KB|MB|GB|TB|KiB|MiB|GiB|TiB|%)$",
+        description="Memory DuckDB may use per process before spilling to temp_directory "
+        "(a 16 GB machine keeps room for the API, the front and a browser)",
+    )
+    duckdb_threads: int = Field(default=4, ge=1, le=256)
+    duckdb_temp_directory: Path | None = Field(
+        default=None, description="Spill directory of large sorts and joins; <data_dir>/_tmp"
+    )
 
     auto_approve_silver: bool = Field(
         default=False, description="Approve generated Silver plans without review (local mode)"
@@ -83,6 +107,21 @@ class Settings(BaseSettings):
         default=False, description="Confirm detected relations without review (local mode)"
     )
     relation_auto_confirm_confidence: float = Field(default=0.9, gt=0, le=1)
+
+    timezone: str = Field(
+        default="Europe/Paris",
+        description="Time zone of scheduled loads (« tous les jours à 6 h »)",
+    )
+    scheduler_enabled: bool = Field(
+        default=True, description="Run scheduled loads in the API process (one instance only)"
+    )
+    scheduler_tick_seconds: float = Field(default=30, gt=0, le=3600)
+    connector_allowed_hosts: list[str] = Field(
+        default_factory=list,
+        description="Private or local hosts, IPs or CIDR ranges REST API connections may reach "
+        "(an administrator can add more from the interface)",
+    )
+    connector_batch_rows: int = Field(default=50_000, ge=100, le=1_000_000)
 
     auth_mode: Literal["local", "multi"] = Field(
         default="local",
@@ -146,6 +185,10 @@ class Settings(BaseSettings):
     @property
     def catalog_path(self) -> Path:
         return self.meta_db_path or self.data_dir / "forja_meta.duckdb"
+
+    @property
+    def duckdb_temp_path(self) -> Path:
+        return self.duckdb_temp_directory or self.data_dir / "_tmp"
 
     @property
     def mart_self_approval(self) -> bool:

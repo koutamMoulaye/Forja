@@ -7,7 +7,7 @@ files are not rewritten, and files no longer produced are removed.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -106,21 +106,15 @@ def _dbt_project_yml(project: Project) -> str:
     )
 
 
-def _profiles_yml(threads: int) -> str:
-    return _yaml(
-        {
-            PROFILE_NAME: {
-                "target": "local",
-                "outputs": {
-                    "local": {
-                        "type": "duckdb",
-                        "path": f"../{WAREHOUSE_FILE}",
-                        "threads": threads,
-                    }
-                },
-            }
-        }
-    )
+def _profiles_yml(threads: int, duckdb_settings: Mapping[str, str] | None = None) -> str:
+    output: dict[str, object] = {
+        "type": "duckdb",
+        "path": f"../{WAREHOUSE_FILE}",
+        "threads": threads,
+    }
+    if duckdb_settings:
+        output["settings"] = dict(duckdb_settings)
+    return _yaml({PROFILE_NAME: {"target": "local", "outputs": {"local": output}}})
 
 
 def _sources_yml(plans: Sequence[TransformationPlan]) -> str:
@@ -260,6 +254,7 @@ def render_project(
     threads: int = 1,
     gold: tuple[GoldPlan, GoldContext] | None = None,
     marts: Sequence[MartModel] = (),
+    duckdb_settings: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     """All files of the dbt project, keyed by path relative to the project root.
 
@@ -270,7 +265,7 @@ def render_project(
     ordered = sorted(plans, key=lambda p: p.source_name)
     files = {
         "dbt_project.yml": _dbt_project_yml(project),
-        "profiles.yml": _profiles_yml(threads),
+        "profiles.yml": _profiles_yml(threads, duckdb_settings),
         "macros/forja_unprocessed_rows.sql": UNPROCESSED_ROWS_MACRO,
         "macros/forja_unique_combination.sql": UNIQUE_COMBINATION_TEST,
     }
@@ -305,9 +300,17 @@ def render_project(
 
 
 class DbtProjectGenerator:
-    def __init__(self, workspace: Workspace, *, threads: int = 1) -> None:
+    def __init__(
+        self,
+        workspace: Workspace,
+        *,
+        threads: int = 1,
+        duckdb_settings: Mapping[str, str] | None = None,
+    ) -> None:
         self.workspace = workspace
         self.threads = threads
+        # memory_limit, threads and temp_directory of the dbt subprocess (see forja_core.duck).
+        self.duckdb_settings = dict(duckdb_settings or {})
         # Data marts of a project (set by the mart service), kept on every regeneration.
         self.marts: Callable[[str], list[MartModel]] | None = None
 
@@ -330,7 +333,12 @@ class DbtProjectGenerator:
         marts = {m.name: m for m in (self.marts(project.id) if self.marts else [])}
         marts.update({m.name: m for m in extra_marts})
         files = render_project(
-            project, plans, threads=self.threads, gold=gold, marts=list(marts.values())
+            project,
+            plans,
+            threads=self.threads,
+            gold=gold,
+            marts=list(marts.values()),
+            duckdb_settings=self.duckdb_settings,
         )
 
         for relative, content in files.items():

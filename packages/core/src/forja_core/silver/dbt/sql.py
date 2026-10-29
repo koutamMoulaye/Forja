@@ -13,8 +13,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from functools import cache
 
-import duckdb
-
+from forja_core import duck
 from forja_core.profiling.types import ISO8601
 from forja_core.silver.explain import DUPLICATE_KEY_REASON, reject_reason
 from forja_core.silver.plan import (
@@ -55,7 +54,7 @@ def rejects_model(plan: TransformationPlan) -> str:
 
 @cache
 def _keywords() -> frozenset[str]:
-    with duckdb.connect() as con:
+    with duck.connect() as con:
         rows = con.execute(
             "SELECT keyword_name FROM duckdb_keywords() WHERE keyword_category <> 'unreserved'"
         ).fetchall()

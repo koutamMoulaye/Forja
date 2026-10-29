@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import duckdb
 from pydantic import BaseModel, Field
 
+from forja_core import duck
 from forja_core.privacy import mask, pseudonymize
 from forja_core.silver.dbt.sql import cleaned_expression, ident, raw_name, typed_expression
 from forja_core.silver.plan import ColumnPlan, PiiTreatment, TransformationPlan
@@ -101,7 +101,7 @@ def plan_samples(
 ) -> PlanSamples:
     """Sample values of every included column present in the latest version."""
     columns: list[ColumnSamples] = []
-    with duckdb.connect() as con:
+    with duck.connect() as con:
         con.execute(
             "CREATE TEMP TABLE sample AS SELECT * FROM read_parquet("
             f"{sql_literal(str(bronze))}) USING SAMPLE reservoir({SAMPLE_ROWS} ROWS) "

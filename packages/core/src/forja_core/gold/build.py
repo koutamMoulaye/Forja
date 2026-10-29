@@ -7,6 +7,7 @@ from collections.abc import Callable
 
 import duckdb
 
+from forja_core import duck
 from forja_core.catalog import Catalog
 from forja_core.errors import BuildError
 from forja_core.gold.context import GoldContext, build_gold_context
@@ -105,7 +106,7 @@ class GoldBuilder:
         models = [d.name for d in plan.dimensions] + [f.name for f in plan.facts]
         if plan.date_dimension.enabled and any(f.date_keys for f in plan.facts):
             models.append(DATE_DIMENSION)
-        with duckdb.connect(str(warehouse), read_only=True) as con:
+        with duck.connect(str(warehouse), read_only=True) as con:
             existing = {
                 str(r[0])
                 for r in con.execute("SELECT table_name FROM information_schema.tables").fetchall()

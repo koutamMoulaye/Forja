@@ -20,6 +20,7 @@ import pyarrow as pa
 import pyarrow.csv as pacsv
 import pyarrow.parquet as pq
 
+from forja_core import duck
 from forja_core.catalog import Catalog
 from forja_core.config import Settings
 from forja_core.errors import ConflictError, ForjaError
@@ -177,7 +178,7 @@ class Publisher:
         salt = self.secrets.salt(project_id)
 
         try:
-            with self.locks.hold(project_id), duckdb.connect(str(staging)) as con:
+            with self.locks.hold(project_id), duck.connect(str(staging)) as con:
                 self._attach_warehouse(con, project_id)
                 con.execute(
                     f"CREATE TABLE {METADATA_TABLE} (table_name VARCHAR, layer VARCHAR, "
@@ -245,7 +246,7 @@ class Publisher:
         rows: list[dict[str, Any]] = []
         with (
             self.locks.hold(table.project_id, timeout=self.settings.export_lock_timeout_seconds),
-            duckdb.connect() as con,
+            duck.connect() as con,
         ):
             self._attach_warehouse(con, table.project_id)
             relation = f"wh.main.{quote_ident(table.name)}"
@@ -272,7 +273,7 @@ class Publisher:
         salt = self.secrets.salt(plan.project_id)
         with (
             self.locks.hold(plan.project_id, timeout=self.settings.export_lock_timeout_seconds),
-            duckdb.connect() as con,
+            duck.connect() as con,
         ):
             if not self.generator.warehouse_path(plan.project_id).exists():
                 return read_quarantine(con, plan, salt, limit=limit, strict=strict, run_id=run_id)
@@ -296,7 +297,7 @@ class Publisher:
         rows = 0
         with (
             self.locks.hold(table.project_id, timeout=self.settings.export_lock_timeout_seconds),
-            duckdb.connect() as con,
+            duck.connect() as con,
         ):
             self._attach_warehouse(con, table.project_id)
             batches = self._batches(con, item, salt)

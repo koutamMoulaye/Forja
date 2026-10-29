@@ -10,6 +10,7 @@ from datetime import date
 
 import duckdb
 
+from forja_core import duck
 from forja_core.catalog import Catalog
 from forja_core.errors import ForjaError, PlanStateError, PlanValidationError
 from forja_core.gold.context import build_gold_context
@@ -215,7 +216,7 @@ class SemanticService:
             raise ForjaError("the project warehouse does not exist: run build_gold first")
         with (
             self.locks.hold(project_id, timeout=timeout),
-            duckdb.connect(str(path), read_only=True) as con,
+            duck.connect(str(path), read_only=True) as con,
         ):
             yield con
 

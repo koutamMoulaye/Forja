@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 import duckdb
 
+from forja_core import duck
 from forja_core.catalog import Catalog
 from forja_core.errors import BuildError, ForjaError
 from forja_core.gold.build import gold_inputs
@@ -178,7 +179,7 @@ class SilverBuilder:
         """Drop tables to rebuild, then count what the incremental run will read."""
         pending: list[_Pending] = []
         warehouse = self.generator.warehouse_path(project_id)
-        with duckdb.connect(str(warehouse)) as con:
+        with duck.connect(str(warehouse)) as con:
             for plan in plans:
                 refresh = full_refresh or self._needs_full_refresh(plan)
                 silver, rejects = plan.model_name, rejects_model(plan)
@@ -223,7 +224,7 @@ class SilverBuilder:
     ) -> RunMetrics:
         metrics = RunMetrics(dbt_tests=result.tests)
         warehouse = self.generator.warehouse_path(project_id)
-        with duckdb.connect(str(warehouse), read_only=True) as con:
+        with duck.connect(str(warehouse), read_only=True) as con:
             for item in pending:
                 plan = item.plan
                 silver, rejects = plan.model_name, rejects_model(plan)

@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 import duckdb
 
+from forja_core import duck
 from forja_core.catalog import Catalog
 from forja_core.config import Settings
 from forja_core.errors import ProfileNotFoundError
@@ -244,7 +245,7 @@ class RelationDetector:
         if keys and warehouse.exists():
             with (
                 self.locks.hold(project_id, timeout=self.settings.export_lock_timeout_seconds),
-                duckdb.connect(str(warehouse), read_only=True) as con,
+                duck.connect(str(warehouse), read_only=True) as con,
             ):
                 for b in keys:
                     for a in columns:

@@ -9,8 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import duckdb
-
+from forja_core import duck
 from forja_core.catalog.migrations import MIGRATIONS, SCHEMA_VERSION
 from forja_core.logging import get_logger
 
@@ -42,7 +41,7 @@ class CatalogBase:
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
-        self._con = duckdb.connect(str(path))
+        self._con = duck.connect(str(path))
         self._migrate()
 
     def close(self) -> None:

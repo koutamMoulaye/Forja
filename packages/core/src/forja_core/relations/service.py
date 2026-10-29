@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-import duckdb
-
+from forja_core import duck
 from forja_core.catalog import Catalog
 from forja_core.errors import RelationValidationError
 from forja_core.logging import get_logger
@@ -63,7 +62,7 @@ class RelationService:
             self.detector.locks.hold(
                 project_id, timeout=self.detector.settings.export_lock_timeout_seconds
             ),
-            duckdb.connect(str(warehouse), read_only=True) as con,
+            duck.connect(str(warehouse), read_only=True) as con,
         ):
             overlap = self.detector._overlap(con, a, b)
             [(non_null, distinct)] = con.execute(

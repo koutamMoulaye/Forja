@@ -9,8 +9,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-import duckdb
-
+from forja_core import duck
 from forja_core.utils import sql_literal
 
 
@@ -37,7 +36,7 @@ def json_safe(value: Any) -> Any:
 
 def read_preview(path: Path, limit: int) -> Preview:
     relation = f"read_parquet({sql_literal(str(path))})"
-    with duckdb.connect() as con:
+    with duck.connect() as con:
         [(total_rows,)] = con.execute(f"SELECT count(*) FROM {relation}").fetchall()
         table = con.sql(f"SELECT * FROM {relation} LIMIT {int(limit)}").to_arrow_table()
     rows = [{k: json_safe(v) for k, v in row.items()} for row in table.to_pylist()]

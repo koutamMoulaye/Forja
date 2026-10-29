@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 import duckdb
 
+from forja_core import duck
 from forja_core.agent.compile import CompiledMart, compile_spec
 from forja_core.agent.interpreter import InterpretationError, InterpretRequest, MartInterpreter
 from forja_core.agent.models import (
@@ -711,7 +712,7 @@ class MartService:
         warehouse = self.generator.warehouse_path(request.project_id)
         with (
             self.locks.hold(request.project_id, timeout=600),
-            duckdb.connect(str(warehouse), read_only=True) as con,
+            duck.connect(str(warehouse), read_only=True) as con,
         ):
             preview = build_preview(
                 con,
@@ -804,7 +805,7 @@ class MartService:
             )
             metrics = RunMetrics(dbt_tests=result.tests)
             if result.succeeded:
-                table = self._register(request, name, compiled, job.id)
+                table = self._register(request, name, job.id)
                 metrics.models.append(
                     ModelRunMetrics(name=name, rows=table.row_count, status="success")
                 )
@@ -853,11 +854,50 @@ class MartService:
             )
         return metrics
 
-    def _register(
-        self, request: MartRequest, name: str, compiled: CompiledMart, run_id: str
-    ) -> WarehouseTable:
+    def refresh_published(
+        self, project_id: str, run_id: str, log_line: Callable[[str], None]
+    ) -> list[ModelRunMetrics]:
+        """Rebuild the published data marts on the refreshed Gold model, as published
+        (their SQL is not regenerated: a scheduled load never changes what was approved)."""
+        published = [
+            r
+            for r in self.catalog.list_mart_requests(project_id)
+            if r.status is MartStatus.PUBLISHED and r.published_name and r.model_sql
+        ]
+        if not published:
+            return []
+        inputs = gold_inputs(self.catalog, project_id)
+        if inputs is None:
+            log_line("no Gold model: published data marts not refreshed")
+            return []
+        project = self.catalog.get_project(project_id)
+        names = [r.published_name for r in published if r.published_name]
+        with self.locks.hold(project_id):
+            generated = self.generator.generate(
+                project, self.catalog.effective_plans(project_id), gold=inputs
+            )
+            result = self.dbt.build(
+                generated.path, select=names, variables={"forja_run_id": run_id}, log=log_line
+            )
+            metrics = []
+            if result.succeeded:
+                for request in published:
+                    table = self._register(request, request.published_name or "", run_id)
+                    metrics.append(
+                        ModelRunMetrics(name=table.name, rows=table.row_count, status="success")
+                    )
+        if not result.succeeded:
+            raise RunFailedError(
+                f"data mart refresh failed (exit code {result.returncode}); see the run logs",
+                RunMetrics(dbt_tests=result.tests),
+            )
+        for model in metrics:
+            log_line(f"{model.name}: {model.rows} row(s), refreshed")
+        return metrics
+
+    def _register(self, request: MartRequest, name: str, run_id: str) -> WarehouseTable:
         warehouse = self.generator.warehouse_path(request.project_id)
-        with duckdb.connect(str(warehouse), read_only=True) as con:
+        with duck.connect(str(warehouse), read_only=True) as con:
             columns = [
                 ColumnSchema(name=str(r[0]), type=str(r[1]))
                 for r in con.execute(f"DESCRIBE {quote_ident(name)}").fetchall()
