@@ -46,6 +46,7 @@ import { Segmented } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { api, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
+import { ConnectorHosts } from "./connector-hosts";
 import { cn } from "@/lib/cn";
 import { invitationLink } from "@/lib/auth/invitation";
 import { formatAgo, formatDateTime, formatWhen } from "@/lib/format";
@@ -61,7 +62,7 @@ import {
 } from "@/lib/project/queries";
 import type { Role } from "@/lib/session/views";
 
-type Tab = "members" | "ai" | "api-keys";
+type Tab = "members" | "ai" | "connectors" | "api-keys";
 
 function failure(title: string) {
   return (error: unknown) =>
@@ -71,7 +72,7 @@ function failure(title: string) {
     });
 }
 
-/** /projects/[id]/settings (S6): members, invitations, AI provider, personal API keys. */
+/** /projects/[id]/settings (S6): members, invitations, AI provider, connectors, API keys. */
 export function SettingsScreen() {
   const { project } = useShell();
   const router = useRouter();
@@ -98,6 +99,7 @@ export function SettingsScreen() {
             options={[
               { value: "members", label: "Membres" },
               { value: "ai", label: "Fournisseur IA" },
+              { value: "connectors", label: "Connecteurs" },
               { value: "api-keys", label: "Clés API" },
             ]}
           />
@@ -110,6 +112,9 @@ export function SettingsScreen() {
         <div className="flex flex-col gap-5">
           <div id="settings-ai" className="scroll-mt-4">
             <Provider highlighted={tab === "ai"} />
+          </div>
+          <div id="settings-connectors" className="scroll-mt-4">
+            <ConnectorHosts className={ring(tab === "connectors")} />
           </div>
           <div id="settings-api-keys" className="scroll-mt-4">
             <ApiKeys highlighted={tab === "api-keys"} />
