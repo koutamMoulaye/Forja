@@ -44,6 +44,17 @@ function StepMark({ state }: { state: AgentStep["state"] }) {
   );
 }
 
+/**
+ * What a screen reader hears: the step in progress (« Étape 3 sur 6 : … »), then the
+ * outcome. Only step changes are spoken, never the ticking time.
+ */
+export function stepAnnouncement(iteration: MartIteration, steps: AgentStep[]): string {
+  if (iteration.status !== "processing") return agentHeadline(iteration);
+  const at = steps.findIndex((step) => step.state === "run" || step.state === "wait");
+  if (at < 0) return agentHeadline(iteration);
+  return `Étape ${at + 1} sur ${steps.length} : ${steps[at]!.title}`;
+}
+
 /** Seconds tick while the run is in progress, so the elapsed time moves. */
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -82,8 +93,11 @@ export function PreparationCard({
   return (
     <div className="flex items-start gap-3" data-testid="preparation-card">
       <AgentAvatar />
+      <span className="sr-only" aria-live="polite" data-testid="agent-announcer">
+        {stepAnnouncement(iteration, steps)}
+      </span>
       <section
-        aria-live="polite"
+        aria-label="Préparation du data mart"
         aria-busy={busy}
         className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-2xl bg-node px-[18px] pt-4 pb-2.5 shadow-sm"
       >

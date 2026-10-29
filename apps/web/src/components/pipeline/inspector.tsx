@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { Key } from "@phosphor-icons/react";
 import {
   Sheet,
@@ -527,6 +528,11 @@ export function Inspector({
 }) {
   const look = node ? nodeLook(node) : null;
   const review = node?.state === "review" || node?.state === "proposed";
+  // Closed, the inspector hands the focus back to its node on the canvas.
+  const lastNode = useRef<string | null>(null);
+  useEffect(() => {
+    if (node) lastNode.current = node.id;
+  }, [node]);
   return (
     <Sheet open={node !== null} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
@@ -535,7 +541,17 @@ export function Inspector({
         data-testid="inspector"
         className="top-[68px] right-3 bottom-3 rounded-[20px] material-glass"
         onEscapeKeyDown={onClose}
+        // Opened from the canvas, the focus stays on the node: the arrows keep walking.
         onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          const id = lastNode.current;
+          if (id) {
+            document
+              .querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(id)}"]`)
+              ?.focus();
+          }
+        }}
       >
         {node && look ? (
           <>

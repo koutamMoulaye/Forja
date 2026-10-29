@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CaretRight,
@@ -114,6 +114,19 @@ function Understood({
   const [open, setOpen] = useState<number | null>(null);
   const parts = summaryParts(iteration);
   const term = open !== null ? parts[open]?.term : null;
+  const panel = useRef<HTMLDivElement>(null);
+  const terms = useRef(new Map<number, HTMLButtonElement>());
+  // Focus moves into the choices when they open, and back to the term when they close.
+  const close = (index: number) => {
+    setOpen(null);
+    requestAnimationFrame(() => terms.current.get(index)?.focus());
+  };
+  useEffect(() => {
+    if (open === null) return;
+    const options = panel.current?.querySelectorAll<HTMLButtonElement>("button");
+    const current = panel.current?.querySelector<HTMLButtonElement>('button[aria-pressed="true"]');
+    (current ?? options?.[0])?.focus();
+  }, [open]);
   return (
     <Card className="flex flex-col gap-3 px-5 py-[18px]" data-testid="understood">
       <h2 className="m-0 text-section font-semibold">Ce que Forja a compris</h2>
@@ -124,7 +137,12 @@ function Understood({
               key={index}
               type="button"
               disabled={busy}
+              ref={(element) => {
+                if (element) terms.current.set(index, element);
+                else terms.current.delete(index);
+              }}
               aria-expanded={open === index}
+              aria-controls={open === index ? "term-options" : undefined}
               aria-label={`${part.text} : corriger`}
               data-testid="summary-term"
               onClick={() => setOpen(open === index ? null : index)}
@@ -144,10 +162,22 @@ function Understood({
       </p>
       {term && open !== null ? (
         <div
+          ref={panel}
+          id="term-options"
+          role="group"
+          aria-labelledby="term-question"
           className="flex flex-wrap items-center gap-2 rounded-[14px] bg-sunk p-2.5"
           data-testid="term-options"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              close(open);
+            }
+          }}
         >
-          <span className="px-1.5 text-ui font-semibold text-tx2">{term.question}</span>
+          <span id="term-question" className="px-1.5 text-ui font-semibold text-tx2">
+            {term.question}
+          </span>
           {term.options?.map((option, index) => {
             const current = index === term.current;
             return (
@@ -157,7 +187,7 @@ function Understood({
                 aria-pressed={current}
                 disabled={busy}
                 onClick={() => {
-                  setOpen(null);
+                  close(open);
                   if (!current) onCorrect(open, index);
                 }}
                 className={cn(
@@ -173,7 +203,8 @@ function Understood({
       ) : null}
       {editable ? (
         <p className="m-0 text-meta text-tx3">
-          Cliquez un terme souligné pour le corriger ; l’aperçu est recalculé en quelques secondes.
+          Cliquez un terme souligné pour le corriger (Échap pour fermer) ; l’aperçu est recalculé en
+          quelques secondes.
         </p>
       ) : null}
     </Card>

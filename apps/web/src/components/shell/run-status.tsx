@@ -56,73 +56,79 @@ export function RunStatus() {
   if (shell.view !== "engineer" || shell.tablet) return null;
 
   return (
-    <AnimatePresence>
-      {run ? (
-        <motion.div
-          key="run"
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.2, ease: easeSoft }}
-          data-testid="run-status"
-          data-status={run.status}
-          className="flex h-9 items-center gap-2.5 rounded-md bg-sunk pr-1.5 pl-2.5"
-        >
-          <RunIcon run={run} />
-          <Link
-            href={`/projects/${shell.project.id}/runs/${run.id}`}
-            className="flex min-w-0 flex-col gap-[3px] text-tx no-underline hover:no-underline"
+    <>
+      {/* A run that starts or ends is spoken; its percentage is not. */}
+      <span className="sr-only" aria-live="polite" data-testid="run-status-announcer">
+        {run ? describe(run).title + (isActive(run.status) ? ", en cours" : "") : ""}
+      </span>
+      <AnimatePresence>
+        {run ? (
+          <motion.div
+            key="run"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.2, ease: easeSoft }}
+            data-testid="run-status"
+            data-status={run.status}
+            className="flex h-9 items-center gap-2.5 rounded-md bg-sunk pr-1.5 pl-2.5"
           >
-            {(() => {
-              const { title, meta, percent } = describe(run);
-              return (
-                <>
-                  <span className="flex gap-2 text-meta whitespace-nowrap">
-                    <span className="max-w-[220px] truncate font-medium">{title}</span>
-                    <span className="text-tx3 tabular-nums">{meta}</span>
-                  </span>
-                  <span className="flex h-[3px] w-full overflow-hidden rounded-[2px] bg-hair">
-                    <span
-                      className={cn(
-                        "rounded-[2px] transition-[width] duration-150 ease-linear",
-                        run.status === "succeeded"
-                          ? "bg-val-fg"
-                          : run.status === "failed"
-                            ? "bg-err-solid"
-                            : "bg-run-fg",
-                      )}
-                      style={{ width: `${percent}%` }}
-                    />
-                  </span>
-                </>
-              );
-            })()}
-          </Link>
-          {isActive(run.status) ? (
-            <Tooltip content="Annuler le run">
-              <button
-                type="button"
-                aria-label="Annuler le run"
-                disabled={cancel.isPending || run.cancel_requested}
-                onClick={() =>
-                  cancel.mutate(run.id, {
-                    onSuccess: () =>
-                      toast.info({
-                        title: "Annulation demandée",
-                        description: "Les tables gardent leur dernière version validée",
-                      }),
-                    onError: () => toast.error({ title: "Annulation impossible" }),
-                  })
-                }
-                className="flex size-[26px] items-center justify-center rounded-lg border-0 bg-transparent text-tx3 transition-colors hover:bg-node hover:text-tx disabled:opacity-50"
-              >
-                <X size={14} />
-              </button>
-            </Tooltip>
-          ) : null}
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+            <RunIcon run={run} />
+            <Link
+              href={`/projects/${shell.project.id}/runs/${run.id}`}
+              className="flex min-w-0 flex-col gap-[3px] text-tx no-underline hover:no-underline"
+            >
+              {(() => {
+                const { title, meta, percent } = describe(run);
+                return (
+                  <>
+                    <span className="flex gap-2 text-meta whitespace-nowrap">
+                      <span className="max-w-[220px] truncate font-medium">{title}</span>
+                      <span className="text-tx3 tabular-nums">{meta}</span>
+                    </span>
+                    <span className="flex h-[3px] w-full overflow-hidden rounded-[2px] bg-hair">
+                      <span
+                        className={cn(
+                          "rounded-[2px] transition-[width] duration-150 ease-linear",
+                          run.status === "succeeded"
+                            ? "bg-val-fg"
+                            : run.status === "failed"
+                              ? "bg-err-solid"
+                              : "bg-run-fg",
+                        )}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </span>
+                  </>
+                );
+              })()}
+            </Link>
+            {isActive(run.status) ? (
+              <Tooltip content="Annuler le run">
+                <button
+                  type="button"
+                  aria-label="Annuler le run"
+                  disabled={cancel.isPending || run.cancel_requested}
+                  onClick={() =>
+                    cancel.mutate(run.id, {
+                      onSuccess: () =>
+                        toast.info({
+                          title: "Annulation demandée",
+                          description: "Les tables gardent leur dernière version validée",
+                        }),
+                      onError: () => toast.error({ title: "Annulation impossible" }),
+                    })
+                  }
+                  className="flex size-[26px] items-center justify-center rounded-lg border-0 bg-transparent text-tx3 transition-colors hover:bg-node hover:text-tx disabled:opacity-50"
+                >
+                  <X size={14} />
+                </button>
+              </Tooltip>
+            ) : null}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </>
   );
 }
 

@@ -1,11 +1,14 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { formatOptionCount, type MartIteration } from "@/lib/agent/view";
 import { cn } from "@/lib/cn";
 
 /**
  * The agent's question back (C4): each option a large card with what it covers
  * (« 1 284 clients »); a free answer goes through the field under the conversation.
+ * A radio group for the keyboard: focus lands on the first option when the question
+ * appears, the arrows move between options, Enter or Space picks one.
  */
 export function ClarifyOptions({
   iteration,
@@ -19,14 +22,36 @@ export function ClarifyOptions({
   picked?: number | null;
 }) {
   const clarification = iteration.clarification;
+  const group = useRef<HTMLDivElement>(null);
+  const active = Boolean(clarification) && !disabled && picked === null;
+  useEffect(() => {
+    if (active) group.current?.querySelector<HTMLButtonElement>('[role="radio"]')?.focus();
+  }, [active]);
   if (!clarification) return null;
+  const focusable = picked ?? 0;
+  const move = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const radios = [
+      ...(group.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]') ?? []),
+    ];
+    const at = radios.indexOf(document.activeElement as HTMLButtonElement);
+    radios[(at + step + radios.length) % radios.length]?.focus();
+  };
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3" data-testid="clarification">
       <p className="m-0 text-[16.5px] leading-normal">
         <span className="font-semibold">Une précision avant de continuer :</span>{" "}
         {clarification.question}
       </p>
-      <div role="radiogroup" aria-label={clarification.question} className="flex flex-col gap-2.5">
+      <div
+        ref={group}
+        role="radiogroup"
+        aria-label={clarification.question}
+        onKeyDown={move}
+        className="flex flex-col gap-2.5"
+      >
         {clarification.options.map((option, index) => {
           const count = formatOptionCount(iteration.option_counts?.[index]);
           const chosen = picked === index;
@@ -36,6 +61,7 @@ export function ClarifyOptions({
               type="button"
               role="radio"
               aria-checked={chosen}
+              tabIndex={index === focusable ? 0 : -1}
               disabled={disabled}
               onClick={() => onPick(index)}
               data-testid="clarify-option"
@@ -47,6 +73,7 @@ export function ClarifyOptions({
               )}
             >
               <span
+                aria-hidden
                 className={cn(
                   "size-[22px] flex-none rounded-full",
                   chosen
