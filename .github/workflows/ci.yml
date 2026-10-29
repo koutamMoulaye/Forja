@@ -146,3 +146,23 @@ jobs:
             apps/web/test-results/
             apps/web/playwright-report/
           retention-days: 14
+
+  install:
+    name: Install from scratch with docker compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install the test client
+        run: uv sync --locked
+
+      - name: Build, first start with the demo, a question to the agent, clean-up
+        run: uv run python scripts/test_install.py
