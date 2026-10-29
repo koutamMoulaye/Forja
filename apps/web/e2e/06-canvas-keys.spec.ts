@@ -8,6 +8,24 @@ async function openCanvas(page: Page) {
   await expect(page).toHaveURL(/\/projects\/[^/]+\/pipeline$/);
   await expectShell(page);
   await expect(node(page, "fct_ventes")).toBeVisible();
+  await settled(page);
+}
+
+/** The canvas loads after the page: wait until its nodes stop moving (layout, framing). */
+async function settled(page: Page) {
+  let previous = "";
+  await expect
+    .poll(
+      async () => {
+        const box = await node(page, "fct_ventes").boundingBox();
+        const current = JSON.stringify(box);
+        const still = current === previous;
+        previous = current;
+        return still;
+      },
+      { intervals: [400], timeout: 20_000 },
+    )
+    .toBe(true);
 }
 
 const focusedNode = (page: Page) =>
@@ -26,12 +44,12 @@ test("the canvas is driven with the keyboard", async ({ page }) => {
 
   // Arrows walk from node to node, in the direction pressed.
   await page.keyboard.press("ArrowDown");
+  await expect.poll(() => focusedNode(page)).not.toBeNull();
   const first = await focusedNode(page);
-  expect(first).not.toBeNull();
   await page.keyboard.press("ArrowRight");
+  await expect.poll(() => focusedNode(page)).not.toBe(first);
   const second = await focusedNode(page);
   expect(second).not.toBeNull();
-  expect(second).not.toBe(first);
   const before = (await page.locator(`.react-flow__node[data-id="${first}"]`).boundingBox())!;
   const after = (await page.locator(`.react-flow__node[data-id="${second}"]`).boundingBox())!;
   expect(after.x).toBeGreaterThan(before.x);
