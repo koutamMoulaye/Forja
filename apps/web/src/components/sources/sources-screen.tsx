@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useQueryClient } from "@tanstack/react-query";
-import { Files, UploadSimple } from "@phosphor-icons/react";
+import { Files, Plus } from "@phosphor-icons/react";
+import { AddSourceDialog } from "@/components/connections/add-source-dialog";
+import { SourcesTabs } from "@/components/connections/sources-tabs";
 import {
   Card,
   EmptyState,
@@ -18,11 +19,10 @@ import { Button } from "@/components/ui/button";
 import { HatchGlyph } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Segmented } from "@/components/ui/tabs";
-import { toast } from "@/components/ui/toast";
-import { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/cn";
 import { formatInteger, formatWhen, plural } from "@/lib/format";
-import { keys, uploadFile, useLatestPlans, useProfiles, useSources } from "@/lib/project/queries";
+import { originIcon } from "@/lib/connections/view";
+import { useLatestPlans, useProfiles, useSources } from "@/lib/project/queries";
 import {
   FORMAT_LABELS,
   matchesSourceFilter,
@@ -31,8 +31,9 @@ import {
   qualityView,
   type SourceFilter,
 } from "@/lib/sources/view";
+import { useFileUpload } from "./use-file-upload";
 
-const GRID = "minmax(0,1.6fr) 74px 84px 76px 132px 56px 64px 104px 128px" as const;
+const GRID = "minmax(0,1.6fr) 110px 84px 76px 132px 56px 64px 104px 128px" as const;
 
 const FILTERS: { value: SourceFilter; label: string }[] = [
   { value: "all", label: "Toutes" },
@@ -44,36 +45,13 @@ const FILTERS: { value: SourceFilter; label: string }[] = [
 /** /projects/[id]/sources: the loaded files, their quality, versions and plans. */
 export function SourcesScreen() {
   const { project } = useShell();
-  const queryClient = useQueryClient();
   const sources = useSources(project.id);
   const ids = (sources.data ?? []).map((s) => s.id);
   const plans = useLatestPlans(ids);
   const profiles = useProfiles(ids);
   const [filter, setFilter] = useState<SourceFilter>("all");
-  const [uploading, setUploading] = useState(false);
-  const input = useRef<HTMLInputElement>(null);
-
-  const upload = async (files: FileList | null) => {
-    if (!files?.length) return;
-    setUploading(true);
-    try {
-      for (const file of Array.from(files)) {
-        await uploadFile(`/projects/${project.id}/sources`, file);
-        toast.success({ title: `${file.name} chargé`, description: "Profil et plan prêts" });
-      }
-    } catch (error) {
-      toast.error({
-        title: "Chargement impossible",
-        description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
-      });
-    } finally {
-      setUploading(false);
-      if (input.current) input.current.value = "";
-      void queryClient.invalidateQueries({ queryKey: keys.sources(project.id) });
-      void queryClient.invalidateQueries({ queryKey: ["graph", project.id] });
-      void queryClient.invalidateQueries({ queryKey: ["counters", project.id] });
-    }
-  };
+  const [adding, setAdding] = useState(false);
+  const files = useFileUpload(project.id);
 
   const rows = (sources.data ?? []).map((source, index) => {
     const plan = plans[index]?.data;
@@ -86,18 +64,19 @@ export function SourcesScreen() {
   const review = rows.filter((row) => row.plan?.status === "draft").length;
   const subtitle = sources.data
     ? [
-        plural(sources.data.length, "fichier", "fichiers"),
+        plural(sources.data.length, "source", "sources"),
         review ? plural(review, "plan à revoir", "plans à revoir") : null,
       ]
         .filter(Boolean)
         .join(" · ")
-    : "Fichiers chargés, versions et profils";
+    : "Fichiers et tables chargés, versions et profils";
 
   return (
     <ScreenBody testId="sources-screen">
       <ScreenHeader
         title="Sources"
         subtitle={subtitle}
+        eyebrow={<SourcesTabs projectId={project.id} current="sources" />}
         actions={
           <>
             <Segmented
@@ -106,26 +85,26 @@ export function SourcesScreen() {
               onValueChange={setFilter}
               options={FILTERS}
             />
-            <input
-              ref={input}
-              type="file"
-              multiple
-              hidden
-              accept=".csv,.tsv,.txt,.xlsx,.xls,.parquet,.json,.jsonl"
-              data-testid="source-upload-input"
-              onChange={(event) => void upload(event.target.files)}
-            />
+            {files.element}
             <Button
               variant="primary"
               size="lg"
-              loading={uploading}
-              onClick={() => input.current?.click()}
+              loading={files.uploading}
+              onClick={() => setAdding(true)}
+              data-testid="add-source"
             >
-              <UploadSimple size={17} />
-              Ajouter un fichier
+              {files.uploading ? null : <Plus size={17} />}
+              {files.uploading ? (files.label ?? "Chargement") : "Ajouter une source"}
             </Button>
           </>
         }
+      />
+      <AddSourceDialog
+        projectId={project.id}
+        open={adding}
+        onOpenChange={setAdding}
+        onChooseFile={files.choose}
+        uploadLimitMb={files.maxMb}
       />
       {sources.isPending ? (
         <ListSkeleton />
@@ -134,12 +113,12 @@ export function SourcesScreen() {
       ) : rows.length === 0 ? (
         <EmptyState
           icon={Files}
-          title="Aucun fichier pour l’instant"
-          description="Déposez un CSV, un Excel, un Parquet ou un JSON : Forja le profile puis propose un plan de nettoyage."
+          title="Aucune source pour l’instant"
+          description="Un fichier, une base de données ou une API : Forja les profile puis propose un plan de nettoyage."
           action={
-            <Button variant="primary" size="lg" onClick={() => input.current?.click()}>
-              <UploadSimple size={17} />
-              Choisir des fichiers
+            <Button variant="primary" size="lg" onClick={() => setAdding(true)}>
+              <Plus size={17} />
+              Ajouter une source
             </Button>
           }
         />
@@ -172,6 +151,7 @@ export function SourcesScreen() {
             {visible.map(({ source, plan, personal, profileLoading }) => {
               const quality = qualityView(source.quality_score);
               const badge = planBadge(plan);
+              const OriginIcon = originIcon(source.format);
               return (
                 <Link
                   role="row"
@@ -184,12 +164,15 @@ export function SourcesScreen() {
                   <span role="cell" className="flex min-w-0 flex-col gap-px">
                     <span className="truncate text-[14.5px] font-semibold">{source.name}</span>
                     <span className="truncate font-mono text-mono text-tx3">
-                      {source.original_filename}
+                      {source.origin
+                        ? `${source.origin.connection_name} · ${source.origin.object}`
+                        : source.original_filename}
                       {source.sheet_name ? ` · ${source.sheet_name}` : ""}
                     </span>
                   </span>
-                  <span role="cell" className="text-[14px] text-tx2">
-                    {FORMAT_LABELS[source.format]}
+                  <span role="cell" className="flex items-center gap-1.5 text-[14px] text-tx2">
+                    {OriginIcon ? <OriginIcon size={15} className="flex-none text-tx3" /> : null}
+                    <span className="truncate">{FORMAT_LABELS[source.format]}</span>
                   </span>
                   <span role="cell" className="text-right text-[14px] text-tx2 tabular-nums">
                     {formatInteger(source.row_count)}
