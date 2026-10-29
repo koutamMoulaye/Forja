@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import { credentials, expectShell, signIn } from "./helpers";
 
 const node = (page: Page, id: string) => page.getByTestId(`node-${id}`);
@@ -42,6 +42,8 @@ test("the canvas is driven with the keyboard", async ({ page }) => {
   await expect(page.getByTestId("inspector")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/\/pipeline$/);
+  // Back on the node it was opened from.
+  await expect.poll(() => focusedNode(page)).toBe(second);
 
   // +, - and 0: zoom in, out, and back to the framing of the whole pipeline.
   const fitted = await zoom(page);

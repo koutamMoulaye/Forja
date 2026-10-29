@@ -1,4 +1,4 @@
-import { expect, request, test, type APIRequestContext } from "@playwright/test";
+import { expect, request, test, type APIRequestContext } from "./fixtures";
 import { E2E } from "./env.mjs";
 import { credentials, expectShell, signIn } from "./helpers";
 

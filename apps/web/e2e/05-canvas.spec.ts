@@ -1,4 +1,4 @@
-import { expect, request, test, type Page } from "@playwright/test";
+import { expect, request, test, type Page } from "./fixtures";
 import { E2E } from "./env.mjs";
 import { capture, credentials, expectShell, signIn } from "./helpers";
 

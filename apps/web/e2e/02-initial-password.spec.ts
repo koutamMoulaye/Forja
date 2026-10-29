@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { E2E } from "./env.mjs";
 import { capture, expectShell, signIn } from "./helpers";
 

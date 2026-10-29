@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import { credentials, expectShell, signIn } from "./helpers";
 
 const ENGINEER_NAV = [

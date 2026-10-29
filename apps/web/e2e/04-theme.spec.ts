@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { capture, credentials, signIn } from "./helpers";
 
 type Probe = { themeAtLoad?: string };
