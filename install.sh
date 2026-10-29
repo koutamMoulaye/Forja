@@ -56,6 +56,14 @@ if command -v lsof >/dev/null 2>&1 && lsof -iTCP:"$PORT" -sTCP:LISTEN >/dev/null
   fi
 fi
 
+if [ -n "$PROFILE" ]; then
+  # Kept in .env, so that a later `docker compose up -d` starts the same services.
+  touch .env
+  grep -q '^COMPOSE_PROFILES=' .env || echo 'COMPOSE_PROFILES=ollama' >> .env
+  grep -q '^FORJA_OLLAMA_URL=' .env || echo 'FORJA_OLLAMA_URL=http://ollama:11434' >> .env
+  export FORJA_OLLAMA_URL=http://ollama:11434
+fi
+
 say "Construction des images"
 docker compose build
 # Former Forja images left without a tag, then the build cache (intermediate layers),
@@ -89,5 +97,9 @@ if [ "$BROWSER" -eq 1 ]; then
   if command -v open >/dev/null 2>&1; then open "$URL"
   elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$URL" >/dev/null 2>&1 || true
   fi
+fi
+if [ -n "$PROFILE" ]; then
+  echo "Modèle local : docker compose exec ollama ollama pull qwen3.5:9b (environ 6 Go),"
+  echo "puis Réglages > Fournisseur IA > Ollama."
 fi
 say "Forja tourne sur $URL (arrêt : docker compose down)"

@@ -46,6 +46,15 @@ if ($busy -and -not (docker compose ps --status running web 2>$null | Select-Str
     Fail "le port $port est déjà utilisé : `$env:FORJA_WEB_PORT=3001; .\install.ps1"
 }
 
+if ($Ollama) {
+    # Kept in .env, so that a later `docker compose up -d` starts the same services.
+    if (-not (Test-Path .env)) { New-Item -ItemType File .env | Out-Null }
+    $envText = Get-Content .env -Raw
+    if ($envText -notmatch "(?m)^COMPOSE_PROFILES=") { Add-Content .env "COMPOSE_PROFILES=ollama" }
+    if ($envText -notmatch "(?m)^FORJA_OLLAMA_URL=") { Add-Content .env "FORJA_OLLAMA_URL=http://ollama:11434" }
+    $env:FORJA_OLLAMA_URL = "http://ollama:11434"
+}
+
 Say "Construction des images"
 docker compose build
 if ($LASTEXITCODE -ne 0) { Fail "la construction des images a échoué." }
@@ -87,4 +96,8 @@ if (-not $ready) { Fail "Forja ne répond pas : docker compose logs" }
 Write-Host " prêt."
 
 if (-not $NoBrowser) { Start-Process $url }
+if ($Ollama) {
+    Write-Host "Modèle local : docker compose exec ollama ollama pull qwen3.5:9b (environ 6 Go),"
+    Write-Host "puis Réglages > Fournisseur IA > Ollama."
+}
 Say "Forja tourne sur $url (arrêt : docker compose down)"
