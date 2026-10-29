@@ -4,6 +4,7 @@ import { Select as SelectPrimitive } from "radix-ui";
 import { CaretUpDown, Check } from "@phosphor-icons/react";
 import { Children, createContext, isValidElement, useContext, useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
+import { getNonce } from "get-nonce";
 
 type Labels = { value: string | undefined; labels: Map<string, React.ReactNode> };
 
@@ -103,7 +104,8 @@ export function SelectContent({
         )}
         {...props}
       >
-        <SelectPrimitive.Viewport>{children}</SelectPrimitive.Viewport>
+        {/* Its scrollbar style is an inline element: it carries the page's CSP nonce. */}
+        <SelectPrimitive.Viewport nonce={getNonce()}>{children}</SelectPrimitive.Viewport>
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   );

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { commitMono, instrumentSans } from "@/lib/fonts";
 import { themeInitScript } from "@/lib/theme/theme";
 import { cn } from "@/lib/cn";
@@ -18,7 +19,9 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Set by the proxy with the page's Content-Security-Policy.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html
       lang="fr"
@@ -26,10 +29,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={cn(instrumentSans.variable, commitMono.variable)}
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers nonce={nonce}>{children}</Providers>
       </body>
     </html>
   );

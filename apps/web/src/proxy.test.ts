@@ -61,3 +61,32 @@ describe("page routing", () => {
     expect(proxy(page("/design-system")).status).toBe(200);
   });
 });
+
+describe("content security policy", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("gives each page a fresh nonce, passed on to the rendering", () => {
+    const first = proxy(page("/auth/login"));
+    const second = proxy(page("/auth/login"));
+    const csp = first.headers.get("content-security-policy")!;
+    const nonce = /'nonce-([^']+)'/.exec(csp)![1]!;
+    expect(nonce.length).toBeGreaterThanOrEqual(22);
+    expect(second.headers.get("content-security-policy")).not.toContain(nonce);
+    expect(csp).toContain("'strict-dynamic'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).not.toContain("'unsafe-eval'");
+    // Next.js reads the nonce from the request it renders.
+    expect(first.headers.get("x-middleware-request-x-nonce")).toBe(nonce);
+  });
+
+  it("sends Strict-Transport-Security in production over HTTPS only", () => {
+    expect(proxy(page("/auth/login")).headers.get("strict-transport-security")).toBeNull();
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("FORJA_WEB_SECURE_COOKIES", "true");
+    expect(proxy(page("/auth/login")).headers.get("strict-transport-security")).toMatch(
+      /^max-age=31536000/,
+    );
+    vi.stubEnv("FORJA_WEB_SECURE_COOKIES", "false");
+    expect(proxy(page("/auth/login")).headers.get("strict-transport-security")).toBeNull();
+  });
+});

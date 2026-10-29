@@ -1,23 +1,22 @@
 import type { NextConfig } from "next";
+import { API_CSP } from "./src/lib/security/csp";
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()",
+  },
 ];
 
 const nextConfig: NextConfig = {
   // The Docker image runs the standalone server (docker/web.Dockerfile).
   output: process.env.FORJA_WEB_STANDALONE === "true" ? "standalone" : undefined,
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Pages render on each request: their Content-Security-Policy carries a fresh nonce
+  // (src/proxy.ts), which prerendered shells could not (docs/decisions.md).
   agentRules: false,
-  experimental: {
-    // Project pages render once the session is known, on the client: only segments
-    // that export `instant` are validated.
-    instantInsights: { validationLevel: "manual-warning" },
-  },
   poweredByHeader: false,
   turbopack: {
     rules: {
@@ -28,7 +27,11 @@ const nextConfig: NextConfig = {
     },
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Pages get theirs, with a nonce, from the proxy.
+      { source: "/api/:path*", headers: [{ key: "Content-Security-Policy", value: API_CSP }] },
+    ];
   },
 };
 
