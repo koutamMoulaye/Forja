@@ -104,4 +104,19 @@ processus de l'API : **une seule instance d'API** (D31). Fuseau : `FORJA_TIMEZON
 
 ### Mesures
 
-<!-- volume -->
+`tests/test_volume.py` génère un CSV de commandes (1 % de doublons exacts, une colonne
+d'emails), puis mesure l'ingestion, le profil et le build Silver ; le pic mémoire est
+celui du processus et de ses enfants (dbt), échantillonné toutes les 50 ms ; tout est
+supprimé ensuite.
+
+| Mesure, 1 million de lignes | CI (4 cœurs, 16 Go) | Poste de développement (10 cœurs, 32 Go) |
+|---|---|---|
+| CSV généré | 61 Mo | 61 Mo |
+| Ingestion vers Bronze | 1,4 s | 1,7 s après optimisation (8,9 s avant) |
+| Profil (comptes exacts) | 1,1 s | 2,6 s |
+| Pic mémoire ingestion et profil | 950 Mo | 750 Mo |
+| Build Silver (dbt) | 6,9 s, pic 1 047 Mo | 10,5 s, pic 1 008 Mo |
+| Disque : Bronze, entrepôt, total | 35 Mo, 59 Mo, 157 Mo | 35 Mo, 74 Mo, 172 Mo |
+
+La mémoire reste très en dessous de la limite de DuckDB (6 Go) : rien n'est chargé
+entier. Relancer : `FORJA_VOLUME_ROWS=5000000 uv run pytest -s tests/test_volume.py`.
