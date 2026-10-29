@@ -80,6 +80,12 @@ class GraphNode(_Output):
         description="Colonnes clés, mesures ou règles montrées au zoom rapproché",
     )
     run: NodeRun | None = None
+    origin: Literal["file", "database", "api"] | None = Field(
+        default=None, description="Sources : un fichier, une base de données ou une API"
+    )
+    connection_id: str | None = Field(
+        default=None, description="Sources chargées depuis une connexion : son id"
+    )
 
 
 class GraphEdge(_Output):

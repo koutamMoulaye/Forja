@@ -14,6 +14,7 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
 from forja_core.agent.models import MartRequest, MartStatus
 from forja_core.catalog import Catalog
@@ -35,7 +36,7 @@ from forja_core.graph.models import (
     ProjectGraph,
 )
 from forja_core.jobs.models import Job, JobStatus, JobType
-from forja_core.models import Source
+from forja_core.models import Source, SourceFormat
 from forja_core.relations.models import Relation, RelationStatus
 from forja_core.silver.plan import (
     PiiTreatment,
@@ -48,6 +49,10 @@ from forja_core.silver.tables import TableLayer, WarehouseTable
 SERVING = "dest_serving"
 EXPORTS = "dest_exports"
 _HIGHLIGHTS = 3
+_ORIGINS: dict[SourceFormat, Literal["database", "api"]] = {
+    SourceFormat.DATABASE: "database",
+    SourceFormat.API: "api",
+}
 _REF_RE = re.compile(r"\b(?:dim|fct)_\w+\b")
 # Runs that report the tables they build one by one (JobProgress items).
 _ITEMIZED = frozenset(
@@ -136,9 +141,15 @@ class _Builder:
                     id=source_node_id(source.name),
                     type="source",
                     lane="sources",
-                    name=source.original_filename,
-                    label=f"Source {source.original_filename}",
+                    name=source.origin.object if source.origin else source.original_filename,
+                    label=(
+                        f"Source {source.origin.connection_name} {source.origin.object}"
+                        if source.origin
+                        else f"Source {source.original_filename}"
+                    ),
                     ref=source.id,
+                    origin=_ORIGINS.get(source.format, "file"),
+                    connection_id=source.origin.connection_id if source.origin else None,
                     counts=NodeCounts(rows=source.row_count, columns=len(visible)),
                     state="applied" if profile else "pending",
                     quality_score=source.quality_score,
