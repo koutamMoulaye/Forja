@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import time
 from itertools import combinations
 from pathlib import Path
 from typing import Any
 
 import duckdb
 
+from forja_core import duck
 from forja_core.config import Settings
 from forja_core.errors import ProfilingError
 from forja_core.logging import get_logger
@@ -67,7 +69,7 @@ class Profiler:
         version_id: str | None = None,
         version: int | None = None,
     ) -> ProfileReport:
-        con = duckdb.connect()
+        con = duck.connect()
         try:
             report = self._profile(con, source_id, source_name, parquet_path)
             return report.model_copy(update={"version_id": version_id, "version": version})
@@ -91,12 +93,26 @@ class Profiler:
             for row in con.execute("DESCRIBE src").fetchall()
             if row[0] not in TECHNICAL_COLUMNS
         ]
+        started = time.perf_counter()
         row_count = self._scalar(con, "SELECT count(*) FROM src")
+        # Large tables: exact counts on the whole table, finer statistics on a sample.
+        sample_rows: int | None = None
+        stats = "src"
+        if row_count > self.settings.profiling_full_scan_rows:
+            sample_rows = min(row_count, self.settings.profiling_sample_rows)
+            con.execute(
+                "CREATE TEMP TABLE sample AS SELECT * FROM src "
+                f"USING SAMPLE reservoir({sample_rows} ROWS) REPEATABLE (42)"
+            )
+            stats = "sample"
+        exact = self._exact_counts(con, schema)
 
         columns: list[ColumnProfile] = []
         pii: list[PiiDetection] = []
         for name, physical_type in schema:
-            column, values = self._profile_column(con, name, physical_type, row_count)
+            column, values = self._profile_column(
+                con, name, physical_type, row_count, exact[name], stats, sample_rows
+            )
             if column.inferred.inferred_type is InferredType.STRING and column.inferred.from_text:
                 detection = detect_pii(name, values)
                 if detection is not None:
@@ -118,6 +134,9 @@ class Profiler:
             duplicates=duplicates,
             pii=pii,
             quality=quality,
+            sampled=sample_rows is not None,
+            sample_rows=sample_rows,
+            duration_ms=round((time.perf_counter() - started) * 1000),
         )
         log.info(
             "source_profiled",
@@ -126,8 +145,31 @@ class Profiler:
             columns=len(columns),
             quality_score=quality.score,
             pii_columns=len(pii),
+            sampled=report.sampled,
+            duration_ms=report.duration_ms,
         )
         return report
+
+    @staticmethod
+    def _null_condition(name: str, physical_type: str) -> tuple[str, str]:
+        ident = quote_ident(name)
+        if physical_type.upper() == "VARCHAR":
+            return f"trim({ident})", f"({ident} IS NULL OR trim({ident}) = '')"
+        return ident, f"({ident} IS NULL)"
+
+    def _exact_counts(
+        self, con: duckdb.DuckDBPyConnection, schema: list[tuple[str, str]]
+    ) -> dict[str, tuple[int, int]]:
+        """Null and distinct counts of every column, in one scan of the whole table."""
+        if not schema:
+            return {}
+        expressions: list[str] = []
+        for name, physical_type in schema:
+            value_sql, null_cond = self._null_condition(name, physical_type)
+            expressions.append(f"count(*) FILTER (WHERE {null_cond})")
+            expressions.append(f"count(DISTINCT CASE WHEN NOT {null_cond} THEN {value_sql} END)")
+        row = con.execute(f"SELECT {', '.join(expressions)} FROM src").fetchone() or ()
+        return {name: (int(row[2 * i]), int(row[2 * i + 1])) for i, (name, _) in enumerate(schema)}
 
     @staticmethod
     def _scalar(con: duckdb.DuckDBPyConnection, sql: str) -> int:
@@ -140,18 +182,20 @@ class Profiler:
         name: str,
         physical_type: str,
         row_count: int,
+        exact: tuple[int, int],
+        stats: str,
+        sample_rows: int | None,
     ) -> tuple[ColumnProfile, ValueCounts]:
         ident = quote_ident(name)
         is_text = physical_type.upper() == "VARCHAR"
-        value_sql = f"trim({ident})" if is_text else ident
-        null_cond = f"({ident} IS NULL OR trim({ident}) = '')" if is_text else f"({ident} IS NULL)"
+        value_sql, null_cond = self._null_condition(name, physical_type)
 
         values: list[tuple[str, int]] = []
         if is_text:
             values = [
                 (str(v), int(c))
                 for v, c in con.execute(
-                    f"SELECT {value_sql} AS v, count(*) AS c FROM src WHERE NOT {null_cond} "
+                    f"SELECT {value_sql} AS v, count(*) AS c FROM {stats} WHERE NOT {null_cond} "
                     f"GROUP BY 1 ORDER BY c DESC, v LIMIT {self.settings.profiling_sample_size}"
                 ).fetchall()
             ]
@@ -165,11 +209,7 @@ class Profiler:
             )
         inference.physical_type = physical_type
 
-        counts = con.execute(
-            f"SELECT count(*) FILTER (WHERE {null_cond}), "
-            f"count(DISTINCT CASE WHEN NOT {null_cond} THEN {value_sql} END) FROM src"
-        ).fetchone()
-        null_count, distinct_count = (int(counts[0]), int(counts[1])) if counts else (0, 0)
+        null_count, distinct_count = exact
         non_null = row_count - null_count
         if non_null == 0:
             inference.inferred_type = InferredType.EMPTY
@@ -184,45 +224,66 @@ class Profiler:
             uniqueness=round(distinct_count / non_null, 4) if non_null else 0.0,
             is_unique=null_count == 0 and distinct_count == row_count and row_count > 0,
             is_constant=distinct_count == 1,
-            top_values=self._top_values(con, value_sql, null_cond, row_count),
+            top_values=self._top_values(con, value_sql, null_cond, row_count, stats, sample_rows),
         )
-        self._add_statistics(con, profile, ident, null_cond)
+        self._add_statistics(con, profile, ident, null_cond, stats)
         if not inference.from_text and inference.inferred_type is InferredType.DECIMAL:
-            inference.max_decimals = self._native_decimals(con, ident, null_cond)
+            inference.max_decimals = self._native_decimals(con, ident, null_cond, stats)
         return profile, values
 
     @staticmethod
-    def _native_decimals(con: duckdb.DuckDBPyConnection, ident: str, null_cond: str) -> int:
+    def _native_decimals(
+        con: duckdb.DuckDBPyConnection, ident: str, null_cond: str, stats: str
+    ) -> int:
         """Fractional digits of a native floating or decimal column, on its text form."""
         rows = con.execute(
             f"SELECT max(length(split_part(CAST({ident} AS VARCHAR), '.', 2))) "
-            f"FROM src WHERE NOT {null_cond} AND CAST({ident} AS VARCHAR) LIKE '%.%'"
+            f"FROM {stats} WHERE NOT {null_cond} AND CAST({ident} AS VARCHAR) LIKE '%.%'"
         ).fetchall()
         value = rows[0][0] if rows else None
         return int(value or 0)
 
     def _top_values(
-        self, con: duckdb.DuckDBPyConnection, value_sql: str, null_cond: str, row_count: int
+        self,
+        con: duckdb.DuckDBPyConnection,
+        value_sql: str,
+        null_cond: str,
+        row_count: int,
+        stats: str,
+        sample_rows: int | None,
     ) -> list[TopValue]:
         limit = self.settings.profiling_top_values
         if limit == 0:
             return []
         rows = con.execute(
-            f"SELECT CAST({value_sql} AS VARCHAR) AS v, count(*) AS c FROM src "
+            f"SELECT CAST({value_sql} AS VARCHAR) AS v, count(*) AS c FROM {stats} "
             f"WHERE NOT {null_cond} GROUP BY 1 ORDER BY c DESC, v LIMIT {limit}"
         ).fetchall()
-        return [TopValue(value=str(v), count=int(c), pct=_pct(int(c), row_count)) for v, c in rows]
+        # On a sample, counts are estimated for the whole table.
+        scale = row_count / sample_rows if sample_rows else 1
+        return [
+            TopValue(
+                value=str(v),
+                count=round(int(c) * scale),
+                pct=_pct(round(int(c) * scale), row_count),
+            )
+            for v, c in rows
+        ]
 
     @staticmethod
     def _add_statistics(
-        con: duckdb.DuckDBPyConnection, profile: ColumnProfile, ident: str, null_cond: str
+        con: duckdb.DuckDBPyConnection,
+        profile: ColumnProfile,
+        ident: str,
+        null_cond: str,
+        stats: str,
     ) -> None:
         inferred = profile.inferred.inferred_type
         typed = typed_expression(ident, profile.inferred)
         if inferred in _NUMERIC:
             row = con.execute(
                 f"SELECT min(t), max(t), avg(t), stddev_samp(t) "
-                f"FROM (SELECT {typed} AS t FROM src WHERE NOT {null_cond})"
+                f"FROM (SELECT {typed} AS t FROM {stats} WHERE NOT {null_cond})"
             ).fetchone()
             if row:
                 profile.min, profile.max = _number(row[0]), _number(row[1])
@@ -231,14 +292,14 @@ class Profiler:
         elif inferred in _TEMPORAL:
             row = con.execute(
                 f"SELECT CAST(min(t) AS VARCHAR), CAST(max(t) AS VARCHAR) "
-                f"FROM (SELECT {typed} AS t FROM src WHERE NOT {null_cond})"
+                f"FROM (SELECT {typed} AS t FROM {stats} WHERE NOT {null_cond})"
             ).fetchone()
             if row:
                 profile.min, profile.max = row[0], row[1]
         elif inferred is InferredType.STRING:
             row = con.execute(
                 f"SELECT min(length(trim({ident}))), max(length(trim({ident}))) "
-                f"FROM src WHERE NOT {null_cond}"
+                f"FROM {stats} WHERE NOT {null_cond}"
             ).fetchone()
             if row:
                 profile.min_length = None if row[0] is None else int(row[0])

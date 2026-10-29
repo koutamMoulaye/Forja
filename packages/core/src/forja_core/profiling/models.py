@@ -137,3 +137,10 @@ class ProfileReport(BaseModel):
     duplicates: DuplicateStats
     pii: list[PiiDetection]
     quality: QualityScore
+    sampled: bool = Field(
+        default=False,
+        description="Type inference, top values and statistics come from a sample; row, "
+        "null, distinct and duplicate counts are always exact",
+    )
+    sample_rows: int | None = None
+    duration_ms: int | None = Field(default=None, description="Time spent profiling")
