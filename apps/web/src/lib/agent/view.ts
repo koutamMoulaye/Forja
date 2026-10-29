@@ -81,7 +81,8 @@ export function publicationSteps(request: MartRequest): PublicationStep[] {
     steps.push({
       id: "rejected",
       label: "Rejeté",
-      detail: request.rejection_reason || null,
+      // The reason is in the banner above.
+      detail: null,
       at: request.updated_at,
       state: "fail",
     });

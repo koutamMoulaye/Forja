@@ -66,6 +66,7 @@ import {
 } from "@/lib/silver/review";
 import { fillRate, personalColumns, qualityComponents } from "@/lib/sources/view";
 import { RuleCard } from "./rule-card";
+import { useLiveEvents } from "@/lib/events/live";
 
 type View = "rules" | "versions" | "quarantine";
 
@@ -199,13 +200,14 @@ export function PlanReviewScreen({ sourceId }: { sourceId: string }) {
       }),
   });
 
+  const stream = useLiveEvents();
   const run = useQuery({
     queryKey: runKeys.detail(runId ?? "none"),
     enabled: runId !== null,
     queryFn: async (): Promise<Job> =>
       unwrap(await api.GET("/runs/{run_id}", { params: { path: { run_id: runId! } } })),
     refetchInterval: (query) =>
-      query.state.data && !isActive(query.state.data.status) ? false : RUN_POLL_MS,
+      stream || (query.state.data && !isActive(query.state.data.status)) ? false : RUN_POLL_MS,
   });
   const runStatus = run.data?.status;
   const finished = runId !== null && runStatus !== undefined && !isActive(runStatus);

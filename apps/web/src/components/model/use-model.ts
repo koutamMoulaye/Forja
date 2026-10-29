@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api/errors";
 import type { GoldPlanPatch } from "@/lib/model/view";
 import { keys } from "@/lib/project/queries";
 import { RUN_POLL_MS, isActive, runKeys, useProjectRuns, type Job } from "@/lib/project/use-runs";
+import { useLiveEvents } from "@/lib/events/live";
 
 function failure(title: string) {
   return (error: unknown) =>
@@ -118,13 +119,14 @@ export function useModelMutations(projectId: string) {
 export function useModelRun(projectId: string, type: "gold_proposal" | "build_gold") {
   const runs = useProjectRuns(projectId);
   const latest = runs.data?.find((run) => run.type === type) ?? null;
+  const stream = useLiveEvents();
   const detail = useQuery({
     queryKey: runKeys.detail(latest?.id ?? "none"),
     enabled: latest !== null,
     queryFn: async (): Promise<Job> =>
       unwrap(await api.GET("/runs/{run_id}", { params: { path: { run_id: latest!.id } } })),
     refetchInterval: (query) =>
-      query.state.data && !isActive(query.state.data.status) ? false : RUN_POLL_MS,
+      stream || (query.state.data && !isActive(query.state.data.status)) ? false : RUN_POLL_MS,
   });
   const run = detail.data && detail.data.id === latest?.id ? detail.data : latest;
   return { run, active: run !== null && isActive(run.status) };

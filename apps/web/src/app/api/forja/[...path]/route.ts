@@ -43,6 +43,8 @@ async function forward(request: NextRequest, context: Context): Promise<Response
     headers,
     body: () => (hasBody ? (payload ?? request.body) : null),
     replayable: !hasBody || buffered,
+    // The event stream stays open: the API call ends when the browser leaves.
+    signal: request.signal,
   });
   return relay(call, readSession(request).remember);
 }

@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api/errors";
 import { useProjectRuns, isActive } from "@/lib/project/use-runs";
 import { placeLanes, rankGraph, type Layout, type LayoutInput, type Ranked } from "./layout";
 import { stacksInfo, type Lane, type ProjectGraph } from "./model";
+import { useLiveEvents } from "@/lib/events/live";
 
 export const graphKey = (projectId: string) => ["graph", projectId] as const;
 
@@ -22,6 +23,7 @@ export function useProjectGraph(projectId: string, enabled = true) {
   const etag = useRef<{ tag: string; graph: ProjectGraph } | null>(null);
   const runs = useProjectRuns(projectId, enabled);
   const runsBusy = runs.data?.some((run) => isActive(run.status)) ?? false;
+  const stream = useLiveEvents();
   return useQuery({
     queryKey: graphKey(projectId),
     enabled,
@@ -42,7 +44,8 @@ export function useProjectGraph(projectId: string, enabled = true) {
       const busy = query.state.data?.nodes.some(
         (n) => n.run && (n.run.status === "running" || n.run.status === "queued"),
       );
-      return busy || runsBusy ? BUSY_POLL_MS : IDLE_POLL_MS;
+      if (busy || runsBusy) return BUSY_POLL_MS;
+      return stream ? false : IDLE_POLL_MS;
     },
   });
 }

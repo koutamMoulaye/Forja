@@ -23,6 +23,11 @@ export function relayHeaders(upstream: Response): Headers {
     if (value) headers.set(name, value);
   }
   if (!headers.has("cache-control")) headers.set("cache-control", "no-store");
+  if (headers.get("content-type")?.startsWith("text/event-stream")) {
+    // Events go out one by one: no compression, no proxy buffering.
+    headers.set("cache-control", "no-cache, no-transform");
+    headers.set("x-accel-buffering", "no");
+  }
   return headers;
 }
 

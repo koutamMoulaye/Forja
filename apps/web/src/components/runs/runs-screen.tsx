@@ -64,6 +64,7 @@ import {
   type RunFilter,
   type StepState,
 } from "@/lib/runs/view";
+import { useLiveEvents } from "@/lib/events/live";
 
 const GRID = "120px minmax(0,1fr) 104px 104px 60px";
 
@@ -265,12 +266,13 @@ function RunDetail({
   const [logsOpen, setLogsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const cancel = useCancelRun(project.id);
+  const stream = useLiveEvents();
   const detail = useQuery({
     queryKey: runKeys.detail(runId),
     queryFn: async (): Promise<Job> =>
       unwrap(await api.GET("/runs/{run_id}", { params: { path: { run_id: runId } } })),
     refetchInterval: (query) =>
-      query.state.data && !isActive(query.state.data.status) ? false : RUN_POLL_MS,
+      stream || (query.state.data && !isActive(query.state.data.status)) ? false : RUN_POLL_MS,
   });
   const live = detail.data ? isActive(detail.data.status) : false;
   const logs = useQuery({

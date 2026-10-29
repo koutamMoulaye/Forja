@@ -12,6 +12,7 @@ import {
   type Destination,
   type MartRequest,
 } from "./view";
+import { useLiveEvents } from "@/lib/events/live";
 
 export const agentKeys = {
   overview: (projectId: string) => ["agent-overview", projectId] as const,
@@ -36,6 +37,7 @@ export function useAgentOverview(projectId: string) {
 
 /** The caller's requests (all of them for engineers), polled while one is in progress. */
 export function useConversations(projectId: string, enabled = true) {
+  const stream = useLiveEvents();
   return useQuery({
     queryKey: keys.marts(projectId),
     enabled,
@@ -46,12 +48,17 @@ export function useConversations(projectId: string, enabled = true) {
         }),
       ),
     refetchInterval: (query) =>
-      query.state.data?.some((r) => isProcessing(r) || isPublishing(r)) ? 2500 : 30_000,
+      stream
+        ? false
+        : query.state.data?.some((r) => isProcessing(r) || isPublishing(r))
+          ? 2500
+          : 30_000,
   });
 }
 
 export function useMartRequest(martId: string | null) {
   const queryClient = useQueryClient();
+  const stream = useLiveEvents();
   const query = useQuery({
     queryKey: agentKeys.request(martId ?? "none"),
     enabled: martId !== null,
@@ -59,7 +66,7 @@ export function useMartRequest(martId: string | null) {
       unwrap(await api.GET("/mart-requests/{mart_id}", { params: { path: { mart_id: martId! } } })),
     refetchInterval: (query) => {
       const request = query.state.data;
-      if (!request) return false;
+      if (!request || stream) return false;
       if (isProcessing(request)) return REQUEST_POLL_MS;
       if (isPublishing(request) && !request.publish_error) return REQUEST_POLL_MS * 2;
       return false;
@@ -81,13 +88,14 @@ export function useMartRequest(martId: string | null) {
 
 /** The run of a version, for its progress and elapsed time. */
 export function useAgentRun(runId: string | null | undefined) {
+  const stream = useLiveEvents();
   return useQuery({
     queryKey: runKeys.detail(runId ?? "none"),
     enabled: Boolean(runId),
     queryFn: async (): Promise<Job> =>
       unwrap(await api.GET("/runs/{run_id}", { params: { path: { run_id: runId! } } })),
     refetchInterval: (query) =>
-      query.state.data && !isActive(query.state.data.status) ? false : RUN_POLL_MS / 2,
+      stream || (query.state.data && !isActive(query.state.data.status)) ? false : RUN_POLL_MS / 2,
   });
 }
 

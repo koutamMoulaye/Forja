@@ -172,6 +172,7 @@ export async function callAsUser(
     body?: () => BodyInit | null;
     replayable?: boolean;
     retryOn401?: boolean;
+    signal?: AbortSignal;
   } = {},
 ): Promise<SessionCall> {
   const session = readSession(request);
@@ -205,6 +206,7 @@ export async function callAsUser(
       headers: init.headers ?? forwardedHeaders(request),
       body: init.body ? init.body() : null,
       accessToken: access,
+      signal: init.signal,
     });
 
   let response = await send();

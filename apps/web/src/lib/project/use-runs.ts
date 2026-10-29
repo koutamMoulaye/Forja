@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
+import { useLiveEvents } from "@/lib/events/live";
 
 export type Job = components["schemas"]["Job"];
 export type JobType = components["schemas"]["JobType"];
@@ -58,6 +59,7 @@ const LIST_POLL_IDLE_MS = 15_000;
 export const FINISHED_VISIBLE_MS = 8000;
 
 export function useProjectRuns(projectId: string, enabled = true) {
+  const stream = useLiveEvents();
   return useQuery({
     queryKey: runKeys.list(projectId),
     enabled,
@@ -69,7 +71,11 @@ export function useProjectRuns(projectId: string, enabled = true) {
       ),
     select: (runs) => [...runs].sort((a, b) => b.created_at.localeCompare(a.created_at)),
     refetchInterval: (query) =>
-      query.state.data?.some((run) => isActive(run.status)) ? LIST_POLL_BUSY_MS : LIST_POLL_IDLE_MS,
+      stream
+        ? false
+        : query.state.data?.some((run) => isActive(run.status))
+          ? LIST_POLL_BUSY_MS
+          : LIST_POLL_IDLE_MS,
   });
 }
 
@@ -79,6 +85,7 @@ export function useProjectRuns(projectId: string, enabled = true) {
  */
 export function useRunTracker(projectId: string, enabled = true) {
   const queryClient = useQueryClient();
+  const stream = useLiveEvents();
   const runs = useProjectRuns(projectId, enabled);
   const activeId = useMemo(
     () => runs.data?.find((run) => isActive(run.status))?.id ?? null,
@@ -97,7 +104,7 @@ export function useRunTracker(projectId: string, enabled = true) {
     queryFn: async (): Promise<Job> =>
       unwrap(await api.GET("/runs/{run_id}", { params: { path: { run_id: currentId! } } })),
     refetchInterval: (query) =>
-      query.state.data && !isActive(query.state.data.status) ? false : RUN_POLL_MS,
+      stream || (query.state.data && !isActive(query.state.data.status)) ? false : RUN_POLL_MS,
   });
 
   const run = detail.data && detail.data.id === currentId ? detail.data : null;
