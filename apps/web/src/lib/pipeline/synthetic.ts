@@ -50,6 +50,8 @@ export function syntheticGraph(size = 200): ProjectGraph {
       pii_columns: [],
       review_count: state === "review" ? 2 : 0,
       highlights: ["id", "date", "montant"],
+      origin: type === "source" ? "file" : null,
+      connection_id: null,
       run:
         state === "running"
           ? {

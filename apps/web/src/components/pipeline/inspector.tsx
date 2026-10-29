@@ -1,5 +1,7 @@
 "use client";
 
+import { useProjectSchedules } from "@/lib/connections/queries";
+import { formatNext, nextLoad } from "@/lib/connections/view";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { Key } from "@phosphor-icons/react";
@@ -100,14 +102,41 @@ function LinkedNode({ node, onSelect }: { node: GraphNode; onSelect: (id: string
   );
 }
 
+/** A source loaded from a connection: where from, and when it loads next. */
+function SourceLoading({ node, projectId }: { node: GraphNode; projectId: string }) {
+  const schedules = useProjectSchedules(projectId, Boolean(node.connection_id));
+  if (!node.connection_id || !node.ref) return null;
+  const next = nextLoad(schedules.data?.schedules ?? [], node.ref, node.connection_id);
+  return (
+    <div
+      className={cn(card, "flex flex-col gap-0.5 px-3 py-2.5")}
+      data-testid="inspector-next-load"
+    >
+      <div className="text-[12.5px] text-tx3">
+        {node.origin === "api" ? "Chargée depuis une API" : "Chargée depuis une base de données"}
+      </div>
+      <div className="text-[14.5px] font-semibold">
+        {schedules.isPending
+          ? "…"
+          : next?.next_run_at
+            ? `Prochain chargement ${formatNext(next.next_run_at)}`
+            : "Chargement manuel"}
+      </div>
+      {next ? <div className="text-[12.5px] text-tx3">{next.description}</div> : null}
+    </div>
+  );
+}
+
 function Overview({
   node,
   graph,
   onSelect,
+  projectId,
 }: {
   node: GraphNode;
   graph: { nodes: GraphNode[]; edges: GraphEdge[] };
   onSelect: (id: string) => void;
+  projectId: string;
 }) {
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
   const up = graph.edges.filter((e) => e.target === node.id).map((e) => byId.get(e.source));
@@ -137,6 +166,7 @@ function Overview({
           </div>
         ))}
       </div>
+      {node.type === "source" ? <SourceLoading node={node} projectId={projectId} /> : null}
       <SectionTitle>En amont</SectionTitle>
       {up.length ? (
         up.map((n) => n && <LinkedNode key={n.id} node={n} onSelect={onSelect} />)
@@ -338,7 +368,9 @@ function TabContent({
   const history = nodeRuns(node, runs.data ?? []);
   const lastBuild = history.find((run) => run.status === "succeeded" || run.status === "failed");
 
-  if (tab === "overview") return <Overview node={node} graph={graph} onSelect={onSelect} />;
+  if (tab === "overview") {
+    return <Overview node={node} graph={graph} onSelect={onSelect} projectId={projectId} />;
+  }
 
   if (tab === "history") {
     if (runs.isPending) return <Loading />;

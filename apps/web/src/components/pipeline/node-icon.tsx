@@ -8,17 +8,21 @@ import {
   Export,
   FileCsv,
   FileXls,
+  Globe,
+  HardDrives,
   Star,
   type IconProps,
 } from "@phosphor-icons/react";
 import type { GraphNode } from "@/lib/pipeline/model";
 
-type Iconic = Pick<GraphNode, "type" | "name" | "id">;
+type Iconic = Pick<GraphNode, "type" | "name" | "id"> & Partial<Pick<GraphNode, "origin">>;
 
-/** The Phosphor icon of a node, as in ForjaApp: the file format for sources. */
+/** The Phosphor icon of a node, as in ForjaApp: the file format or the connector for sources. */
 export function NodeIcon({ node, ...props }: { node: Iconic } & IconProps) {
   switch (node.type) {
     case "source": {
+      if (node.origin === "database") return <HardDrives {...props} />;
+      if (node.origin === "api") return <Globe {...props} />;
       const extension = node.name.split(".").pop()?.toLowerCase();
       if (extension === "xlsx" || extension === "xls") return <FileXls {...props} />;
       if (extension === "json" || extension === "jsonl" || extension === "ndjson") {

@@ -26,6 +26,8 @@ const node = (patch: Partial<GraphNode>): GraphNode => ({
   review_count: 0,
   highlights: [],
   run: null,
+  origin: null,
+  connection_id: null,
   ...patch,
 });
 

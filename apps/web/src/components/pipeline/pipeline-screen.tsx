@@ -1,13 +1,30 @@
 "use client";
 
 import { useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { ShellMessage } from "@/components/shell/shell-states";
 import { useShell } from "@/components/shell/shell-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { syntheticGraph } from "@/lib/pipeline/synthetic";
 import { useProjectGraph } from "@/lib/pipeline/use-graph";
-import { PipelineCanvas } from "./pipeline-canvas";
+
+function CanvasSkeleton() {
+  return (
+    <div className="absolute inset-0 flex gap-3.5 bg-cv pt-[72px] pr-7 pl-[84px]" aria-busy>
+      {[0, 1, 2, 3].map((lane) => (
+        <Skeleton key={lane} className="h-[70vh] flex-1 rounded-3xl opacity-60" />
+      ))}
+    </div>
+  );
+}
+
+// React Flow and the canvas load after the page: the shell and the skeleton show first,
+// and no other screen carries them.
+const PipelineCanvas = dynamic(() => import("./pipeline-canvas").then((m) => m.PipelineCanvas), {
+  ssr: false,
+  loading: CanvasSkeleton,
+});
 
 /** /projects/[id]/pipeline: the canvas, or its first-launch state for an empty project. */
 export function PipelineScreen({ allowSynthetic }: { allowSynthetic: boolean }) {
@@ -31,13 +48,7 @@ export function PipelineScreen({ allowSynthetic }: { allowSynthetic: boolean }) 
         />
       );
     }
-    return (
-      <div className="absolute inset-0 flex gap-3.5 bg-cv pt-[72px] pr-7 pl-[84px]" aria-busy>
-        {[0, 1, 2, 3].map((lane) => (
-          <Skeleton key={lane} className="h-[70vh] flex-1 rounded-3xl opacity-60" />
-        ))}
-      </div>
-    );
+    return <CanvasSkeleton />;
   }
   return (
     <PipelineCanvas projectId={shell.project.id} graph={data} synthetic={synthetic !== null} />

@@ -22,7 +22,9 @@
       "pii_columns": ["nom", "prénom", "email"],
       "review_count": 0,
       "highlights": ["id_client", "nom", "prénom"],
-      "run": null
+      "run": null,
+      "origin": "file",
+      "connection_id": null
     },
     {
       "id": "stg_clients",
@@ -44,7 +46,9 @@
       "pii_columns": ["nom", "prenom", "email"],
       "review_count": 0,
       "highlights": ["id_client", "nom", "prenom"],
-      "run": null
+      "run": null,
+      "origin": null,
+      "connection_id": null
     },
     {
       "id": "src_commandes",
@@ -66,7 +70,9 @@
       "pii_columns": [],
       "review_count": 0,
       "highlights": ["id_commande", "id_client", "date_commande"],
-      "run": null
+      "run": null,
+      "origin": "file",
+      "connection_id": null
     },
     {
       "id": "stg_commandes",
@@ -88,7 +94,9 @@
       "pii_columns": [],
       "review_count": 0,
       "highlights": ["id_commande", "id_client", "date_commande"],
-      "run": null
+      "run": null,
+      "origin": null,
+      "connection_id": null
     },
     {
       "id": "src_lignes_commande",
@@ -110,7 +118,9 @@
       "pii_columns": [],
       "review_count": 0,
       "highlights": ["id_commande", "num_ligne", "code_produit"],
-      "run": null
+      "run": null,
+      "origin": "file",
+      "connection_id": null
     },
     {
       "id": "stg_lignes_commande",
@@ -132,7 +142,9 @@
       "pii_columns": [],
       "review_count": 0,
       "highlights": ["id_commande", "num_ligne", "code_produit"],
-      "run": null
+      "run": null,
+      "origin": null,
+      "connection_id": null
     },
     {
       "id": "src_produits",
@@ -154,7 +166,9 @@
       "pii_columns": [],
       "review_count": 0,
       "highlights": ["code_produit", "libelle", "categorie"],
-      "run": null
+      "run": null,
+      "origin": "file",
+      "connection_id": null
     },
     {
       "id": "stg_produits",
@@ -176,7 +190,9 @@
       "pii_columns": [],
       "review_count": 0,
       "highlights": ["code_produit", "libelle", "categorie"],
-      "run": null
+      "run": null,
+      "origin": null,
+      "connection_id": null
     },
     {
       "id": "dim_clients",
@@ -198,7 +214,9 @@
       "pii_columns": ["nom", "prenom", "email"],
       "review_count": 0,
       "highlights": ["client_key", "nom", "prenom"],
-      "run": null
+      "run": null,
+      "origin": null,
+      "connection_id": null
     },
     {
       "id": "dim_produits",
@@ -220,7 +238,9 @@
       "pii_columns": [],
       "review_count": 0,
       "highlights": ["produit_key", "libelle", "categorie"],
-      "run": null
+      "run": null,
+      "origin": null,
+      "connection_id": null
     },
     {
       "id": "dim_date",
@@ -242,7 +262,9 @@
       "pii_columns": [],
       "review_count": 0,
       "highlights": ["date_key", "date", "annee"],
-      "run": null
+      "run": null,
+      "origin": null,
+      "connection_id": null
     },
     {
       "id": "fct_ventes",
@@ -264,7 +286,9 @@
       "pii_columns": [],
       "review_count": 0,
       "highlights": ["quantite", "prix_unitaire", "montant"],
-      "run": null
+      "run": null,
+      "origin": null,
+      "connection_id": null
     },
     {
       "id": "mart_a93444e99c45",
@@ -286,7 +310,9 @@
       "pii_columns": [],
       "review_count": 0,
       "highlights": ["Mois (date de commande)", "Ville (client)", "Chiffre d'affaires (EUR)"],
-      "run": null
+      "run": null,
+      "origin": null,
+      "connection_id": null
     },
     {
       "id": "mart_7e611d48a1aa",
@@ -312,7 +338,9 @@
         "Quantité vendue (unités)",
         "Prix moyen unitaire (EUR)"
       ],
-      "run": null
+      "run": null,
+      "origin": null,
+      "connection_id": null
     },
     {
       "id": "dest_serving",
@@ -334,7 +362,9 @@
       "pii_columns": [],
       "review_count": 0,
       "highlights": ["dim_clients", "dim_date", "dim_produits"],
-      "run": null
+      "run": null,
+      "origin": null,
+      "connection_id": null
     },
     {
       "id": "dest_exports",
@@ -356,7 +386,9 @@
       "pii_columns": [],
       "review_count": 0,
       "highlights": ["mart_montant_par_mois_par_ville_2024", "mart_quantite_par_categorie"],
-      "run": null
+      "run": null,
+      "origin": null,
+      "connection_id": null
     }
   ],
   "edges": [
