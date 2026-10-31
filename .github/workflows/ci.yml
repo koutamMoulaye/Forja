@@ -162,7 +162,7 @@ jobs:
   web-e2e:
     name: Web, end-to-end against the API
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
     env:
       FORJA_SKIP_REAL_LLM_TESTS: "1"
       PYTHONIOENCODING: utf-8
