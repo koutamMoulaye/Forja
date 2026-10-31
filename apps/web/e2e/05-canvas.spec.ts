@@ -157,8 +157,8 @@ test("a Silver run moves the cleaned tables from waiting to done", async ({ page
     timeout: 30_000,
   });
   // The test API holds each dbt model « running » (FORJA_TEST_MODEL_DELAY_SECONDS): the node
-  // shows « En cours » and the flow runs along its incoming link. dbt itself takes up to
-  // 30 s to start and parse the project on a Windows workstation.
+  // shows « En cours » and the flow runs along its incoming link. dbt itself took up to
+  // 30 s to start and parse the project on a busy workstation.
   await expect(page.locator('[data-state="running"]').first()).toBeVisible({ timeout: 90_000 });
   await expect(page.getByTestId("edge-flow").first()).toBeAttached();
   await captureThemes(page, "run-in-progress");
