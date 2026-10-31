@@ -79,8 +79,9 @@ morceau) puis à 70 %, et reprend là où il s'était arrêté.
 | Envoi, deux coupures, reprise (local, sans réseau) | 12,8 s | 293 Mo | 2 036 Mo |
 | Ingestion et profil | 146,8 s | 6 070 Mo | 1 849 Mo |
 
-L'ingestion de ce fichier atteint la limite de DuckDB (6 Go) : sur une machine de moins
-de 16 Go, baisser `FORJA_DUCKDB_MEMORY_LIMIT` (DuckDB déborde alors sur disque).
+L'ingestion de ce fichier atteint la limite de DuckDB (6 Go, réglage fixe de la
+campagne) : depuis, la limite par défaut (`auto`) est la moitié de la mémoire disponible
+au démarrage, bornée entre 1 et 16 Go ; DuckDB déborde sur disque au-delà.
 
 ## Parcours
 

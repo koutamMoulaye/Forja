@@ -572,9 +572,11 @@ désactive le fil, par exemple pour une instance de secours.
   parcours de la table ; au-delà d'un million de lignes, inférence de type, valeurs
   fréquentes et statistiques sur un échantillon reproductible de 200 000 lignes. La durée
   est enregistrée et affichée.
-- **DuckDB** : `memory_limit` 6 Go, 4 threads, `temp_directory` `<data_dir>/_tmp` par
-  défaut (une machine de 16 Go garde de la place pour l'API, le front et un navigateur),
-  appliqués à toutes les connexions et au profil dbt.
+- **DuckDB** : `memory_limit` `auto`, 4 threads, `temp_directory` `<data_dir>/_tmp` par
+  défaut, appliqués à toutes les connexions et au profil dbt. `auto` prend la moitié de
+  la mémoire disponible au démarrage de l'API, limite du conteneur (cgroup) comprise,
+  bornée entre 1 et 16 Go : l'ancien défaut fixe de 6 Go supposait une machine de 16 Go
+  (anomalie 17 de la campagne). Une taille fixe (`6GB`) le remplace.
 - **Envoi** : au-delà d'un morceau (`FORJA_UPLOAD_CHUNK_MB`, 8 Mo), le navigateur envoie
   le fichier par morceaux à l'offset où s'arrête la copie du serveur ; après une coupure
   ou une page rouverte, le même fichier (nom, taille, date) reprend sa session. Limite

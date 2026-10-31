@@ -8,8 +8,10 @@ from pathlib import Path
 
 import duckdb
 
+from forja_core import duck
 from forja_core.catalog import SCHEMA_VERSION, Catalog
 from forja_core.catalog.migrations import MIGRATIONS
+from forja_core.config import Settings
 from forja_core.models import ProjectCreate
 
 
@@ -103,3 +105,19 @@ def test_a_transaction_reads_its_own_writes(tmp_path: Path) -> None:
         with catalog._transaction():
             catalog._execute(RENAME, ["Achats", project.id])
             assert catalog.get_project(project.id).name == "Achats"
+
+
+def test_duckdb_memory_limit_is_computed_or_overridden(settings: Settings) -> None:
+    """auto takes half the available memory, between 1 GB and 16 GB; a size overrides it."""
+    gib = 1 << 30
+    assert duck.memory_limit("auto", available=12 * gib) == "6144MB"
+    assert duck.memory_limit("auto", available=gib) == "1024MB"
+    assert duck.memory_limit("auto", available=200 * gib) == "16384MB"
+    assert duck.memory_limit("6 GB") == "6GB"
+    assert duck.limit_mb(duck.memory_limit("auto")) >= duck.AUTO_MIN_MB
+    assert duck.limit_mb("6GB") == 6000 and duck.limit_mb("2GiB") == 2048
+    configured = duck.resource_config(settings.model_copy(update={"duckdb_memory_limit": "auto"}))
+    assert configured["memory_limit"].endswith("MB")
+    with duck.connect() as con:
+        [(limit,)] = con.execute("SELECT current_setting('memory_limit')").fetchall()
+    assert limit

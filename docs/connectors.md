@@ -96,7 +96,7 @@ processus de l'API : **une seule instance d'API** (D31). Fuseau : `FORJA_TIMEZON
 | `FORJA_MAX_UPLOAD_MB` | 10240 | taille maximale d'un fichier |
 | `FORJA_UPLOAD_CHUNK_MB` | 8 | taille d'un morceau d'envoi |
 | `FORJA_UPLOAD_SESSION_HOURS` | 48 | durée de vie d'un envoi inachevé |
-| `FORJA_DUCKDB_MEMORY_LIMIT` | 6GB | mémoire de DuckDB avant débordement sur disque |
+| `FORJA_DUCKDB_MEMORY_LIMIT` | `auto` | mémoire de DuckDB avant débordement sur disque ; `auto` : la moitié de la mémoire disponible au démarrage (limite du conteneur comprise), entre 1 et 16 Go |
 | `FORJA_DUCKDB_THREADS` | 4 | threads de DuckDB |
 | `FORJA_DUCKDB_TEMP_DIRECTORY` | `<data_dir>/_tmp` | dossier de débordement |
 | `FORJA_PROFILING_FULL_SCAN_ROWS` | 1000000 | au-delà, statistiques fines sur échantillon |

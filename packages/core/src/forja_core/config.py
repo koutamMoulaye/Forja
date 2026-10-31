@@ -62,10 +62,11 @@ class Settings(BaseSettings):
     profiling_sample_rows: int = Field(default=200_000, gt=0)
 
     duckdb_memory_limit: str = Field(
-        default="6GB",
-        pattern=r"^\d+(\.\d+)?\s*(KB|MB|GB|TB|KiB|MiB|GiB|TiB|%)$",
-        description="Memory DuckDB may use per process before spilling to temp_directory "
-        "(a 16 GB machine keeps room for the API, the front and a browser)",
+        default="auto",
+        pattern=r"^(auto|\d+(\.\d+)?\s*(KB|MB|GB|TB|KiB|MiB|GiB|TiB|%))$",
+        description="Memory DuckDB may use per process before spilling to temp_directory; "
+        "auto: half the memory available at start (container limit included), between "
+        "1 GB and 16 GB",
     )
     duckdb_threads: int = Field(default=4, ge=1, le=256)
     duckdb_temp_directory: Path | None = Field(

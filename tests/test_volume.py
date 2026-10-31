@@ -31,6 +31,7 @@ import psutil
 import pytest
 
 from forja_api.state import AppState
+from forja_core import duck
 from forja_core.config import Settings
 from forja_core.models import Layer
 from tests.auth import api_client
@@ -237,12 +238,13 @@ def test_volume(tmp_path: Path) -> None:
     finally:
         shutil.rmtree(root, ignore_errors=True)
     assert not root.exists()
+    results["machine"]["duckdb_memory_limit"] = duck.current_config()["memory_limit"]
     report = json.dumps(results, indent=2, ensure_ascii=False)
     print(report)
     target = os.environ.get("FORJA_VOLUME_REPORT")
     if target:
         Path(target).write_text(report + "\n", encoding="utf-8")
     # Streaming keeps memory far below the data size, within DuckDB's limit.
-    limit_mb = int(settings.duckdb_memory_limit.removesuffix("GB")) * 1024
+    limit_mb = duck.limit_mb(duck.current_config()["memory_limit"])
     for step in ("ingest_and_profile", "silver_build", "gold_build", "data_mart", "export"):
         assert results[step]["peak_memory_mb"] < limit_mb + 1024, results
