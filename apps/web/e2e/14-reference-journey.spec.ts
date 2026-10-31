@@ -163,11 +163,18 @@ test("the reference journey, engineer then analyst, in both themes", async ({ pa
     await expect(page.getByTestId("plan-review")).toBeVisible();
     const bulk = page.getByRole("button", { name: "Valider les règles à confiance élevée" });
     if (await bulk.isVisible()) await bulk.click();
+    // The bulk validation lands card by card: a rule still shown as pending may be decided
+    // before the click reaches it, so each click is short and the state read again.
     const pending = page.getByTestId("rule-list").locator('[data-decision="pending"]');
-    while ((await pending.count()) > 0) {
-      await pending.first().getByRole("button", { name: "Valider", exact: true }).click();
-      await page.waitForTimeout(250);
+    for (let attempt = 0; attempt < 60 && (await pending.count()) > 0; attempt++) {
+      await pending
+        .first()
+        .getByRole("button", { name: "Valider", exact: true })
+        .click({ timeout: 5_000 })
+        .catch(() => undefined);
+      await page.waitForTimeout(400);
     }
+    await expect(pending).toHaveCount(0, { timeout: 30_000 });
     if (source.name === "orders") await captureThemes(page, "plan");
     await page.getByRole("button", { name: "Approuver le plan" }).click();
     await expect(page.getByRole("status").filter({ hasText: /Plan approuvé/ })).toBeVisible();
