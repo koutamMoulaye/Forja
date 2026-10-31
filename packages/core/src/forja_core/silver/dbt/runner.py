@@ -161,15 +161,17 @@ class DbtRunner:
             ".",
             "--select",
             *select,
-            "--vars",
-            json.dumps(variables),
             "--no-use-colors",
             "--no-version-check",
         ]
+        # The variables reach the models as environment variables (forja_run_id is
+        # env_var("FORJA_RUN_ID")): changing --vars at every run would force dbt to parse
+        # the whole project again, while an environment variable keeps partial parsing.
         env = {
             **os.environ,
+            **{name.upper(): value for name, value in variables.items()},
             "DBT_SEND_ANONYMOUS_USAGE_STATS": "False",
-            "DBT_PARTIAL_PARSE": "False",
+            "DBT_PARTIAL_PARSE": "True",
             "PYTHONIOENCODING": "utf-8",
         }
         log(f"$ dbt build --select {' '.join(select)}")

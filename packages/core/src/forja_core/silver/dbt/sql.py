@@ -309,7 +309,7 @@ def render_silver(plan: TransformationPlan) -> str:
         else sql_literal("_row_hash")
     )
     columns = [ident(c.target_column) for c in plan.included_columns()]
-    run_id = '\'{{ var("forja_run_id", "manual") }}\' as _run_id'
+    run_id = '\'{{ env_var("FORJA_RUN_ID", "manual") }}\' as _run_id'
 
     body = [
         _cte(
@@ -351,7 +351,7 @@ def render_rejects(plan: TransformationPlan) -> str:
         f"cast({ident(raw_name(c))} as varchar) as {ident(c.target_column)}"
         for c in plan.included_columns()
     ]
-    run_id = '\'{{ var("forja_run_id", "manual") }}\' as _run_id'
+    run_id = '\'{{ env_var("FORJA_RUN_ID", "manual") }}\' as _run_id'
     return (
         _header(
             plan,
