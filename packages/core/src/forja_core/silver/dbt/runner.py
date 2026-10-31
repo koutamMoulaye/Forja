@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from forja_core.children import bind_children, child_setup
 from forja_core.errors import BuildError
 from forja_core.jobs.models import DbtTestResult, DbtTestSummary
 from forja_core.jobs.scope import item_finished, item_started, report
@@ -172,6 +173,8 @@ class DbtRunner:
             "PYTHONIOENCODING": "utf-8",
         }
         log(f"$ dbt build --select {' '.join(select)}")
+        # dbt dies with the API: a crash must not leave it writing the warehouse.
+        bind_children()
         process = subprocess.Popen(
             command,
             cwd=project_dir,
@@ -181,6 +184,7 @@ class DbtRunner:
             text=True,
             encoding="utf-8",
             errors="replace",
+            preexec_fn=child_setup(),
         )
         assert process.stdout is not None
         progress = DbtProgress(self.model_delay_seconds)

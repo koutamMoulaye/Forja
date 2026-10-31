@@ -7,6 +7,13 @@ import pytest
 from tests import databases as db
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Every scenario of the campaign carries the marker: `-m campaign` runs them all."""
+    for item in items:
+        if "campaign" in item.nodeid.split("::")[0].replace("\\", "/").split("/"):
+            item.add_marker(pytest.mark.campaign)
+
+
 @pytest.fixture(scope="session")
 def postgres() -> Iterator[db.TestDatabase]:
     """The test PostgreSQL of docker/compose.test-db.yml, seeded, removed afterwards."""

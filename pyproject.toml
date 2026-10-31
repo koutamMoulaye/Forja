@@ -64,4 +64,5 @@ filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]
 markers = [
     "databases: needs the PostgreSQL and MySQL test containers (docker/compose.test-db.yml)",
     "volume: large generated file, run explicitly with FORJA_VOLUME_ROWS",
+    "campaign: scenario of the release test campaign (tests/campaign, docs/campaign-report.md)",
 ]
