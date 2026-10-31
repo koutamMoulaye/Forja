@@ -156,6 +156,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: JavaScript budget per route
+        run: pnpm budget
+
   web-e2e:
     name: Web, end-to-end against the API
     runs-on: ubuntu-latest

@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "budget": "node scripts/js-budget.mjs",
     "api:generate": "node scripts/generate-api.mjs"
   },
   "dependencies": {

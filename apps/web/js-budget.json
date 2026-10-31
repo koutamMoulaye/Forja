@@ -1,0 +1,14 @@
+{
+  "$comment": "First-load JavaScript per route, gzip, in kB (scripts/js-budget.mjs). About 10 % above the sizes measured when set; raise one only with a reason in the commit.",
+  "default": 470,
+  "routes": {
+    "/design-system": 400,
+    "/auth/invite/[token]": 290,
+    "/auth/login": 290,
+    "/auth/change-password": 290,
+    "/projects": 290,
+    "/": 290,
+    "/_not-found": 270,
+    "/_global-error": 220
+  }
+}
