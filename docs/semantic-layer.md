@@ -89,6 +89,15 @@ Un analyst (souvent après une question de l'agent) propose un synonyme :
 Un engineer l'accepte (`POST /synonym-proposals/{id}/accept`, le synonyme est ajouté par
 un override et une nouvelle version est créée) ou la refuse.
 
+Forja propose aussi des synonymes français pour les noms anglais courants (`amount`,
+`customer`, `order`, `price`, `quantity`, `date`, `city`…), tirés d'un dictionnaire
+déterministe (`ENGLISH_WORDS` et `ENGLISH_PHRASES` dans `semantic/labels.py`) : `amount`
+reçoit « montant » et le vocabulaire de `montant` (« chiffre d'affaires », « CA »…),
+`order_date` « date de commande ». Ces propositions (`origin: "dictionary"`,
+`proposed_by: "forja"`) sont créées à chaque génération de la couche, attendent dans la
+même file et ne s'appliquent qu'acceptées par un engineer ; un synonyme déjà présent ou
+déjà proposé, même refusé, n'est pas reproposé.
+
 ## API
 
 | Méthode | Route | Rôle |

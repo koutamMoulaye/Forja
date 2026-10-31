@@ -8,11 +8,14 @@ from pathlib import Path
 import pytest
 
 from forja_api.state import AppState
+from forja_core.config import Settings
 from forja_core.errors import PlanStateError, PlanValidationError
 from forja_core.models import Project
 from forja_core.semantic.models import Additivity, MetricAggregation, SemanticOverride
 from forja_core.semantic.service import visible
 from forja_core.semantic.text import key, words
+from tests.auth import api_client
+from tests.campaign import reference as ref
 from tests.shop import build_gold_shop, shop_settings
 
 
@@ -163,3 +166,58 @@ def test_french_normalization(text: str, expected: list[str]) -> None:
 def test_matching_keys_drop_stopwords() -> None:
     assert key("Chiffre d'affaires") == ("chiffre", "affaire")
     assert key("la") == ("la",)
+
+
+def test_english_names_get_french_synonyms_to_validate(settings: Settings, tmp_path: Path) -> None:
+    """Columns named in English: Forja proposes French synonyms from a dictionary; they
+    wait for an engineer, and once accepted a question in French needs no model."""
+    lines = ["order_id;city;segment;amount;quantity;order_date"] + [
+        f"{i};{('Lyon', 'Paris', 'Nantes')[i % 3]};{('B2B', 'B2C')[i % 2]};{i * 1.5:.2f};"
+        f"{1 + i % 4};2026-0{1 + i % 9}-1{i % 9}"
+        for i in range(1, 200)
+    ]
+    file = tmp_path / "orders.csv"
+    file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with api_client(settings.model_copy(update={"job_runner": "inline"})) as client:
+        project_id = client.post("/projects", json={"name": "Orders"}).json()["id"]
+        with file.open("rb") as handle:
+            [source] = client.post(
+                f"/projects/{project_id}/sources", files={"file": ("orders.csv", handle)}
+            ).json()
+        assert client.post(f"/sources/{source['id']}/plan/approve").status_code == 200
+        for step in ("build_silver", "build_gold"):
+            if step == "build_gold":
+                client.post(f"/projects/{project_id}/gold-plan/propose", json={"use_llm": False})
+                assert client.post(f"/projects/{project_id}/gold-plan/approve").status_code == 200
+            run = client.post(f"/projects/{project_id}/runs", json={"type": step})
+            assert run.json()["status"] == "succeeded", run.text
+        url = f"/projects/{project_id}/semantic-layer/synonym-proposals"
+        proposals = client.get(url).json()
+        by_target: dict[str, list[str]] = {}
+        for p in proposals:
+            assert p["origin"] == "dictionary" and p["status"] == "pending"
+            by_target.setdefault(p["target"], []).append(p["synonym"])
+        assert {"montant", "chiffre d'affaires"} <= set(by_target["metric:amount"])
+        assert "quantité" in by_target["metric:quantity"]
+        [city] = [t for t in by_target if t.endswith(".city")]
+        assert "ville" in by_target[city]
+        # Nothing is applied before review, and nothing is proposed twice.
+        layer = client.get(f"/projects/{project_id}/semantic-layer").json()
+        amount = next(m for m in layer["metrics"] if m["name"] == "amount")
+        assert "montant" not in amount["synonyms"]
+        client.post(f"/projects/{project_id}/semantic-layer/regenerate")
+        assert len(client.get(url).json()) == len(proposals)
+
+        asked = client.post(
+            f"/projects/{project_id}/mart-requests", json={"question": "montant par ville"}
+        )
+        before = client.get(f"/mart-requests/{asked.json()['mart_request']['id']}").json()
+        assert before["status"] != "previewed"
+        for p in proposals:
+            accept = (p["target"], p["synonym"]) in {("metric:amount", "montant"), (city, "ville")}
+            verdict = "accept" if accept else "reject"
+            assert client.post(f"/synonym-proposals/{p['id']}/{verdict}").status_code == 200
+        client.post(f"/projects/{project_id}/semantic-layer/regenerate")
+        assert all(p["status"] != "pending" for p in client.get(url).json())  # rejected stay so
+        after = ref.ask_mart(client, project_id, "montant par ville", metric="metric:amount")
+        assert after["status"] == "previewed"

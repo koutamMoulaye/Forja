@@ -5500,6 +5500,13 @@ export type components = {
             id: string;
             /** Mart Request Id */
             mart_request_id?: string | null;
+            /**
+             * Origin
+             * @description dictionary: a French word for an English name, proposed by Forja
+             * @default analyst
+             * @enum {string}
+             */
+            origin: "analyst" | "dictionary";
             /** Project Id */
             project_id: string;
             /** Proposed By */

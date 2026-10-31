@@ -16,6 +16,7 @@ from forja_core.errors import ForjaError, PlanStateError, PlanValidationError
 from forja_core.gold.context import build_gold_context
 from forja_core.locks import WarehouseLocks
 from forja_core.logging import get_logger
+from forja_core.semantic import labels
 from forja_core.semantic.generate import generate_layer
 from forja_core.semantic.models import (
     Attribute,
@@ -25,11 +26,14 @@ from forja_core.semantic.models import (
     SemanticOverride,
     SynonymProposal,
 )
+from forja_core.semantic.text import key
 from forja_core.silver.dbt.project import DbtProjectGenerator
 from forja_core.silver.plan import PlanStatus
 from forja_core.utils import quote_ident, utcnow
 
 log = get_logger(__name__)
+# Who proposes the dictionary translations (not a user id).
+DICTIONARY_PROPOSER = "forja"
 
 # Above this many values an attribute is not used to resolve filter values.
 MAX_DISTINCT_VALUES = 5_000
@@ -131,11 +135,52 @@ class SemanticService:
             and latest.gold_plan_version == plan.version
             and latest.content() == layer.content()
         ):
+            self._propose_translations(latest)
             return latest
         self.catalog.add_semantic_layer(layer)
         self._values.clear()
         log.info("semantic_layer_generated", project_id=project_id, version=layer.version)
+        self._propose_translations(layer)
         return layer
+
+    def _propose_translations(self, layer: SemanticLayer) -> None:
+        """French synonyms for English names, waiting for an engineer (never applied as is).
+
+        A synonym already in the layer, or already proposed (even rejected), is not
+        proposed again."""
+        targets: list[tuple[str, str, list[str]]] = [
+            (f"metric:{m.name}", m.name, m.synonyms) for m in layer.metrics if not m.hidden
+        ]
+        for dim in layer.dimensions:
+            if dim.hidden:
+                continue
+            targets.append((f"dimension:{dim.name}", dim.name, dim.synonyms))
+            targets += [
+                (f"attribute:{dim.name}.{a.name}", a.name, a.synonyms)
+                for a in dim.attributes
+                if not a.hidden
+            ]
+        known = {
+            (p.target, key(p.synonym))
+            for p in self.catalog.list_synonym_proposals(layer.project_id)
+        }
+        for target, name, synonyms in targets:
+            present = {key(s) for s in synonyms}
+            for synonym in labels.french_synonyms(name):
+                if key(synonym) in present or (target, key(synonym)) in known:
+                    continue
+                known.add((target, key(synonym)))
+                self.catalog.save_synonym_proposal(
+                    SynonymProposal(
+                        id=uuid.uuid4().hex,
+                        project_id=layer.project_id,
+                        target=target,
+                        synonym=synonym,
+                        proposed_by=DICTIONARY_PROPOSER,
+                        origin="dictionary",
+                        created_at=utcnow(),
+                    )
+                )
 
     def current(self, project_id: str) -> SemanticLayer:
         return self.catalog.get_semantic_layer(project_id)

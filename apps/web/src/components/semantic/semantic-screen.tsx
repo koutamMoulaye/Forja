@@ -311,12 +311,13 @@ function SynonymQueue({
   return (
     <Card className="flex flex-col gap-1.5 px-5 py-[18px]" data-testid="synonym-queue">
       <SectionTitle count={pending.length} className="pb-1.5">
-        Synonymes proposés par les analysts
+        Synonymes à valider
       </SectionTitle>
       {loading ? <div className="h-16 animate-pulse rounded-lg bg-sunk" /> : null}
       {!loading && pending.length === 0 ? (
         <p className="m-0 py-2 text-ui text-tx3">
-          Aucun synonyme en attente. Les analysts en proposent en précisant leurs questions.
+          Aucun synonyme en attente. Les analysts en proposent en précisant leurs questions ; Forja
+          traduit les noms de colonnes anglais courants.
         </p>
       ) : null}
       <AnimatePresence initial={false}>
@@ -339,7 +340,9 @@ function SynonymQueue({
                   {targetLabel(layer, proposal.target)}
                 </span>
                 <span className="text-meta text-tx3">
-                  Proposé {formatAgo(proposal.created_at)}
+                  {proposal.origin === "dictionary"
+                    ? `Traduction proposée par Forja ${formatAgo(proposal.created_at)}`
+                    : `Proposé ${formatAgo(proposal.created_at)}`}
                   {proposal.mart_request_id ? " · après une précision de l’agent" : ""}
                 </span>
                 {warnings.map((warning) => (

@@ -8758,6 +8758,16 @@
             ],
             "title": "Mart Request Id"
           },
+          "origin": {
+            "default": "analyst",
+            "description": "dictionary: a French word for an English name, proposed by Forja",
+            "enum": [
+              "analyst",
+              "dictionary"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
           "project_id": {
             "title": "Project Id",
             "type": "string"

@@ -189,6 +189,10 @@ class SynonymProposal(BaseModel):
     target: str = Field(description="metric:<name>, dimension:<name> or attribute:<dim>.<attr>")
     synonym: str
     proposed_by: str
+    origin: Literal["analyst", "dictionary"] = Field(
+        default="analyst",
+        description="dictionary: a French word for an English name, proposed by Forja",
+    )
     status: Literal["pending", "accepted", "rejected"] = "pending"
     reviewed_by: str | None = None
     mart_request_id: str | None = None
