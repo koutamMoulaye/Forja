@@ -53,6 +53,7 @@ def make_orders(count: int, *, start: int = 1) -> list[dict[str, Any]]:
 @dataclass
 class FakeApiState:
     orders: list[dict[str, Any]] = field(default_factory=lambda: make_orders(8))
+    clients: list[dict[str, Any]] = field(default_factory=list)
     auth: str = "none"  # none, api_key_header, api_key_query, bearer, basic, oauth2
     api_key: str = "secret-key-123"
     token: str = "secret-token-456"
@@ -134,12 +135,12 @@ def _handler(state: FakeApiState) -> type[BaseHTTPRequestHandler]:
             if not _authorized(state, self, query):
                 self._send(401, {"error": "unauthorized"})
                 return
-            records = state.orders
+            records = state.clients if parts.path.endswith("/clients") else state.orders
             if "since" in query:
                 records = [r for r in records if r["updated_at"] > query["since"]]
             base = f"http://{self.headers.get('Host')}"
             kind = parts.path.split("/")[2] if parts.path.count("/") >= 3 else ""
-            if not parts.path.endswith("/orders"):
+            if not parts.path.endswith(("/orders", "/clients")):
                 self._send(404, {"error": "not found"})
                 return
             size = int(query.get("per_page") or query.get("limit") or PAGE_SIZE)
