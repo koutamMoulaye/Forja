@@ -126,6 +126,7 @@ métadonnées et l'entrepôt ; dbt exécute les transformations. Plus de détail
 | [Agent](docs/agent.md) · [Couche sémantique](docs/semantic-layer.md) | Comment une question devient un data mart |
 | [BI](docs/bi.md) · [Profilage](docs/profiling.md) | Brancher un outil BI ; règles de profilage |
 | [Développement](docs/development.md) | Sans Docker, parcours par l'API, tests |
+| [Mesures](docs/benchmarks.md) · [Campagne de tests](docs/campaign-report.md) | Volumes, temps, mémoire, Lighthouse ; anomalies trouvées avant l'ouverture |
 
 ## État du projet
 

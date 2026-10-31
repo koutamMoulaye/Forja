@@ -120,3 +120,6 @@ supprimé ensuite.
 
 La mémoire reste très en dessous de la limite de DuckDB (6 Go) : rien n'est chargé
 entier. Relancer : `FORJA_VOLUME_ROWS=5000000 uv run pytest -s tests/test_volume.py`.
+
+Jusqu'à l'export, sur 5 millions de lignes, une table PostgreSQL de 10 millions et un
+envoi de 2 Go : [benchmarks.md](benchmarks.md).
