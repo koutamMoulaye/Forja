@@ -7,17 +7,24 @@ open, and writing, while the restarted API builds again.
 - Windows: the API process enters a job object closed with it; every child it starts
   then belongs to the job, and the system ends them when the API dies.
 - Linux: each child asks to be killed when its parent dies (PR_SET_PDEATHSIG).
-- Elsewhere (macOS): nothing; an orphan finishes its build, and the next one fails on the
-  warehouse lock until it is done.
+- Elsewhere (macOS): the child runs under a guard, ``python -m forja_core.children``,
+  which watches the API and kills the child's process group when the API is gone.
+
+On every POSIX system a child leads its own process group, and :func:`stop_children`
+ends the groups still running when the API shuts down.
 """
 
 from __future__ import annotations
 
 import ctypes
+import os
 import signal
+import subprocess
 import sys
 import threading
-from collections.abc import Callable
+import time
+from collections.abc import Callable, Sequence
+from typing import Any
 
 from forja_core.logging import get_logger
 
@@ -25,6 +32,11 @@ log = get_logger(__name__)
 
 _lock = threading.Lock()
 _job: int | None = None
+_running: set[subprocess.Popen[str]] = set()
+# POSIX only, looked up so that type checkers on Windows keep these branches.
+_killpg: Callable[[int, int], None] = getattr(os, "killpg", lambda _pgid, _sig: None)
+_getpgrp: Callable[[], int] = getattr(os, "getpgrp", os.getpid)
+GUARD_POLL_SECONDS = 0.5
 # Read once, as a plain string: type checkers would drop the other platforms' branches.
 _PLATFORM: str = sys.platform
 
@@ -126,3 +138,84 @@ def child_setup() -> Callable[[], None] | None:
         libc.prctl(_PR_SET_PDEATHSIG, _SIGKILL)
 
     return die_with_parent
+
+
+def needs_guard() -> bool:
+    """POSIX systems without PR_SET_PDEATHSIG (macOS): the child runs under a guard."""
+    return _PLATFORM != "win32" and not _PLATFORM.startswith("linux")
+
+
+def spawn(
+    command: Sequence[str], *, guard: bool | None = None, **kwargs: Any
+) -> subprocess.Popen[str]:
+    """Start a child bound to the life of this process (see the module docstring).
+
+    Text-mode keyword arguments are passed on to :class:`subprocess.Popen`; ``guard``
+    forces the guard on or off (tests)."""
+    bind_children()
+    argv = list(command)
+    guarded = guard if guard is not None else needs_guard()
+    if guarded:
+        argv = [sys.executable, "-m", "forja_core.children", str(os.getpid()), "--", *argv]
+    if _PLATFORM != "win32":
+        kwargs["start_new_session"] = True
+        # A guard outlives the API long enough to kill its group; it binds its own child.
+        kwargs["preexec_fn"] = None if guarded else child_setup()
+    process: subprocess.Popen[str] = subprocess.Popen(argv, **kwargs)
+    with _lock:
+        _running.add(process)
+    return process
+
+
+def release(process: subprocess.Popen[str]) -> None:
+    """Forget a child that has exited."""
+    with _lock:
+        _running.discard(process)
+
+
+def _kill(process: subprocess.Popen[str], sig: int) -> None:
+    try:
+        if _PLATFORM == "win32":
+            process.kill() if sig == _SIGKILL else process.terminate()
+        else:
+            _killpg(process.pid, sig)  # the child leads its group
+    except (ProcessLookupError, PermissionError, OSError):
+        pass
+
+
+def stop_children(timeout: float = 5) -> int:
+    """End the children still running (API shutdown): SIGTERM, then SIGKILL."""
+    with _lock:
+        running = [p for p in _running if p.poll() is None]
+        _running.clear()
+    for process in running:
+        _kill(process, int(signal.SIGTERM))
+    deadline = time.monotonic() + timeout
+    for process in running:
+        try:
+            process.wait(timeout=max(deadline - time.monotonic(), 0.1))
+        except subprocess.TimeoutExpired:
+            _kill(process, _SIGKILL)
+    if running:
+        log.warning("children_stopped", count=len(running))
+    return len(running)
+
+
+def _guard(parent: int, command: list[str]) -> int:
+    """Run ``command`` in this process group; kill the group once ``parent`` is gone."""
+    child = subprocess.Popen(command, preexec_fn=child_setup())  # killed with the guard
+
+    def end(*_: object) -> None:
+        _killpg(_getpgrp(), _SIGKILL)
+
+    signal.signal(signal.SIGTERM, end)
+    while child.poll() is None:
+        if os.getppid() != parent:  # reparented: the API died
+            end()
+        time.sleep(GUARD_POLL_SECONDS)
+    return child.returncode
+
+
+if __name__ == "__main__":
+    _parent, _separator, *_command = sys.argv[1:]
+    sys.exit(_guard(int(_parent), _command))

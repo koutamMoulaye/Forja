@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from forja_core.children import bind_children, child_setup
+from forja_core.children import release, spawn
 from forja_core.errors import BuildError
 from forja_core.jobs.models import DbtTestResult, DbtTestSummary
 from forja_core.jobs.scope import item_finished, item_started, report
@@ -176,8 +176,7 @@ class DbtRunner:
         }
         log(f"$ dbt build --select {' '.join(select)}")
         # dbt dies with the API: a crash must not leave it writing the warehouse.
-        bind_children()
-        process = subprocess.Popen(
+        process = spawn(
             command,
             cwd=project_dir,
             env=env,
@@ -186,19 +185,21 @@ class DbtRunner:
             text=True,
             encoding="utf-8",
             errors="replace",
-            preexec_fn=child_setup(),
         )
-        assert process.stdout is not None
-        progress = DbtProgress(self.model_delay_seconds)
-        for line in process.stdout:
-            text = _ANSI_RE.sub("", line.rstrip())
-            log(text)
-            progress.feed(text)
         try:
-            returncode = process.wait(timeout=self.timeout_seconds)
-        except subprocess.TimeoutExpired as exc:
-            process.kill()
-            raise BuildError(f"dbt build exceeded {self.timeout_seconds:.0f} s") from exc
+            assert process.stdout is not None
+            progress = DbtProgress(self.model_delay_seconds)
+            for line in process.stdout:
+                text = _ANSI_RE.sub("", line.rstrip())
+                log(text)
+                progress.feed(text)
+            try:
+                returncode = process.wait(timeout=self.timeout_seconds)
+            except subprocess.TimeoutExpired as exc:
+                process.kill()
+                raise BuildError(f"dbt build exceeded {self.timeout_seconds:.0f} s") from exc
+        finally:
+            release(process)
 
         tests, models = parse_run_results(project_dir / "target" / "run_results.json")
         attach_tested_models(tests, project_dir / "target" / "manifest.json")

@@ -8,7 +8,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
-from forja_core import duck
+from forja_core import children, duck
 from forja_core.agent.service import MartService
 from forja_core.auth.service import AuthService
 from forja_core.catalog import Catalog
@@ -310,6 +310,9 @@ class AppState:
     def close(self) -> None:
         self.scheduler.stop()
         self.events.close()
+        # A build still running is stopped with the API, as after a crash: marked failed
+        # at the next start, never left writing the warehouse.
+        children.stop_children()
         self.runner.stop(timeout=30)
         self.catalog.close()
 

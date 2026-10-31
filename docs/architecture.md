@@ -278,7 +278,14 @@ d'exécutions (`attempts`).
 - Au démarrage, les jobs restés `running` (processus arrêté) passent en `failed` et les
   jobs `queued` sont repris.
 - dbt tourne dans un sous-processus ; sa sortie est recopiée dans les logs du run et
-  `run_results.json` fournit le résultat de chaque test.
+  `run_results.json` fournit le résultat de chaque test. L'identifiant du run lui
+  parvient par la variable d'environnement `FORJA_RUN_ID` (et non `--vars`), ce qui
+  garde l'analyse partielle de dbt d'un run à l'autre.
+- dbt vit et meurt avec l'API (`forja_core.children`) : sous Windows un job object
+  fermé avec l'API ; sous Linux `PR_SET_PDEATHSIG` ; sous macOS un gardien
+  (`python -m forja_core.children`) qui surveille l'API et tue le groupe de processus
+  quand elle disparaît. Sous POSIX chaque dbt mène son groupe de processus, arrêté à la
+  fermeture de l'API ; le build interrompu passe en échec au démarrage suivant.
 
 Métriques d'un `build_silver`, globales et par source : lignes lues (non encore
 traitées), déjà traitées, doublons exacts retirés, valides, rejetées, remplacées par une
