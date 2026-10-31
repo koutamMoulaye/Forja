@@ -34,9 +34,10 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
       grepInvert: /@perf/,
     },
-    // Load times are measured in Google Chrome, the browser people use: Playwright's
-    // Chromium build ran the same scripts six times slower on the reference workstation
-    // (ELK's first layout: 841 ms against 129 ms), which no user ever sees.
+    // Load times are measured in Google Chrome, the browser people use. Playwright's
+    // Chromium build for Windows is x64: on the ARM64 reference workstation it runs
+    // emulated, six times slower than the native Chrome (ELK's first layout: 841 ms
+    // against 129 ms), which no user of that machine ever sees.
     {
       name: "chrome",
       use: {
