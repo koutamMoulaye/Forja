@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from forja_core.catalog import Catalog
+from forja_core.profiling.models import ColumnProfile
 from forja_core.relations.models import Relation, RelationStatus
 from forja_core.silver.plan import PiiTreatment, TransformationPlan
 from forja_core.silver.tables import SilverTable, TableLayer
@@ -19,6 +20,10 @@ def is_numeric(column_type: str) -> bool:
     return column_type.upper().startswith(_NUMERIC_PREFIXES)
 
 
+def is_integer(column_type: str) -> bool:
+    return is_numeric(column_type) and "INT" in column_type.upper()
+
+
 def is_temporal(column_type: str) -> bool:
     upper = column_type.upper()
     return upper == "DATE" or upper.startswith("TIMESTAMP")
@@ -31,6 +36,9 @@ class SilverSource:
     plan: TransformationPlan
     columns: dict[str, str] = field(default_factory=dict)
     key: tuple[str, ...] = ()
+    # Profile of the source column behind each Silver column (statistics, never values
+    # beyond what the profile keeps); empty when the source was never profiled.
+    profiles: dict[str, ColumnProfile] = field(default_factory=dict)
 
     @property
     def model(self) -> str:
@@ -70,15 +78,23 @@ class GoldContext:
 
 def build_gold_context(catalog: Catalog, project_id: str) -> GoldContext:
     sources: dict[str, SilverSource] = {}
+    reports = catalog.latest_profiles(project_id)
     for table in catalog.list_tables(project_id, TableLayer.SILVER):
         assert table.source_id is not None
         plan = catalog.get_plan(table.source_id, version=table.plan_version)
+        report = reports.get(table.source_id)
+        by_source = {c.name: c for c in report.columns} if report else {}
         sources[plan.source_name] = SilverSource(
             name=plan.source_name,
             table=table,
             plan=plan,
             columns={c.name: c.type for c in table.columns if not c.name.startswith("_")},
             key=tuple(c.target_column for c in plan.key_columns()),
+            profiles={
+                c.target_column: by_source[c.source_column]
+                for c in plan.columns
+                if c.source_column in by_source
+            },
         )
     return GoldContext(
         project_id=project_id,

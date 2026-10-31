@@ -11,6 +11,11 @@ The confirmed relations give the shape of the star:
 - when no relation gives a fact and none waits for review (a project of one file), a
   source left alone with numbers is a fact by itself: its texts are degenerate
   dimensions, its dates date keys.
+
+Numbers are not all measures: a column of codes (a nomenclature such as the BAAC
+lighting or severity codes, a month, a department number) is grouped by, never summed.
+It is recognised by its name (code, num, id, type, cat...) or, from the profile, by a
+few short integers; a name that reads as a measure (quantite, montant...) always wins.
 """
 
 from __future__ import annotations
@@ -18,7 +23,13 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterable
 
-from forja_core.gold.context import GoldContext, SilverSource, is_numeric, is_temporal
+from forja_core.gold.context import (
+    GoldContext,
+    SilverSource,
+    is_integer,
+    is_numeric,
+    is_temporal,
+)
 from forja_core.gold.plan import (
     Aggregation,
     DateDimension,
@@ -52,10 +63,79 @@ AMOUNT_TOKENS = frozenset({"montant", "amount", "total", "ca"})
 AVERAGED_TOKENS = frozenset(
     {"prix", "price", "tarif", "taux", "rate", "pourcentage", "pct", "ratio", "unitaire", "unit"}
 )
+# Names that read as a measure: never taken for a code, whatever the values.
+MEASURE_TOKENS = (
+    QUANTITY_TOKENS | PRICE_TOKENS | AMOUNT_TOKENS | AVERAGED_TOKENS
+    | {"count", "compte", "poids", "weight", "stock", "unites", "units", "duree", "duration",
+       "cout", "cost", "revenu", "revenue", "remise", "discount", "marge", "margin", "solde",
+       "balance", "valeur", "value", "volume", "distance", "km", "minutes", "secondes"}
+)  # fmt: skip
+CODE_TOKENS = frozenset(
+    {"code", "cd", "num", "numero", "no", "id", "ident", "identifiant", "type", "cat",
+     "categorie", "category", "classe", "class", "nature", "statut", "status", "sexe", "sex",
+     "genre", "dep", "departement", "com", "commune", "insee", "postal", "cp", "zip",
+     "nomenclature", "an", "annee", "year", "mois", "month", "jour", "day", "semaine", "week",
+     "heure", "hour", "trimestre", "quarter"}
+)  # fmt: skip
+CODE_PREFIXES = ("cat", "code", "num", "typ", "id")  # catu, catv, numveh, typeroute...
+# Coordinates are numbers no aggregation makes sense of.
+COORDINATE_TOKENS = frozenset({"lat", "latitude", "lon", "lng", "long", "longitude"})
+# A few short integers (at most two digits, -1 for "unknown") look like a nomenclature.
+CODE_MAX_DISTINCT = 30
+CODE_MAX_VALUE = 99
 
 
 def _tokens(name: str) -> set[str]:
     return column_tokens(name)[1]
+
+
+def _number(value: object) -> float | None:
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
+def is_code(source: SilverSource, column: str) -> bool:
+    """Whether a numeric column holds codes to group by rather than a quantity to add."""
+    if not is_numeric(source.columns.get(column, "")):
+        return False
+    tokens = _tokens(column)
+    if tokens & MEASURE_TOKENS:
+        return False
+    if tokens & CODE_TOKENS or any(t.startswith(CODE_PREFIXES) for t in tokens):
+        return True
+    profile = source.profiles.get(column)
+    if profile is None or not is_integer(source.columns[column]):
+        return False
+    low, high = _number(profile.min), _number(profile.max)
+    return (
+        low is not None
+        and high is not None
+        and low >= -1
+        and high <= CODE_MAX_VALUE
+        and 0 < profile.distinct_count <= CODE_MAX_DISTINCT
+    )
+
+
+def _codes(source: SilverSource, excluded: set[str]) -> list[str]:
+    return [c for c in source.columns if c not in excluded and is_code(source, c)]
+
+
+def _coordinates(source: SilverSource) -> set[str]:
+    return {
+        c
+        for c, t in source.columns.items()
+        if is_numeric(t) and _tokens(c) & COORDINATE_TOKENS and not _tokens(c) & MEASURE_TOKENS
+    }
+
+
+def _code_warning(source: str, codes: list[str]) -> str:
+    return (
+        f"{source} : {', '.join(codes)} "
+        + ("est un code, gardé" if len(codes) == 1 else "sont des codes, gardés")
+        + " comme dimension dégénérée et non sommé ; vérifiez avant d'approuver"
+    )
 
 
 def entity_name(source: str) -> str:
@@ -115,7 +195,7 @@ def _measures(base: SilverSource, excluded: set[str]) -> list[Measure]:
     return measures
 
 
-def _standalone_fact(source: SilverSource) -> Fact | None:
+def _standalone_fact(source: SilverSource, warnings: list[str]) -> Fact | None:
     """A source with numbers and no relation, as its own fact; None without numbers."""
     key = set(source.key)
     if not any(
@@ -130,7 +210,12 @@ def _standalone_fact(source: SilverSource) -> Fact | None:
         # Personal data is never a degenerate dimension: it would reach Gold as is.
         if column_type.upper() == "VARCHAR" and not _is_personal(source, column)
     ]
-    degenerate = [DegenerateDimension(name=c, source=source.name, column=c) for c in texts]
+    codes = _codes(source, key)
+    if codes:
+        warnings.append(_code_warning(source.name, codes))
+    degenerate = [
+        DegenerateDimension(name=c, source=source.name, column=c) for c in [*texts, *codes]
+    ]
     return Fact(
         name=_fact_name(source.name),
         source=source.name,
@@ -142,7 +227,7 @@ def _standalone_fact(source: SilverSource) -> Fact | None:
             if is_temporal(column_type)
         ],
         degenerate_dimensions=degenerate,
-        measures=_measures(source, key | set(texts)),
+        measures=_measures(source, key | set(texts) | set(codes) | _coordinates(source)),
     )
 
 
@@ -194,9 +279,11 @@ def propose_heuristic(ctx: GoldContext) -> tuple[GoldModel, list[str]]:
                         )
                     )
                     for column in sources[target].columns:
-                        if is_numeric(sources[target].columns[column]) and column not in {
-                            r.from_column for r in outgoing[target]
-                        }:
+                        if (
+                            is_numeric(sources[target].columns[column])
+                            and column not in {r.from_column for r in outgoing[target]}
+                            and not is_code(sources[target], column)
+                        ):
                             warnings.append(
                                 f"{target}.{column} n'est pas repris comme mesure : il est au "
                                 f"niveau de {target}, le sommer au grain de {base_name} le "
@@ -243,6 +330,15 @@ def propose_heuristic(ctx: GoldContext) -> tuple[GoldModel, list[str]]:
                     )
 
         excluded = set(base.key) | {c for s, c in fk_columns if s == base_name}
+        codes = _codes(base, excluded)
+        if codes:
+            warnings.append(_code_warning(base_name, codes))
+            degenerate.extend(
+                DegenerateDimension(name=c, source=base_name, column=c)
+                for c in codes
+                if c not in {d.name for d in degenerate}
+            )
+        excluded |= set(codes) | _coordinates(base)
         facts.append(
             Fact(
                 name=_fact_name(base_name),
@@ -264,7 +360,7 @@ def propose_heuristic(ctx: GoldContext) -> tuple[GoldModel, list[str]]:
     pending = any(r.status is RelationStatus.SUGGESTED for r in ctx.relations)
     if not facts and not pending:
         for name in sorted(set(sources) - modeled):
-            fact = _standalone_fact(sources[name])
+            fact = _standalone_fact(sources[name], warnings)
             if fact is not None:
                 facts.append(fact)
                 modeled.add(name)

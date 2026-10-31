@@ -11,7 +11,7 @@ from forja_api.state import AppState
 from forja_core.config import Settings
 from forja_core.errors import PlanStateError, PlanValidationError
 from forja_core.gold.context import GoldContext, build_gold_context
-from forja_core.gold.heuristic import propose_heuristic
+from forja_core.gold.heuristic import is_code, propose_heuristic
 from forja_core.gold.plan import (
     Aggregation,
     DateKey,
@@ -325,3 +325,68 @@ def test_a_project_of_one_file_gets_a_fact(settings: Settings, tmp_path: Path) -
         assert approved.status_code == 200, approved.text
         gold = client.post(f"/projects/{project_id}/runs", json={"type": "build_gold"})
         assert gold.json()["status"] == "succeeded", gold.text
+
+
+def test_code_columns_are_not_measures(settings: Settings, tmp_path: Path) -> None:
+    """The shape of the BAAC road accident files: numbers that are nomenclature codes
+    (lighting, severity, user category, birth year) are grouped by, never summed;
+    coordinates are neither. Without a language model the fact only counts rows."""
+    caract = ["Num_Acc;jour;an;lum;agg;int;atm;col;dep;lat;long"] + [
+        f"2024{i:08d};{1 + i % 28};2024;{1 + i % 5};{1 + i % 2};{1 + i % 9};{i % 10 - 1};"
+        f"{i % 8 - 1};{('75', '2A', '13', '69')[i % 4]};{48 + i % 7},{i % 97:02d};"
+        f"{2 + i % 5},{i % 89:02d}"
+        for i in range(1, 301)
+    ]
+    usagers = ["id_usager;Num_Acc;catu;grav;sexe;an_nais;secu1;trajet"] + [
+        f"{100000 + i};2024{1 + i // 2:08d};{1 + i % 3};{1 + i % 4};{1 + i % 2};"
+        f"{1940 + i % 68};{i % 10 - 1};{i % 10}"
+        for i in range(600)
+    ]
+    files = {"caracteristiques.csv": caract, "usagers.csv": usagers}
+    for name, lines in files.items():
+        (tmp_path / name).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with api_client(settings.model_copy(update={"job_runner": "inline"})) as client:
+        project_id = client.post("/projects", json={"name": "Accidents"}).json()["id"]
+        for name in files:
+            with (tmp_path / name).open("rb") as handle:
+                [source] = client.post(
+                    f"/projects/{project_id}/sources", files={"file": (name, handle)}
+                ).json()
+            assert client.post(f"/sources/{source['id']}/plan/approve").status_code == 200
+        built = client.post(f"/projects/{project_id}/runs", json={"type": "build_silver"})
+        assert built.json()["status"] == "succeeded", built.text
+        for relation in client.get(f"/projects/{project_id}/relations").json():
+            assert client.post(f"/relations/{relation['id']}/confirm").status_code == 200
+        proposed = client.post(f"/projects/{project_id}/gold-plan/propose", json={"use_llm": False})
+        assert proposed.json()["status"] == "succeeded", proposed.text
+        plan = client.get(f"/projects/{project_id}/gold-plan").json()
+        [fact] = plan["facts"]
+        assert fact["source"] == "usagers"
+        assert [m["name"] for m in fact["measures"]] == ["nb_lignes"]
+        degenerate = {d["column"] for d in fact["degenerate_dimensions"]}
+        assert {"catu", "grav", "sexe", "an_nais", "secu1", "trajet"} <= degenerate
+        assert any("sont des codes" in w for w in plan["warnings"])
+        [dimension] = plan["dimensions"]
+        assert dimension["source"] == "caracteristiques"
+        approved = client.post(f"/projects/{project_id}/gold-plan/approve")
+        assert approved.status_code == 200, approved.text
+        gold = client.post(f"/projects/{project_id}/runs", json={"type": "build_gold"})
+        assert gold.json()["status"] == "succeeded", gold.text
+
+
+def test_codes_and_measures_by_name_and_profile(ctx: GoldContext) -> None:
+    """A name that reads as a measure wins over the values; a code name wins over them."""
+    source = next(iter(ctx.sources.values()))
+    profile = next(iter(source.profiles.values()))
+    small = profile.model_copy(update={"min": 1, "max": 5, "distinct_count": 5})
+    wide = profile.model_copy(update={"min": 1, "max": 5000, "distinct_count": 900})
+    probe = replace(
+        source,
+        columns={"quantite": "BIGINT", "lum": "BIGINT", "poids_kg": "BIGINT",
+                 "type_route": "BIGINT", "visites": "BIGINT", "note": "DOUBLE"},
+        profiles={"quantite": small, "lum": small, "poids_kg": small, "type_route": wide,
+                  "visites": wide, "note": small},
+    )  # fmt: skip
+    assert not is_code(probe, "quantite") and not is_code(probe, "poids_kg")
+    assert is_code(probe, "lum") and is_code(probe, "type_route")
+    assert not is_code(probe, "visites") and not is_code(probe, "note")
