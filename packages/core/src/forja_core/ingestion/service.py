@@ -59,6 +59,10 @@ class IngestedVersion:
 VersionListener = Callable[[IngestedVersion], None]
 
 
+class NothingNewError(IngestionError):
+    code = "nothing_new"
+
+
 @dataclass(frozen=True)
 class PendingTable:
     """A table of an uploaded file, landed when its source version is created."""
@@ -407,6 +411,10 @@ class IngestionService:
         stem = slugify(Path(filename).stem, default="data")
         target = target_dir / f"{stamp}_v{version_number:04d}_{stem}.parquet"
         landed = land(target, Technical(batch_id, ingested_at, source_file))
+        if landed.row_count == 0 and previous:
+            # Every row was already loaded (incremental lookback): no empty version.
+            target.unlink(missing_ok=True)
+            raise NothingNewError("no new row since the previous version")
 
         version = SourceVersion(
             id=batch_id,

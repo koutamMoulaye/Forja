@@ -95,9 +95,11 @@ def _copy(
     technical: Technical,
     *,
     where: str = "",
+    known: Sequence[Path] = (),
 ) -> int:
     """Write ``relation_sql`` (already holding the final column names) with the technical
-    columns to ``target``; returns the number of rows written."""
+    columns to ``target``; returns the number of rows written. Rows whose ``_row_hash`` is
+    in one of the ``known`` Parquet files (earlier versions) are left out."""
     names = ", ".join(quote_ident(c) for c in columns)
     stamp = technical.ingested_at.isoformat()
     select = (
@@ -107,6 +109,12 @@ def _copy(
         f"{row_hash_sql(columns)} AS _row_hash "
         f"FROM ({relation_sql}) AS landed {where}"
     )
+    if known:
+        files = ", ".join(sql_literal(str(p)) for p in known)
+        select = (
+            f"SELECT * FROM ({select}) AS hashed WHERE _row_hash NOT IN "
+            f"(SELECT _row_hash FROM read_parquet([{files}]))"
+        )
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_name(target.name + ".part")
     try:
@@ -124,18 +132,34 @@ def _copy(
     return int(rows)
 
 
-def land_batches(reader: pa.RecordBatchReader, target: Path, technical: Technical) -> int:
-    """Write Arrow batches (column names already final) to ``target``."""
+def land_batches(
+    reader: pa.RecordBatchReader,
+    target: Path,
+    technical: Technical,
+    known: Sequence[Path] = (),
+) -> int:
+    """Write Arrow batches (column names already final) to ``target``, without the rows
+    already in the ``known`` files."""
     with duck.connect() as con:
         con.register("forja_batches", reader)
-        return _copy(con, "SELECT * FROM forja_batches", reader.schema.names, target, technical)
+        return _copy(
+            con,
+            "SELECT * FROM forja_batches",
+            reader.schema.names,
+            target,
+            technical,
+            known=known,
+        )
 
 
-def land_table(table: pa.Table, target: Path, technical: Technical) -> int:
+def land_table(
+    table: pa.Table, target: Path, technical: Technical, known: Sequence[Path] = ()
+) -> int:
     return land_batches(
         pa.RecordBatchReader.from_batches(table.schema, table.to_batches(BATCH_ROWS)),
         target,
         technical,
+        known,
     )
 
 
@@ -459,7 +483,11 @@ def _flat_columns(expression: str, name: str, kind: DuckDBPyType) -> list[tuple[
 
 
 def _land_json_duckdb(
-    path: Path, policy: DuplicateColumnPolicy, target: Path, technical: Technical
+    path: Path,
+    policy: DuplicateColumnPolicy,
+    target: Path,
+    technical: Technical,
+    known: Sequence[Path] = (),
 ) -> Landed:
     source = (
         f"read_json({sql_literal(str(path))}, format = 'auto', "
@@ -496,27 +524,31 @@ def _land_json_duckdb(
         select = ", ".join(
             f"{sql} AS {quote_ident(n)}" for (_, sql), n in zip(flat, final, strict=True)
         )
-        rows = _copy(con, f"SELECT {select} FROM {source}", final, target, technical)
-    if rows == 0:
+        rows = _copy(con, f"SELECT {select} FROM {source}", final, target, technical, known=known)
+    if rows == 0 and not known:
         target.unlink(missing_ok=True)
         raise EmptyFileError("JSON document contains no records")
     return Landed(row_count=rows, column_count=len(final), warnings=header_warnings + warnings)
 
 
 def land_json(
-    path: Path, policy: DuplicateColumnPolicy, target: Path, technical: Technical
+    path: Path,
+    policy: DuplicateColumnPolicy,
+    target: Path,
+    technical: Technical,
+    known: Sequence[Path] = (),
 ) -> Landed:
     with path.open("rb") as handle:
         if not handle.read(SAMPLE_BYTES).strip():
             raise EmptyFileError("file is empty")
     try:
-        return _land_json_duckdb(path, policy, target, technical)
+        return _land_json_duckdb(path, policy, target, technical, known)
     except duckdb.Error as exc:
         if path.stat().st_size > JSON_FALLBACK_MAX_BYTES:
             raise CorruptedFileError(f"cannot read JSON file: {exc}") from exc
         log.info("json_duckdb_reader_declined", error=str(exc).splitlines()[0][:200])
     raw = read_json(path, policy)
-    rows = land_table(raw.table, target, technical)
+    rows = land_table(raw.table, target, technical, known)
     return Landed(
         row_count=rows,
         column_count=raw.table.num_columns,

@@ -67,6 +67,7 @@ type Form = {
   sinceParam: string;
   cursorField: string;
   initialValue: string;
+  lookback: string;
   rateLimit: string;
   retries: string;
 };
@@ -98,6 +99,7 @@ const INITIAL: Form = {
   sinceParam: "since",
   cursorField: "updated_at",
   initialValue: "",
+  lookback: "10",
   rateLimit: "",
   retries: "5",
 };
@@ -144,6 +146,9 @@ function params(form: Form, withEndpoint: boolean): Record<string, unknown> {
                   param: form.sinceParam.trim(),
                   cursor_field: form.cursorField.trim(),
                   initial_value: blank(form.initialValue),
+                  // Dates: minutes read again; numbers: values read again.
+                  lookback_minutes: Number(form.lookback) || 0,
+                  lookback_values: Number(form.lookback) || 0,
                 }
               : null,
           },
@@ -549,6 +554,12 @@ function EndpointForm({
           {text("sinceParam", "Paramètre envoyé", "since")}
           {text("cursorField", "Champ de date ou d’id", "updated_at")}
           {text("initialValue", "Valeur de départ", "2025-01-01", "Facultatif")}
+          {text(
+            "lookback",
+            "Recouvrement",
+            "10",
+            "Minutes (dates) ou valeurs (nombres) relues ; les doublons sont écartés.",
+          )}
         </div>
       ) : null}
       <div className="grid grid-cols-2 gap-3">

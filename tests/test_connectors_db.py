@@ -237,3 +237,36 @@ def test_connections_are_for_engineers_and_admins(
             listed = engineer.get(f"/projects/{project_id}/connections")
             assert listed.status_code == 200
             assert db.READER_PASSWORD not in listed.text
+
+
+def test_lookback_catches_a_row_committed_late(
+    client: TestClient, database: db.TestDatabase
+) -> None:
+    """A row whose change date is just before the cursor, committed after the previous
+    load, is read by the lookback window; the rows read again are not loaded twice."""
+    _, connection = _connection(client, database)
+    body = _import(
+        client,
+        connection["id"],
+        [
+            {
+                "schema_name": database.schema,
+                "table": "orders",
+                "mode": "incremental",
+                "cursor_column": "updated_at",
+                "lookback_minutes": 30,
+            }
+        ],
+    )
+    [load] = body["run"]["metrics"]["loads"]
+    assert load["rows"] == 20  # updated from 10:01 to 10:20
+    # Committed after that load, dated 10:12: before the cursor, inside the window.
+    db.insert_order_at(database, 200, "2026-01-01 10:12:00")
+    late = client.post(f"/connections/{connection['id']}/load", json={}).json()
+    [load] = late["metrics"]["loads"]
+    assert load["rows"] == 21, late  # the window reads the last 30 minutes again
+    assert load["version"] == 2
+    versions = client.get(f"/sources/{load['source_id']}/versions").json()
+    assert versions[-1]["row_count"] == 1  # only the late row is new
+    again = client.post(f"/connections/{connection['id']}/load", json={}).json()
+    assert [m["skipped"] for m in again["metrics"]["loads"]] == ["aucune nouvelle ligne"]

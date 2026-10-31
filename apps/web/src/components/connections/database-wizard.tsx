@@ -52,7 +52,17 @@ type Form = {
   ssl: "prefer" | "require" | "disable";
 };
 
-type Choice = { mode: "full" | "incremental"; cursor: string | null };
+/** Lookback: minutes for a date cursor, values for a number (late rows read again). */
+type Choice = { mode: "full" | "incremental"; cursor: string | null; lookback: number };
+
+/** Read again the last 10 minutes of a date cursor by default: rows committed late. */
+const DEFAULT_LOOKBACK_MINUTES = 10;
+
+function cursorKind(table: DatabaseTable, cursor: string | null): "date" | "number" | null {
+  const column = table.columns.find((c) => c.name === cursor);
+  if (!column) return null;
+  return /^(timestamp|date)/.test(column.forja_type) ? "date" : "number";
+}
 
 function draft(form: Form): ConnectionCreate {
   return {
@@ -92,6 +102,13 @@ export function DatabaseWizard({
   });
   const [connection, setConnection] = useState<Connection | null>(null);
   const [chosen, setChosen] = useState<Map<string, Choice>>(new Map());
+  const exploration = useExploration(connection?.id ?? null);
+  const kinds = new Map(
+    (exploration.data?.tables ?? []).map((t) => [
+      key(t),
+      cursorKind(t, chosen.get(key(t))?.cursor ?? null),
+    ]),
+  );
   const [schedule, setSchedule] = useState("Tous les jours à 6 h");
   const set = <K extends keyof Form>(name: K, value: Form[K]) =>
     setForm((current) => ({ ...current, [name]: value }));
@@ -113,6 +130,10 @@ export function DatabaseWizard({
           table: rest.join("."),
           mode: choice.mode,
           cursor_column: choice.mode === "incremental" ? choice.cursor : null,
+          lookback_minutes:
+            choice.mode === "incremental" && kinds.get(name) === "date" ? choice.lookback : 0,
+          lookback_values:
+            choice.mode === "incremental" && kinds.get(name) === "number" ? choice.lookback : 0,
         };
       });
       const imported = await importObjects(connection!.id, {
@@ -382,6 +403,10 @@ function TablePicker({
       next.set(key(table), {
         mode: table.suggested_cursor ? "incremental" : "full",
         cursor: table.suggested_cursor ?? null,
+        lookback:
+          cursorKind(table, table.suggested_cursor ?? null) === "date"
+            ? DEFAULT_LOOKBACK_MINUTES
+            : 0,
       });
     } else {
       next.delete(key(table));
@@ -458,6 +483,7 @@ function TablePicker({
                     value={choice.mode}
                     onValueChange={(mode) =>
                       update(table, {
+                        ...choice,
                         mode,
                         cursor: choice.cursor ?? table.suggested_cursor ?? cursors[0]?.name ?? null,
                       })
@@ -470,7 +496,14 @@ function TablePicker({
                   {choice.mode === "incremental" ? (
                     <Select
                       value={choice.cursor ?? undefined}
-                      onValueChange={(cursor) => update(table, { ...choice, cursor })}
+                      onValueChange={(cursor) =>
+                        update(table, {
+                          ...choice,
+                          cursor,
+                          lookback:
+                            cursorKind(table, cursor) === "date" ? DEFAULT_LOOKBACK_MINUTES : 0,
+                        })
+                      }
                     >
                       <SelectTrigger
                         aria-label={`Colonne curseur de ${table.name}`}
@@ -487,6 +520,27 @@ function TablePicker({
                         ))}
                       </SelectContent>
                     </Select>
+                  ) : null}
+                  {choice.mode === "incremental" && choice.cursor ? (
+                    <label className="flex items-center gap-1.5 text-meta text-tx2">
+                      Relire les
+                      <Input
+                        type="number"
+                        min={0}
+                        value={String(choice.lookback)}
+                        onChange={(event) =>
+                          update(table, {
+                            ...choice,
+                            lookback: Math.max(0, Number(event.target.value) || 0),
+                          })
+                        }
+                        aria-label={`Recouvrement de ${table.name}`}
+                        className="h-8 w-20 px-2"
+                      />
+                      {cursorKind(table, choice.cursor) === "date"
+                        ? "dernières minutes"
+                        : "dernières valeurs"}
+                    </label>
                   ) : null}
                   {choice.mode === "incremental" && choice.cursor ? (
                     <span className="text-meta text-tx3">

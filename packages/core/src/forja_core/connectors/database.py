@@ -447,9 +447,11 @@ class DatabaseConnector:
         cursor_column: str | None = None,
         after: str | None = None,
         state: CursorState | None = None,
+        lookback_minutes: int = 0,
+        lookback_values: int = 0,
     ) -> tuple[pa.Schema, Iterator[pa.RecordBatch]]:
         """Arrow schema and batches of ``schema.table``; with a cursor, only the rows whose
-        cursor is greater than ``after``, in cursor order."""
+        cursor is greater than ``after`` minus the lookback window, in cursor order."""
         columns = self.table_columns(schema, table)
         names = [c["name"] for c in columns]
         types = {c["name"]: c["type"] for c in columns}
@@ -468,13 +470,11 @@ class DatabaseConnector:
         if cursor_column is not None:
             cursor = relation.c[cursor_column]
             if after is not None:
+                start = _rewind(
+                    _parse_cursor(after, types[cursor_column]), lookback_minutes, lookback_values
+                )
                 statement = statement.where(
-                    cursor
-                    > sa.bindparam(
-                        "after",
-                        _parse_cursor(after, types[cursor_column]),
-                        type_=types[cursor_column],
-                    )
+                    cursor > sa.bindparam("after", start, type_=types[cursor_column])
                 )
             statement = statement.order_by(cursor)
         tracker = state or CursorState(column=cursor_column)
@@ -520,6 +520,17 @@ def cursor_text(value: Any) -> str | None:
     if isinstance(value, dt.datetime | dt.date | dt.time):
         return value.isoformat()
     return str(value)
+
+
+def _rewind(value: Any, minutes: int, values: int) -> Any:
+    """The cursor moved back by the lookback window: late rows are read again."""
+    if isinstance(value, dt.datetime):
+        return value - dt.timedelta(minutes=minutes)
+    if isinstance(value, dt.date):
+        return value - dt.timedelta(days=-(-minutes // 1440))
+    if isinstance(value, int | decimal.Decimal):
+        return value - values
+    return value
 
 
 def _parse_cursor(value: str, column_type: sa.types.TypeEngine[Any]) -> Any:

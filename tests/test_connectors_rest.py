@@ -453,3 +453,48 @@ def test_private_api_needs_the_administrators_allowlist(settings: Settings) -> N
             json={"name": "Local", "type": "rest_api", "params": {"base_url": base}},
         )
         assert created.status_code == 201, created.text
+
+
+def test_lookback_reads_late_records_once(client: TestClient) -> None:
+    """A record committed late, with a change date just before the cursor, is caught by
+    the lookback window; the records read again are not loaded twice."""
+    with serve(FakeApiState(auth="bearer")) as (base, state):
+        project_id = _project(client)
+        connection = _api_connection(client, project_id, base)
+        params = connection["params"]
+        params["endpoints"][0]["incremental"]["lookback_minutes"] = 180
+        assert (
+            client.patch(f"/connections/{connection['id']}", json={"params": params}).status_code
+            == 200
+        )
+        first = client.post(
+            f"/connections/{connection['id']}/import", json={"endpoints": [{"endpoint": "orders"}]}
+        ).json()["run"]
+        assert first["status"] == "succeeded", first["error"]
+        # Late: changed one hour before the newest record (2026-01-01T08:00Z), visible now.
+        late = make_orders(1, start=50)[0] | {"updated_at": "2026-01-01T07:00:00Z", "items": []}
+        state.orders.append(late)
+        state.orders += make_orders(1, start=9)
+        again = client.post(f"/connections/{connection['id']}/load", json={}).json()
+        assert again["status"] == "succeeded", again["error"]
+        assert all(
+            "since=2026-01-01T05%3A00%3A00Z" in r or "since=2026-01-01T05:00:00Z" in r
+            for r in state.requests
+            if r.startswith("GET /v1/page/orders") and "since" in r
+        )
+        loads = {m["object"]: m for m in again["metrics"]["loads"]}
+        orders = client.get(f"/sources/{loads['orders']['source_id']}/versions").json()
+        assert orders[-1]["row_count"] == 2  # the late record and the new one, nothing twice
+        third = client.post(f"/connections/{connection['id']}/load", json={}).json()
+        assert {m["skipped"] for m in third["metrics"]["loads"] if m["object"] == "orders"} == {
+            "aucune nouveauté"
+        }
+
+
+def test_rewind_text_moves_the_cursor_back() -> None:
+    from forja_core.connectors.service import rewind_text
+
+    assert rewind_text("2026-01-01T08:00:00Z", 90, 0) == "2026-01-01T06:30:00Z"
+    assert rewind_text("2026-01-01T08:00:00+01:00", 30, 0) == "2026-01-01T07:30:00+01:00"
+    assert rewind_text("1250", 0, 50) == "1200"
+    assert rewind_text("abc", 30, 5) == "abc"

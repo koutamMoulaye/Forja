@@ -155,6 +155,19 @@ class ApiIncremental(BaseModel):
         min_length=1, max_length=256, description="Record field holding the change date or id"
     )
     initial_value: str | None = Field(default=None, max_length=256)
+    lookback_minutes: int = Field(
+        default=0,
+        ge=0,
+        le=7 * 24 * 60,
+        description="Incremental on a date: read again the last N minutes before the cursor "
+        "(rows committed late); rows already loaded are left out by _row_hash",
+    )
+    lookback_values: int = Field(
+        default=0,
+        ge=0,
+        le=10_000_000,
+        description="Incremental on an increasing number: read again the last N values",
+    )
 
 
 class Endpoint(BaseModel):
@@ -326,6 +339,8 @@ class SourceFeed(BaseModel):
     mode: LoadMode = LoadMode.FULL
     include_children: bool = Field(default=True, description="API: nested lists as tables")
     cursor_column: str | None = None
+    lookback_minutes: int = 0
+    lookback_values: int = 0
     cursor_value: str | None = Field(
         default=None, description="Highest cursor value loaded (incremental mode)"
     )
@@ -416,6 +431,19 @@ class TableSelection(BaseModel):
     table: str = Field(min_length=1, max_length=128)
     mode: LoadMode = LoadMode.FULL
     cursor_column: str | None = Field(default=None, max_length=128)
+    lookback_minutes: int = Field(
+        default=0,
+        ge=0,
+        le=7 * 24 * 60,
+        description="Incremental on a date: read again the last N minutes before the cursor "
+        "(rows committed late); rows already loaded are left out by _row_hash",
+    )
+    lookback_values: int = Field(
+        default=0,
+        ge=0,
+        le=10_000_000,
+        description="Incremental on an increasing number: read again the last N values",
+    )
 
     @model_validator(mode="after")
     def _cursor(self) -> TableSelection:

@@ -246,6 +246,21 @@ def insert_orders(database: TestDatabase, ids: range, *, day: int = 1) -> None:
     engine.dispose()
 
 
+def insert_order_at(database: TestDatabase, order_id: int, updated_at: str) -> None:
+    """An order changed at ``updated_at``: before the last cursor, a row committed late."""
+    engine = sa.create_engine(database.admin_url())
+    with engine.begin() as con:
+        con.execute(
+            sa.text(
+                f"INSERT INTO {_qualified(database, 'orders')} "
+                "(id, customer_id, amount, status, paid, ordered_on, updated_at) "
+                "VALUES (:id, 1, 9.99, 'paid', :p, '2026-01-01', :u)"
+            ),
+            {"id": order_id, "u": updated_at, "p": True},
+        )
+    engine.dispose()
+
+
 def touch_order(database: TestDatabase, order_id: int, *, day: int) -> None:
     engine = sa.create_engine(database.admin_url())
     with engine.begin() as con:

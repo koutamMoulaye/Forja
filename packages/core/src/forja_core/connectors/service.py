@@ -17,6 +17,7 @@ import time
 import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -63,7 +64,7 @@ from forja_core.connectors.ssrf import BlockedAddressError, Resolver, UrlGuard, 
 from forja_core.connectors.vault import SecretVault, redact
 from forja_core.errors import ConflictError, ForjaError, NotFoundError, PlanValidationError
 from forja_core.ingestion.landing import Landed, Technical, land_batches, land_json
-from forja_core.ingestion.service import IngestionService
+from forja_core.ingestion.service import IngestionService, NothingNewError
 from forja_core.jobs.models import Job, JobType, LoadMetrics, RunMetrics
 from forja_core.jobs.scope import item_finished, item_started, report
 from forja_core.logging import get_logger
@@ -381,7 +382,17 @@ class ConnectorService:
                 obj = FeedObject(schema_name=selection.schema_name, table=selection.table)
                 cursor = selection.cursor_column if selection.mode is LoadMode.INCREMENTAL else None
                 name = slugify(selection.table, default="table")
-                feeds.append(self._feed(connection, obj, name, existing, selection.mode, cursor))
+                feeds.append(
+                    self._feed(
+                        connection,
+                        obj,
+                        name,
+                        existing,
+                        selection.mode,
+                        cursor,
+                        lookback=(selection.lookback_minutes, selection.lookback_values),
+                    )
+                )
         else:
             if request.tables:
                 raise PlanValidationError("a REST API connection has endpoints, not tables")
@@ -417,6 +428,7 @@ class ConnectorService:
         mode: LoadMode,
         cursor: str | None,
         include_children: bool = True,
+        lookback: tuple[int, int] = (0, 0),
     ) -> SourceFeed:
         now = utcnow()
         feed = existing.get(obj.model_dump_json())
@@ -425,6 +437,7 @@ class ConnectorService:
                 # Another cursor: the next load starts from the beginning.
                 feed.cursor_column, feed.cursor_value = cursor, None
             feed.mode, feed.include_children, feed.updated_at = mode, include_children, now
+            feed.lookback_minutes, feed.lookback_values = lookback
             return self.catalog.save_feed(feed)
         return self.catalog.save_feed(
             SourceFeed(
@@ -435,6 +448,8 @@ class ConnectorService:
                 mode=mode,
                 cursor_column=cursor,
                 include_children=include_children,
+                lookback_minutes=lookback[0],
+                lookback_values=lookback[1],
                 created_at=now,
                 updated_at=now,
             )
@@ -533,6 +548,8 @@ class ConnectorService:
                 cursor_column=feed.cursor_column if incremental else None,
                 after=feed.cursor_value if incremental else None,
                 state=state,
+                lookback_minutes=feed.lookback_minutes,
+                lookback_values=feed.lookback_values,
             )
             metrics = LoadMetrics(source_name=feed.name, object=label, mode=feed.mode.value)
             batches = _progress(batches, state, label, percent, log_line)
@@ -543,17 +560,24 @@ class ConnectorService:
                 log_line(f"{label}: {metrics.skipped}, no version created")
             else:
                 reader = pa.RecordBatchReader.from_batches(arrow_schema, _chain(first, batches))
-                source = self._ingest(
-                    connection, feed, _batch_lander(reader), SourceFormat.DATABASE
-                )
+                known = self._known(feed) if incremental else []
+                try:
+                    source = self._ingest(
+                        connection, feed, _batch_lander(reader, known), SourceFormat.DATABASE
+                    )
+                except NothingNewError:
+                    # The lookback window read only rows already loaded.
+                    metrics.skipped = "aucune nouvelle ligne"
+                    log_line(f"{label}: {state.rows} row(s) read again, none new")
                 if incremental and state.seen:
                     feed.cursor_value = cursor_text(state.value)
-                metrics.source_id, metrics.source_name = source.id, source.name
-                metrics.version = source.version
-                log_line(
-                    f"{label}: {state.rows} row(s) in {state.batches} batch(es) -> "
-                    f"{source.name} v{source.version}"
-                )
+                if source is not None:
+                    metrics.source_id, metrics.source_name = source.id, source.name
+                    metrics.version = source.version
+                    log_line(
+                        f"{label}: {state.rows} row(s) in {state.batches} batch(es) -> "
+                        f"{source.name} v{source.version}"
+                    )
             metrics.rows, metrics.batches = state.rows, state.batches
             metrics.cursor_value = feed.cursor_value
             metrics.duration_seconds = round(time.perf_counter() - started, 3)
@@ -597,6 +621,12 @@ class ConnectorService:
             try:
                 with self._client(params, secrets) as client:
                     since = root.cursor_value if incremental else None
+                    if since is not None and endpoint.incremental is not None:
+                        since = rewind_text(
+                            since,
+                            endpoint.incremental.lookback_minutes,
+                            endpoint.incremental.lookback_values,
+                        )
                     for page in client.pages(endpoint, since=since):
                         pages += 1
                         records += len(page.records)
@@ -642,14 +672,19 @@ class ConnectorService:
                             "aucune nouveauté" if incremental else "aucun enregistrement"
                         )
                     else:
-                        lander = _json_lander(writer.file, self.settings)
-                        source = self._ingest(connection, feed, lander, SourceFormat.API)
-                        metrics.source_id, metrics.source_name = source.id, source.name
-                        metrics.version = source.version
-                        log_line(
-                            f"{feed.object.label}: {writer.rows} row(s) -> "
-                            f"{source.name} v{source.version}"
-                        )
+                        known = self._known(feed) if incremental else []
+                        lander = _json_lander(writer.file, self.settings, known)
+                        try:
+                            source = self._ingest(connection, feed, lander, SourceFormat.API)
+                        except NothingNewError:
+                            metrics.skipped = "aucune nouveauté"
+                        if source is not None:
+                            metrics.source_id, metrics.source_name = source.id, source.name
+                            metrics.version = source.version
+                            log_line(
+                                f"{feed.object.label}: {writer.rows} row(s) -> "
+                                f"{source.name} v{source.version}"
+                            )
                     if not path and incremental:
                         feed.cursor_value = cursor
                     metrics.cursor_value = feed.cursor_value
@@ -661,6 +696,14 @@ class ConnectorService:
                 flattener.close()
                 shutil.rmtree(directory, ignore_errors=True)
             item_finished(root.source_id, ok=True)
+
+    def _known(self, feed: SourceFeed) -> list[Path]:
+        """Bronze files of the feed's source: rows already there are not loaded again."""
+        source = self._source_of(feed)
+        if source is None:
+            return []
+        workspace = self.ingestion.workspace
+        return [workspace.resolve(v.bronze_path) for v in self.catalog.list_versions(source.id)]
 
     def _child_feed(
         self, connection: Connection, root: SourceFeed, path: list[str], name: str
@@ -732,16 +775,38 @@ def _progress(
             log_line(f"{label}: {state.rows} row(s) read")
 
 
-def _batch_lander(reader: pa.RecordBatchReader) -> Lander:
+def _batch_lander(reader: pa.RecordBatchReader, known: list[Path]) -> Lander:
     def land(target: Path, technical: Technical) -> Landed:
-        rows = land_batches(reader, target, technical)
+        rows = land_batches(reader, target, technical, known)
         return Landed(row_count=rows, column_count=len(reader.schema))
 
     return land
 
 
-def _json_lander(file: Path, settings: Settings) -> Lander:
+def _json_lander(file: Path, settings: Settings, known: list[Path]) -> Lander:
     def land(target: Path, technical: Technical) -> Landed:
-        return land_json(file, settings.duplicate_columns, target, technical)
+        return land_json(file, settings.duplicate_columns, target, technical, known)
 
     return land
+
+
+def rewind_text(value: str, minutes: int, values: int) -> str:
+    """The ``since`` sent to an API, moved back by the lookback window: a number by
+    ``values``, an ISO date or timestamp by ``minutes`` (same format as received)."""
+    try:
+        number = int(value)
+    except ValueError:
+        pass
+    else:
+        return str(number - values)
+    if not minutes:
+        return value
+    zulu = value.endswith("Z")
+    try:
+        moment = datetime.fromisoformat(value[:-1] + "+00:00" if zulu else value)
+    except ValueError:
+        return value
+    earlier = moment - timedelta(minutes=minutes)
+    if zulu:
+        return earlier.replace(tzinfo=None).isoformat() + "Z"
+    return earlier.isoformat()
