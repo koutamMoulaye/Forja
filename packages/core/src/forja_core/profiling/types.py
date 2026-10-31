@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Literal
 
 from forja_core.profiling.models import InferredType, TypeInference
-from forja_core.utils import sql_literal
+from forja_core.utils import sql_literal, strip_accents
 
 ValueCounts = Sequence[tuple[str, int]]
 DecimalSeparator = Literal[",", "."]
@@ -43,6 +43,20 @@ ISO8601 = "iso8601"
 KNOWN_FORMATS = frozenset({*DATE_FORMATS, *DATETIME_FORMATS, ISO8601})
 
 NEAR_TYPE_THRESHOLD = 0.6
+
+# A leading zero is padding in a calendar field ("03" for March) and part of the value in
+# a code ("01" for the Ain department, "06000" for Nice): the column name decides, then
+# the values (two digits, at most 31, read as a padded day or month).
+PADDED_TOKENS = frozenset(
+    {"mois", "month", "jour", "day", "heure", "hour", "hh", "minute", "minutes", "mn",
+     "seconde", "second", "semaine", "week", "trimestre", "quarter", "mm", "dd"}
+)  # fmt: skip
+SIGNIFICANT_ZERO_TOKENS = frozenset(
+    {"code", "cp", "postal", "zip", "insee", "dep", "departement", "commune", "com", "tel",
+     "telephone", "phone", "siren", "siret", "num", "numero", "no", "id", "ref", "reference",
+     "matricule", "compte", "account", "iban", "rib"}
+)  # fmt: skip
+PADDED_MAX_VALUE = 31
 
 _THOUSANDS_FR = " \u00a0\u202f."
 _INT_RE = re.compile(r"[+-]?\d+")
@@ -87,6 +101,26 @@ def _is_code_like(value: str) -> bool:
     """Integers with a leading zero or an explicit plus sign are identifiers, not numbers."""
     return _is_integer(value) and (
         _LEADING_ZERO_RE.match(value) is not None or value.startswith("+")
+    )
+
+
+def _name_tokens(name: str) -> set[str]:
+    spaced = re.sub(r"([a-z])([A-Z])", r"\1 \2", strip_accents(name)).lower()
+    return {t for t in re.split(r"[^a-z0-9]+", spaced) if t}
+
+
+def _zeros_are_padding(values: ValueCounts, name: str | None) -> bool:
+    """Whether the leading zeros of these integers only pad them to a width."""
+    if any(value.startswith(("+", "-")) for value, _ in values):
+        return False
+    tokens = _name_tokens(name or "")
+    if tokens & SIGNIFICANT_ZERO_TOKENS:
+        return False
+    if tokens & PADDED_TOKENS:
+        return True
+    integers = [value for value, _ in values if _is_integer(value)]
+    return bool(integers) and all(
+        len(value) <= 2 and int(value) <= PADDED_MAX_VALUE for value in integers
     )
 
 
@@ -168,8 +202,13 @@ def _best_format(values: ValueCounts, formats: Sequence[str], total: int) -> tup
     return best_fmt, best_ratio
 
 
-def infer_text_type(values: ValueCounts, threshold: float = 0.95) -> TypeInference:
-    """Infer the semantic type of a text column from its trimmed non-blank values."""
+def infer_text_type(
+    values: ValueCounts, threshold: float = 0.95, name: str | None = None
+) -> TypeInference:
+    """Infer the semantic type of a text column from its trimmed non-blank values.
+
+    ``name``, the column name, tells a padded month ("03") from a code ("01000").
+    """
     total = sum(count for _, count in values)
     if total == 0:
         return TypeInference(
@@ -185,6 +224,12 @@ def infer_text_type(values: ValueCounts, threshold: float = 0.95) -> TypeInferen
     candidates.append(_Candidate(InferredType.BOOLEAN, bool_ratio))
 
     code_like = any(_is_code_like(value) for value, _ in values)
+    if code_like and _zeros_are_padding(values, name):
+        int_ratio = _weighted_ratio(values, _is_integer, total)
+        if int_ratio >= threshold:
+            result = _result(_Candidate(InferredType.INTEGER, int_ratio))
+            result.leading_zeros = True
+            return result
     if not code_like:
         int_ratio = _weighted_ratio(values, _is_integer, total)
         if int_ratio >= threshold:

@@ -116,3 +116,24 @@ def test_pii_phone_formats() -> None:
     assert detection is not None
     assert detection.pii_type is PiiType.PHONE
     assert detection.match_ratio == 1.0
+
+
+@pytest.mark.parametrize(
+    ("name", "values", "expected"),
+    [
+        ("mois", ("03", "11", "07"), InferredType.INTEGER),
+        ("hrmn_heure", ("08", "17", "23"), InferredType.INTEGER),
+        ("valeur", ("03", "12", "28"), InferredType.INTEGER),  # two digits up to 31
+        ("dep", ("01", "13", "75"), InferredType.STRING),
+        ("code", ("03", "11", "07"), InferredType.STRING),
+        ("valeur", ("01", "13", "95"), InferredType.STRING),  # a department, not a month
+        ("valeur", ("007", "012"), InferredType.STRING),
+        (None, ("01000", "75001", "06000"), InferredType.STRING),
+    ],
+)
+def test_a_leading_zero_is_padding_or_part_of_a_code(
+    name: str | None, values: tuple[str, ...], expected: InferredType
+) -> None:
+    result = infer_text_type(_counts(*values), name=name)
+    assert result.inferred_type is expected
+    assert result.leading_zeros is (expected is InferredType.INTEGER)

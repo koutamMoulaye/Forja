@@ -358,3 +358,19 @@ def test_two_tabs_on_the_same_plan(client: TestClient, fixtures_dir: Path) -> No
     # Reloaded, the second tab approves what it now sees.
     approved = client.post(f"{plan_url}/approve", params={"version": shown + 1})
     assert approved.status_code == 200 and approved.json()["status"] == "approved"
+
+
+def test_a_padded_month_becomes_an_integer_with_a_mention(
+    ingestion: IngestionService, project: Project, catalog: Catalog, tmp_path: Path
+) -> None:
+    """The BAAC files write the month "03": an integer, the zeros dropped and said so;
+    a department "01" keeps its zero as text."""
+    file = tmp_path / "accidents.csv"
+    rows = [f"{i};{1 + i % 12:02d};{('01', '06', '13', '75')[i % 4]}" for i in range(60)]
+    file.write_text("id;mois;dep\n" + "\n".join(rows) + "\n", encoding="utf-8")
+    [source] = ingestion.ingest_file(project.id, file, "accidents.csv")
+    columns = {c.source_column: c for c in _plan(catalog, source).columns}
+    assert columns["mois"].target_type is SilverType.BIGINT
+    assert columns["mois"].cast.leading_zeros
+    assert "zéros initiaux retirés (« 03 » devient 3)" in columns["mois"].explanation
+    assert columns["dep"].target_type is SilverType.VARCHAR

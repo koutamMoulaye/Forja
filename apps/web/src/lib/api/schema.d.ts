@@ -2138,6 +2138,12 @@ export type components = {
             decimal_separator?: ("," | ".") | null;
             /** False Values */
             false_values?: string[];
+            /**
+             * Leading Zeros
+             * @description Integers written with padding zeros ("03" becomes 3)
+             * @default false
+             */
+            leading_zeros: boolean;
             /** Null Values */
             null_values?: string[];
             /** True Values */
@@ -5706,6 +5712,12 @@ export type components = {
              */
             from_text: boolean;
             inferred_type: components["schemas"]["InferredType"];
+            /**
+             * Leading Zeros
+             * @description Integers padded with leading zeros ("03"): the zeros are dropped
+             * @default false
+             */
+            leading_zeros: boolean;
             /**
              * Match Ratio
              * @description Share of values matching the type

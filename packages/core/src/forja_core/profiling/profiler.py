@@ -199,7 +199,7 @@ class Profiler:
                     f"GROUP BY 1 ORDER BY c DESC, v LIMIT {self.settings.profiling_sample_size}"
                 ).fetchall()
             ]
-            inference = infer_text_type(values, self.settings.profiling_type_threshold)
+            inference = infer_text_type(values, self.settings.profiling_type_threshold, name=name)
         else:
             inference = TypeInference(
                 inferred_type=inferred_from_physical(physical_type),

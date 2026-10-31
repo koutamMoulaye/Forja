@@ -148,6 +148,8 @@ def _cast_spec(column: ColumnProfile, target: SilverType) -> CastSpec:
     elif target is SilverType.BIGINT and inferred.decimal_separator == ",":
         # Integers grouped by thousands with spaces or dots: the groups are joined.
         spec.decimal_separator = ","
+    elif target is SilverType.BIGINT and inferred.leading_zeros:
+        spec.leading_zeros = True
     elif target is SilverType.BOOLEAN:
         spec.true_values, spec.false_values = _boolean_values(column)
     return spec

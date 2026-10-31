@@ -127,6 +127,11 @@ def cast_sentence(column: ColumnPlan) -> str:
                 f"Conversion en booléen ({trues} → vrai, {falses} → faux), "
                 f"{_invalid_suffix(column)}."
             )
+        case SilverType.BIGINT if column.cast.leading_zeros:
+            return (
+                "Conversion en entier, zéros initiaux retirés (« 03 » devient 3), "
+                f"{_invalid_suffix(column)}."
+            )
         case SilverType.BIGINT:
             return f"Conversion en entier, {_invalid_suffix(column)}."
 

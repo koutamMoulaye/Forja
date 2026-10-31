@@ -742,6 +742,12 @@
             "title": "False Values",
             "type": "array"
           },
+          "leading_zeros": {
+            "default": false,
+            "description": "Integers written with padding zeros (\"03\" becomes 3)",
+            "title": "Leading Zeros",
+            "type": "boolean"
+          },
           "null_values": {
             "items": {
               "type": "string"
@@ -9237,6 +9243,12 @@
           },
           "inferred_type": {
             "$ref": "#/components/schemas/InferredType"
+          },
+          "leading_zeros": {
+            "default": false,
+            "description": "Integers padded with leading zeros (\"03\"): the zeros are dropped",
+            "title": "Leading Zeros",
+            "type": "boolean"
           },
           "match_ratio": {
             "description": "Share of values matching the type",

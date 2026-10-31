@@ -74,6 +74,9 @@ class ValidityRule(BaseModel):
 class CastSpec(BaseModel):
     date_format: str | None = None
     decimal_separator: Literal[",", "."] | None = None
+    leading_zeros: bool = Field(
+        default=False, description='Integers written with padding zeros ("03" becomes 3)'
+    )
     true_values: list[str] = Field(default_factory=list)
     false_values: list[str] = Field(default_factory=list)
     null_values: list[str] = Field(default_factory=lambda: list(DEFAULT_NULL_VALUES))
