@@ -133,6 +133,66 @@ export async function rankGraph(
 }
 
 /**
+ * A ranking computed at once, without ELK, drawn while ELK is still on its way (a slow
+ * machine, ELK's first start): a node's column is its depth among the links of its own
+ * compartment; each column is ordered by its parents' rows, then stacked.
+ */
+export function quickRank(input: LayoutInput): Ranked {
+  const laneOf = new Map(input.nodes.map((n) => [n.id, n.lane]));
+  const heights = new Map(
+    input.nodes.map((n) => [n.id, nodeHeight(n.name, n.stacked) + GEOMETRY.nearExtra]),
+  );
+  const parents = new Map<string, string[]>();
+  for (const { source, target } of input.edges) {
+    if (!laneOf.has(source) || !laneOf.has(target) || source === target) continue;
+    parents.set(target, [...(parents.get(target) ?? []), source]);
+  }
+  // Longest path inside the compartment; a cycle stops growing after one pass per node.
+  const depth = new Map(input.nodes.map((n) => [n.id, 0]));
+  for (let pass = 0; pass < input.nodes.length; pass++) {
+    let changed = false;
+    for (const node of input.nodes) {
+      for (const parent of parents.get(node.id) ?? []) {
+        const next = depth.get(parent)! + 1;
+        if (laneOf.get(parent) === node.lane && next > depth.get(node.id)!) {
+          depth.set(node.id, next);
+          changed = true;
+        }
+      }
+    }
+    if (!changed) break;
+  }
+
+  const nodes: Ranked["nodes"] = {};
+  const order = new Map(input.nodes.map((n, index) => [n.id, index]));
+  for (const lane of LANES) {
+    const members = input.nodes.filter((n) => n.lane === lane);
+    const columns = Math.max(-1, ...members.map((n) => depth.get(n.id)!)) + 1;
+    for (let column = 0; column < columns; column++) {
+      const placedRow = (id: string) => {
+        const rows = (parents.get(id) ?? []).map((p) => nodes[p]?.y).filter((y) => y !== undefined);
+        return rows.length ? rows.reduce((a, b) => a + b, 0) / rows.length : Infinity;
+      };
+      const stack = members
+        .filter((n) => depth.get(n.id) === column)
+        .map((n) => ({ id: n.id, row: placedRow(n.id) }))
+        .sort((a, b) => a.row - b.row || order.get(a.id)! - order.get(b.id)!);
+      let y = 0;
+      for (const { id } of stack) {
+        nodes[id] = { column, y };
+        y += heights.get(id)! + GEOMETRY.rowGap;
+      }
+    }
+  }
+  alignChains(input, nodes, heights, laneOf);
+  let height = 0;
+  for (const [id, rank] of Object.entries(nodes)) {
+    height = Math.max(height, rank.y + heights.get(id)!);
+  }
+  return { nodes, height };
+}
+
+/**
  * A node fed by a single parent, which feeds only it, takes the parent's height when
  * nothing in its column is in the way: a source and its cleaned table share a row.
  */
@@ -185,6 +245,8 @@ export type Layout = {
   lanes: PlacedLane[];
   width: number;
   height: number;
+  /** Drawn from the quick ranking while ELK is on its way. */
+  provisional?: boolean;
 };
 
 export function placeLanes(

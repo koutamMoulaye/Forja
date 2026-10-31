@@ -287,11 +287,17 @@ function Canvas({ projectId, graph, synthetic = false }: Props) {
     [select, reveal],
   );
 
-  // First view: the stored camera of this project, otherwise « Ajuster ».
-  const placedOnce = useRef(false);
+  // First view: the stored camera of this project, otherwise « Ajuster ». Placed on the
+  // quick ranking, it is placed again on ELK's unless the user has moved the camera.
+  const placedOn = useRef<"quick" | "final" | null>(null);
+  const userMoved = useRef(false);
   useEffect(() => {
-    if (!layout || placedOnce.current) return;
-    placedOnce.current = true;
+    if (!layout || placedOn.current === "final") return;
+    const stage = layout.provisional ? "quick" : "final";
+    if (placedOn.current === stage) return;
+    const again = placedOn.current === "quick";
+    placedOn.current = stage;
+    if (again && userMoved.current) return;
     const stored = synthetic ? null : readStored<Viewport>(storageKey("viewport", projectId));
     const shared = selectedId ? byId.get(selectedId) : undefined;
     if (shared && layout.nodes[shared.id]) {
@@ -397,6 +403,10 @@ function Canvas({ projectId, graph, synthetic = false }: Props) {
           position: { x: placed.x, y: placed.y },
           width: placed.hidden ? 1 : placed.width,
           style: { width: placed.hidden ? 1 : placed.width },
+          // React Flow hides a node whose size it does not know; a node rebuilt between two
+          // measures stayed hidden for good. The ranked size stands in until it is measured.
+          initialWidth: placed.hidden ? 1 : placed.width,
+          initialHeight: placed.height,
           selectable: false,
           draggable: false,
           focusable: !placed.hidden,
@@ -654,6 +664,10 @@ function Canvas({ projectId, graph, synthetic = false }: Props) {
           if (target) open(target);
         }}
         onPaneClick={() => select(null)}
+        onMoveStart={(event) => {
+          // Programmatic moves come without an event.
+          if (event) userMoved.current = true;
+        }}
         onMoveEnd={(_, viewport) =>
           !synthetic && writeStored(storageKey("viewport", projectId), viewport)
         }

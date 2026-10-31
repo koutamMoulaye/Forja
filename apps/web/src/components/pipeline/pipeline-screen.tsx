@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { ShellMessage } from "@/components/shell/shell-states";
 import { useShell } from "@/components/shell/shell-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { syntheticGraph } from "@/lib/pipeline/synthetic";
-import { useProjectGraph } from "@/lib/pipeline/use-graph";
+import { useProjectGraph, warmLayout } from "@/lib/pipeline/use-graph";
 
 function CanvasSkeleton() {
   return (
@@ -21,7 +21,8 @@ function CanvasSkeleton() {
 
 // React Flow and the canvas load after the page: the shell and the skeleton show first,
 // and no other screen carries them.
-const PipelineCanvas = dynamic(() => import("./pipeline-canvas").then((m) => m.PipelineCanvas), {
+const loadCanvas = () => import("./pipeline-canvas");
+const PipelineCanvas = dynamic(() => loadCanvas().then((m) => m.PipelineCanvas), {
   ssr: false,
   loading: CanvasSkeleton,
 });
@@ -37,6 +38,12 @@ export function PipelineScreen({ allowSynthetic }: { allowSynthetic: boolean }) 
     [syntheticSize],
   );
   const data = synthetic ?? graph.data;
+  // The canvas code, the layout worker and ELK load while the graph is fetched, not after
+  // it: in series they took seconds on a busy machine.
+  useEffect(() => {
+    void loadCanvas();
+    warmLayout();
+  }, []);
 
   if (!data) {
     if (graph.isError) {

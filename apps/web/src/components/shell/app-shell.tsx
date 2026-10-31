@@ -16,6 +16,7 @@ import {
   parseProjectPath,
   sectionHref,
 } from "@/lib/navigation";
+import { fetchGraph, graphKey } from "@/lib/pipeline/use-graph";
 import { useCounters } from "@/lib/project/use-counters";
 import {
   useMe,
@@ -112,6 +113,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [transition]);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const counters = useCounters(projectId, role);
+
+  // The canvas asks for its graph as soon as the address is known, not once the project
+  // list has answered and the screen has mounted.
+  useEffect(() => {
+    if (section !== "pipeline" || !projectId) return;
+    void queryClient.prefetchQuery({
+      queryKey: graphKey(projectId),
+      queryFn: () => fetchGraph(projectId),
+    });
+  }, [section, projectId, queryClient]);
 
   // Role guard: an analyst never opens the pipeline side, settings are the owner's.
   useEffect(() => {

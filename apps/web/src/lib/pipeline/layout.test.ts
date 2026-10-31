@@ -2,7 +2,7 @@
 import ELK from "elkjs/lib/elk.bundled.js";
 import { describe, expect, it } from "vitest";
 import demo from "./fixtures/demo-graph.json";
-import { GEOMETRY, countCrossings, fitViewport, placeLanes, rankGraph } from "./layout";
+import { GEOMETRY, countCrossings, fitViewport, placeLanes, quickRank, rankGraph } from "./layout";
 import type { ProjectGraph } from "./model";
 import { syntheticGraph } from "./synthetic";
 
@@ -73,6 +73,48 @@ describe("layout of the demo project", async () => {
     expect(cleaning.width).toBe(GEOMETRY.foldedWidth);
     expect(folded.nodes["stg_clients"]!.hidden).toBe(true);
     expect(folded.width).toBeLessThan(layout.width);
+  });
+});
+
+describe("quick ranking, drawn while ELK is on its way", () => {
+  const layout = placeLanes(input, quickRank(input));
+
+  it("places every node of the demo in its compartment, without overlap", () => {
+    expect(Object.keys(layout.nodes).sort()).toEqual(graph.nodes.map((n) => n.id).sort());
+    const boxes = Object.entries(layout.nodes);
+    for (const [id, a] of boxes) {
+      const box = layout.lanes.find((l) => l.lane === graph.nodes.find((n) => n.id === id)!.lane)!;
+      expect(a.x).toBeGreaterThanOrEqual(box.x + GEOMETRY.lanePadding);
+      expect(a.x + a.width).toBeLessThanOrEqual(box.x + box.width - GEOMETRY.lanePadding);
+      for (const [other, b] of boxes) {
+        if (other === id) continue;
+        const apart = a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y;
+        expect(apart || b.y + b.height <= a.y, `${id} over ${other}`).toBe(true);
+      }
+    }
+  });
+
+  it("puts fct_ventes right of its dimensions and a source beside its cleaned table", () => {
+    for (const dim of ["dim_clients", "dim_produits", "dim_date"]) {
+      expect(layout.nodes[dim]!.x + layout.nodes[dim]!.width).toBeLessThan(
+        layout.nodes["fct_ventes"]!.x,
+      );
+    }
+    expect(layout.nodes["stg_clients"]!.y).toBe(layout.nodes["src_clients"]!.y);
+  });
+
+  it("ends on a cycle", () => {
+    const cycle = {
+      nodes: [
+        { id: "a", type: "silver" as const, lane: "cleaning" as const, name: "a" },
+        { id: "b", type: "silver" as const, lane: "cleaning" as const, name: "b" },
+      ],
+      edges: [
+        { source: "a", target: "b" },
+        { source: "b", target: "a" },
+      ],
+    };
+    expect(Object.keys(quickRank(cycle).nodes)).toEqual(["a", "b"]);
   });
 });
 

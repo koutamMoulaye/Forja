@@ -27,6 +27,9 @@ function NavItem({ id, onNavigate }: { id: SectionId; onNavigate?: () => void })
   const link = (
     <Link
       href={sectionHref(shell.project.id, id)}
+      // Every screen is rendered on request (CSP nonces): prefetching the ten sections
+      // of the sidebar rendered them all on the server, competing with the screen's data.
+      prefetch={false}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       aria-label={open ? undefined : section.label}
@@ -99,6 +102,7 @@ function RecentConversations({ onNavigate }: { onNavigate?: () => void }) {
             <Link
               key={request.id}
               href={href}
+              prefetch={false}
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
