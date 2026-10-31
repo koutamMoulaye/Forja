@@ -197,6 +197,10 @@ def infer_text_type(values: ValueCounts, threshold: float = 0.95) -> TypeInferen
         if dec_ratio >= threshold:
             result = _result(decimal)
             result.max_decimals = max_fraction_digits(values, separator)
+            if separator == "," and result.max_decimals == 0:
+                # Whole numbers grouped by thousands ("155 781 758"): integers, the groups
+                # joined when parsed.
+                return _result(_Candidate(InferredType.INTEGER, dec_ratio, decimal_separator=","))
             return result
         candidates.append(decimal)
 
@@ -272,6 +276,9 @@ def typed_expression(column_sql: str, inference: TypeInference) -> str:
         return column_sql
     value = f"trim({column_sql})"
     match inference.inferred_type:
+        case InferredType.INTEGER if inference.decimal_separator == ",":
+            stripped = f"regexp_replace({value}, '[{_THOUSANDS_FR}]', '', 'g')"
+            return f"TRY_CAST({stripped} AS BIGINT)"
         case InferredType.INTEGER:
             return f"TRY_CAST({value} AS BIGINT)"
         case InferredType.DECIMAL if inference.decimal_separator == ",":

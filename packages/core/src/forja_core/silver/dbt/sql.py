@@ -126,6 +126,9 @@ def typed_expression(column: ColumnPlan) -> str:
     match target:
         case SilverType.VARCHAR:
             return _normalized(raw, column.normalization)
+        case SilverType.BIGINT if column.cast.decimal_separator == ",":
+            digits = f"regexp_replace({raw}, '{FR_THOUSANDS}', '', 'g')"
+            return f"try_cast({digits} as bigint)"
         case SilverType.BIGINT:
             return f"try_cast({raw} as bigint)"
         case SilverType.DOUBLE | SilverType.DECIMAL if column.cast.decimal_separator == ",":

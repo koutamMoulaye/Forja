@@ -21,6 +21,7 @@ def _counts(*values: str) -> list[tuple[str, int]]:
     [
         (("1", "2", "-3", "40"), InferredType.INTEGER),
         (("12,5", "1 234,56", "0,99", "980"), InferredType.DECIMAL),
+        (("155 781 758", "155 781 759", "1 024"), InferredType.INTEGER),
         (("12.5", "1,234.56", "0.99"), InferredType.DECIMAL),
         (("oui", "non", "OUI"), InferredType.BOOLEAN),
         (("15/01/2023", "31/12/2022", "01/02/2024"), InferredType.DATE),

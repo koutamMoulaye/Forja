@@ -145,6 +145,9 @@ def _cast_spec(column: ColumnProfile, target: SilverType) -> CastSpec:
         spec.date_format = inferred.format
     elif target in NUMERIC_TYPES:
         spec.decimal_separator = inferred.decimal_separator or "."
+    elif target is SilverType.BIGINT and inferred.decimal_separator == ",":
+        # Integers grouped by thousands with spaces or dots: the groups are joined.
+        spec.decimal_separator = ","
     elif target is SilverType.BOOLEAN:
         spec.true_values, spec.false_values = _boolean_values(column)
     return spec
