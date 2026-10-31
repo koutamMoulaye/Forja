@@ -8,8 +8,9 @@ The confirmed relations give the shape of the star:
   is joined to the fact along its many-to-one relation and lends it its foreign
   keys, dates and identifiers, never its additive amounts;
 - a referenced source that references nothing is a dimension;
-- when the relations give no fact (a project of one file), a source left alone with
-  numbers is a fact by itself: its texts are degenerate dimensions, its dates date keys.
+- when no relation gives a fact and none waits for review (a project of one file), a
+  source left alone with numbers is a fact by itself: its texts are degenerate
+  dimensions, its dates date keys.
 """
 
 from __future__ import annotations
@@ -33,7 +34,7 @@ from forja_core.gold.plan import (
     ScdType,
 )
 from forja_core.profiling.pii import column_tokens
-from forja_core.relations.models import Relation
+from forja_core.relations.models import Relation, RelationStatus
 from forja_core.relations.naming import singular
 
 SALES_TOKENS = frozenset(
@@ -259,7 +260,9 @@ def propose_heuristic(ctx: GoldContext) -> tuple[GoldModel, list[str]]:
     modeled = (
         set(dimensions) | {f.source for f in facts} | {j.source for f in facts for j in f.joins}
     )
-    if not facts:
+    # Relations waiting for review come first: modelling without them would ignore them.
+    pending = any(r.status is RelationStatus.SUGGESTED for r in ctx.relations)
+    if not facts and not pending:
         for name in sorted(set(sources) - modeled):
             fact = _standalone_fact(sources[name])
             if fact is not None:
