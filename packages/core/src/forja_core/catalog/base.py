@@ -9,6 +9,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import duckdb
+
 from forja_core import duck
 from forja_core.catalog.migrations import MIGRATIONS, SCHEMA_VERSION
 from forja_core.logging import get_logger
@@ -31,22 +33,63 @@ def from_db_timestamp_required(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC)
 
 
+class _OwnedLock:
+    """A reentrant lock that knows whether the current thread holds it."""
+
+    def __init__(self) -> None:
+        self._lock = threading.RLock()
+        self._depth = threading.local()
+
+    def __enter__(self) -> _OwnedLock:
+        self._lock.acquire()
+        self._depth.value = getattr(self._depth, "value", 0) + 1
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self._depth.value -= 1
+        self._lock.release()
+
+    def owned(self) -> bool:
+        return getattr(self._depth, "value", 0) > 0
+
+
 class CatalogBase:
     """Owns the single DuckDB connection of the process and serializes access to it.
 
-    DuckDB allows one writer process per database file.
+    DuckDB allows one writer process per database file. Writes and transactions go
+    through the main connection, one at a time; reads outside them use a cursor of their
+    own thread, so the requests of a page are answered in parallel (DuckDB serves
+    concurrent readers) instead of queuing behind each other.
     """
 
     def __init__(self, path: Path) -> None:
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
-        self._lock = threading.RLock()
+        self._lock = _OwnedLock()
         self._con = duck.connect(str(path))
+        self._cursors: dict[int, duckdb.DuckDBPyConnection] = {}
+        self._cursors_lock = threading.Lock()
         self._migrate()
 
     def close(self) -> None:
-        with self._lock:
+        with self._lock, self._cursors_lock:
+            for cursor in self._cursors.values():
+                cursor.close()
+            self._cursors.clear()
             self._con.close()
+
+    def _reader(self) -> duckdb.DuckDBPyConnection:
+        ident = threading.get_ident()
+        cursor = self._cursors.get(ident)
+        if cursor is None:
+            with self._cursors_lock:
+                # Job threads come and go: the cursors of finished ones are closed.
+                alive = {thread.ident for thread in threading.enumerate()}
+                for gone in [i for i in self._cursors if i not in alive]:
+                    self._cursors.pop(gone).close()
+                cursor = self._con.cursor()
+                self._cursors[ident] = cursor
+        return cursor
 
     def __enter__(self) -> CatalogBase:
         return self
@@ -90,10 +133,12 @@ class CatalogBase:
             self._con.execute(sql, params or [])
 
     def _fetchone(self, sql: str, params: list[Any] | None = None) -> tuple[Any, ...] | None:
-        with self._lock:
-            rows = self._con.execute(sql, params or []).fetchall()
+        rows = self._fetchall(sql, params)
         return rows[0] if rows else None
 
     def _fetchall(self, sql: str, params: list[Any] | None = None) -> list[tuple[Any, ...]]:
-        with self._lock:
-            return self._con.execute(sql, params or []).fetchall()
+        # Inside a transaction (or a block holding the lock), read what it wrote.
+        if self._lock.owned():
+            with self._lock:
+                return self._con.execute(sql, params or []).fetchall()
+        return self._reader().execute(sql, params or []).fetchall()

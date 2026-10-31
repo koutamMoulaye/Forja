@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
@@ -8,6 +10,7 @@ import duckdb
 
 from forja_core.catalog import SCHEMA_VERSION, Catalog
 from forja_core.catalog.migrations import MIGRATIONS
+from forja_core.models import ProjectCreate
 
 
 def _create_v1_catalog(path: Path) -> None:
@@ -64,3 +67,39 @@ def test_v1_catalog_is_migrated_without_loss(tmp_path: Path) -> None:
     # Reopening does not re-apply migrations.
     with Catalog(path) as catalog:
         assert catalog.schema_version == SCHEMA_VERSION
+
+
+RENAME = "UPDATE projects SET name = ? WHERE id = ?"
+
+
+def test_reads_do_not_wait_for_a_write(tmp_path: Path) -> None:
+    with Catalog(tmp_path / "meta.duckdb") as catalog:
+        project = catalog.create_project(ProjectCreate(name="Ventes"))
+        held, release = threading.Event(), threading.Event()
+
+        def write() -> None:
+            with catalog._transaction():
+                catalog._execute(RENAME, ["Achats", project.id])
+                held.set()
+                release.wait(10)
+
+        writer = threading.Thread(target=write)
+        writer.start()
+        try:
+            assert held.wait(10)
+            with ThreadPoolExecutor(1) as pool:
+                # Answered while the write is still open, with what was committed.
+                read = pool.submit(catalog.get_project, project.id).result(timeout=5)
+            assert read.name == "Ventes"
+        finally:
+            release.set()
+            writer.join()
+        assert catalog.get_project(project.id).name == "Achats"
+
+
+def test_a_transaction_reads_its_own_writes(tmp_path: Path) -> None:
+    with Catalog(tmp_path / "meta.duckdb") as catalog:
+        project = catalog.create_project(ProjectCreate(name="Ventes"))
+        with catalog._transaction():
+            catalog._execute(RENAME, ["Achats", project.id])
+            assert catalog.get_project(project.id).name == "Achats"
