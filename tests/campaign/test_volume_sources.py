@@ -154,7 +154,7 @@ def test_large_upload_cut_twice(client: TestClient, settings: Settings, tmp_path
     timer = ref.Timer(f"volume-upload-{UPLOAD_MB}mb", settings.data_dir)
     state: AppState = client.app.state.forja  # type: ignore[attr-defined]
     file = tmp_path / "ventes.csv"
-    rows = UPLOAD_MB * 2**20 // 62  # about 62 bytes a line
+    rows = UPLOAD_MB * 2**20 // 41  # about 41 bytes a line
     with timer.step("generate"), duckdb.connect() as con:
         con.execute(
             f"""COPY (SELECT i AS id_vente, 'C' || (i % 50000) AS id_client,
