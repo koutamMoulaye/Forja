@@ -11,12 +11,14 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+import psutil
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
@@ -97,27 +99,67 @@ def run(client: TestClient, response: Any) -> dict[str, Any]:
     return result
 
 
-class Timer:
-    """Duration of each step, written to $FORJA_CAMPAIGN_REPORT/<name>.json when set."""
+def _rss(process: psutil.Process) -> int:
+    """Resident memory of a process and its children (dbt), in bytes."""
+    total = 0
+    for member in [process, *process.children(recursive=True)]:
+        try:
+            total += member.memory_info().rss
+        except psutil.Error:
+            continue
+    return total
 
-    def __init__(self, name: str) -> None:
+
+def _size(path: Path) -> int:
+    return sum(f.stat().st_size for f in path.rglob("*") if f.is_file()) if path.exists() else 0
+
+
+class Timer:
+    """Duration, peak memory (this process and its children) and, given a workspace, its
+    size after each step; written to $FORJA_CAMPAIGN_REPORT/<name>.json when set."""
+
+    def __init__(self, name: str, workspace: Path | None = None) -> None:
         self.name = name
+        self.workspace = workspace
         self.steps: dict[str, float] = {}
+        self.memory: dict[str, float] = {}
+        self.disk: dict[str, float] = {}
 
     @contextmanager
     def step(self, label: str) -> Iterator[None]:
+        process = psutil.Process()
+        peak = _rss(process)
+        done = threading.Event()
+
+        def sample() -> None:
+            nonlocal peak
+            while not done.wait(0.2):
+                peak = max(peak, _rss(process))
+
+        sampler = threading.Thread(target=sample, daemon=True)
+        sampler.start()
         started = time.perf_counter()
         try:
             yield
         finally:
             self.steps[label] = round(time.perf_counter() - started, 2)
+            done.set()
+            sampler.join()
+            self.memory[label] = round(max(peak, _rss(process)) / 2**20)
+            if self.workspace is not None:
+                self.disk[label] = round(_size(self.workspace) / 2**20, 1)
 
     def write(self, **extra: Any) -> None:
         target = os.environ.get("FORJA_CAMPAIGN_REPORT")
         if not target:
             return
         Path(target).mkdir(parents=True, exist_ok=True)
+        report = {
+            "steps_s": self.steps,
+            "peak_memory_mb": self.memory,
+            "workspace_mb": self.disk,
+            **extra,
+        }
         (Path(target) / f"{self.name}.json").write_text(
-            json.dumps({"steps": self.steps, **extra}, indent=2, ensure_ascii=False),
-            encoding="utf-8",
+            json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
         )
