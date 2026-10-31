@@ -69,6 +69,7 @@ from forja_core.jobs.models import Job, JobType, LoadMetrics, RunMetrics
 from forja_core.jobs.scope import item_finished, item_started, report
 from forja_core.logging import get_logger
 from forja_core.models import Source, SourceFormat
+from forja_core.silver.plan import TransformationPlan
 from forja_core.utils import slugify, utcnow
 
 log = get_logger(__name__)
@@ -514,16 +515,18 @@ class ConnectorService:
         self.catalog.save_feed(feed)
         if source is not None and metrics.version is not None:
             outcome.loaded.append(source)
-            blocking = blocking_drift(source)
-            if blocking:
+            plan = self.catalog.effective_plan(source.id)
+            gaps = plan_gaps(plan, source) if plan is not None else []
+            if gaps:
                 metrics.blocking_drift = True
                 outcome.blocked.append(source)
                 log_line(
-                    f"{source.name}: schema changed ({', '.join(blocking)}); the approved plan "
+                    f"{source.name}: schema changed ({', '.join(gaps)}); the approved plan "
                     "waits for a review"
                 )
-                if self.on_blocking_drift is not None:
-                    self.on_blocking_drift(source, blocking)
+                # Notified once, by the load that brought the change.
+                if blocking_drift(source) and self.on_blocking_drift is not None:
+                    self.on_blocking_drift(source, gaps)
         outcome.metrics.loads.append(metrics)
 
     def _load_database(
@@ -737,6 +740,23 @@ def blocking_drift(source: Source) -> list[str]:
         if change.level == "physical"
     ]
     return columns
+
+
+def plan_gaps(plan: TransformationPlan, source: Source) -> list[str]:
+    """What the approved plan cannot clean as approved in the source's latest schema:
+    columns it reads that are gone, columns whose physical type changed. The source stays
+    blocked, load after load, until a plan matching its schema is approved."""
+    latest = {c.name: c.type for c in source.columns if not c.technical}
+    gaps: list[str] = []
+    for column in plan.columns:
+        if not column.included or not column.present_in_latest:
+            continue
+        current = latest.get(column.source_column)
+        if current is None:
+            gaps.append(f"{column.source_column} (supprimée)")
+        elif current != column.source_type:
+            gaps.append(f"{column.source_column} ({column.source_type} → {current})")
+    return gaps
 
 
 class _Throttle:

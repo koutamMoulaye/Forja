@@ -23,6 +23,7 @@ import argparse
 import base64
 import json
 import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -33,6 +34,9 @@ from urllib.parse import parse_qs, urlsplit
 
 PAGE_SIZE = 3
 TOKEN = "fake-access-token"
+# Entries of FakeApiState.failures besides HTTP statuses.
+OK = 0
+STALL = -1
 
 
 def make_orders(count: int, *, start: int = 1) -> list[dict[str, Any]]:
@@ -61,7 +65,10 @@ class FakeApiState:
     password: str = "secret-pass-789"
     client_id: str = "forja"
     client_secret: str = "secret-client-000"
+    # One entry per request, in order: an HTTP status to answer, OK to answer normally,
+    # STALL to answer only after stall_seconds (past the client's timeout).
     failures: list[int] = field(default_factory=list)
+    stall_seconds: float = 2.0
     requests: list[str] = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -98,13 +105,16 @@ def _handler(state: FakeApiState) -> type[BaseHTTPRequestHandler]:
 
         def _send(self, status: int, body: Any, headers: dict[str, str] | None = None) -> None:
             data = json.dumps(body).encode()
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(data)))
-            for name, value in (headers or {}).items():
-                self.send_header(name, value)
-            self.end_headers()
-            self.wfile.write(data)
+            try:
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(data)))
+                for name, value in (headers or {}).items():
+                    self.send_header(name, value)
+                self.end_headers()
+                self.wfile.write(data)
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                pass  # The client gave up (a timeout test).
 
         def do_POST(self) -> None:
             parts = urlsplit(self.path)
@@ -128,7 +138,9 @@ def _handler(state: FakeApiState) -> type[BaseHTTPRequestHandler]:
             query = {k: v[0] for k, v in parse_qs(parts.query).items()}
             state.requests.append(f"GET {parts.path}?{parts.query}")
             failure = state.next_failure()
-            if failure is not None:
+            if failure == STALL:
+                time.sleep(state.stall_seconds)
+            elif failure:
                 headers = {"Retry-After": "0"} if failure == 429 else {}
                 self._send(failure, {"error": "try again"}, headers)
                 return

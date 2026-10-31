@@ -384,6 +384,14 @@ def refresh_plan(
         updated = old.model_copy(deep=True)
         updated.stats = column.stats
         updated.present_in_latest = True
+        if old.source_type != column.source_type:
+            warnings.append(
+                f"La colonne « {column.source_column} » est désormais de type "
+                f"{column.source_type} dans la source (au lieu de {old.source_type}) ; "
+                "la règle approuvée est conservée, les valeurs non conformes iront en quarantaine."
+            )
+            updated.source_type = column.source_type
+            updated.from_text = column.from_text
         if old.inferred_type is not column.inferred_type:
             warnings.append(
                 f"La colonne « {column.source_column} » est désormais détectée comme "
