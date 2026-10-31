@@ -103,12 +103,24 @@ export function PlanReviewScreen({ sourceId }: { sourceId: string }) {
     }
   };
 
+  // Another tab (or engineer) changed the plan since it was shown: reload it rather than
+  // act on a version nobody here has seen.
+  const moved = (error: unknown) => {
+    if (!(error instanceof ApiError) || error.code !== "plan_version_conflict") return false;
+    toast.info({
+      title: "Le plan a changé entre-temps",
+      description: `Il est passé en version ${String(error.details.current_version)} ailleurs ; il vient d’être rechargé.`,
+    });
+    refresh();
+    return true;
+  };
+
   const decide = useMutation({
     mutationFn: async (decisions: Record<string, Decision | null>) =>
       unwrap(
         await api.POST("/sources/{source_id}/plan/review", {
           params: { path: { source_id: sourceId } },
-          body: { decisions },
+          body: { decisions, version: review.data?.plan_version },
         }),
       ),
     onMutate: async (decisions) => {
@@ -121,6 +133,7 @@ export function PlanReviewScreen({ sourceId }: { sourceId: string }) {
     },
     onError: (error, _decisions, context) => {
       if (context?.previous) queryClient.setQueryData(keys.review(sourceId), context.previous);
+      if (moved(error)) return;
       toast.error({
         title: "Décision non enregistrée",
         description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
@@ -137,7 +150,7 @@ export function PlanReviewScreen({ sourceId }: { sourceId: string }) {
       const updated = unwrap(
         await api.PATCH("/sources/{source_id}/plan", {
           params: { path: { source_id: sourceId } },
-          body: patch,
+          body: { ...patch, base_version: plan.data?.version },
         }),
       );
       toast.success({
@@ -146,6 +159,7 @@ export function PlanReviewScreen({ sourceId }: { sourceId: string }) {
       });
       refresh();
     } catch (error) {
+      if (moved(error)) throw error;
       toast.error({
         title: "Modification refusée",
         description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
@@ -158,7 +172,7 @@ export function PlanReviewScreen({ sourceId }: { sourceId: string }) {
     mutationFn: async () =>
       unwrap(
         await api.POST("/sources/{source_id}/plan/approve", {
-          params: { path: { source_id: sourceId } },
+          params: { path: { source_id: sourceId }, query: { version: plan.data?.version } },
         }),
       ),
     onSuccess: (approved) => {
@@ -168,11 +182,13 @@ export function PlanReviewScreen({ sourceId }: { sourceId: string }) {
       });
       refresh();
     },
-    onError: (error) =>
+    onError: (error) => {
+      if (moved(error)) return;
       toast.error({
         title: "Approbation refusée",
         description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
-      }),
+      });
+    },
   });
 
   const launch = useMutation({

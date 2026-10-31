@@ -92,6 +92,12 @@ class PlanStateError(ConflictError):
     code = "invalid_plan_state"
 
 
+class PlanVersionConflictError(ConflictError):
+    """The plan moved on since the version an edit or an approval was made on."""
+
+    code = "plan_version_conflict"
+
+
 class JobNotFoundError(NotFoundError):
     code = "run_not_found"
 

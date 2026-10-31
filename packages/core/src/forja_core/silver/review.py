@@ -73,6 +73,11 @@ class ReviewUpdate(BaseModel):
     decisions: dict[str, ReviewDecision | None] = Field(
         description="Decision by rule id; null puts the rule back to review"
     )
+    version: int | None = Field(
+        default=None,
+        ge=1,
+        description="Version the decisions were taken on; refused (409) if the plan has moved",
+    )
 
 
 _PII_NOUNS: dict[PiiType, str] = {

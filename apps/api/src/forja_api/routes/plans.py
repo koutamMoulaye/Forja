@@ -60,8 +60,12 @@ def approve_plan(
     source_id: str,
     state: StateDep,
     access: Annotated[Access, require(Action.PLAN_WRITE)],
+    version: Annotated[
+        int | None,
+        Query(ge=1, description="Version shown when approving; 409 if the plan has moved since"),
+    ] = None,
 ) -> TransformationPlan:
-    plan = state.plans.approve(source_id)
+    plan = state.plans.approve(source_id, version)
     access.audit(
         "silver_plan.approve", object_type="silver_plan", object_id=plan.id,
         details={"source_id": source_id, "version": plan.version},
@@ -92,7 +96,7 @@ def review_plan(
     state: StateDep,
     access: Annotated[Access, require(Action.PLAN_WRITE)],
 ) -> PlanReview:
-    plan = state.plans.review(source_id, update.decisions)
+    plan = state.plans.review(source_id, update.decisions, update.version)
     access.audit(
         "silver_plan.review", object_type="silver_plan", object_id=plan.id,
         details={"source_id": source_id, "version": plan.version, "decisions": update.decisions},

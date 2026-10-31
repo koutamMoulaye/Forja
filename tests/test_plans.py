@@ -319,3 +319,42 @@ def test_plan_api(client: TestClient, fixtures_dir: Path) -> None:
     assert again.json()["error"]["code"] == "invalid_plan_state"
     assert len(client.get(f"/sources/{source['id']}/plans").json()) == 2
     assert client.get("/sources/missing/plan").status_code == 404
+
+
+def test_two_tabs_on_the_same_plan(client: TestClient, fixtures_dir: Path) -> None:
+    """Both tabs show version 1; the first edits it. The second tab's edit, decision and
+    approval, made on version 1, are refused until it reloads: nobody approves rules they
+    have not seen."""
+    project_id = client.post("/projects", json={"name": "Onglets"}).json()["id"]
+    with (fixtures_dir / fx.FR_CSV).open("rb") as handle:
+        [source] = client.post(
+            f"/projects/{project_id}/sources", files={"file": ("clients.csv", handle)}
+        ).json()
+    plan_url = f"/sources/{source['id']}/plan"
+    shown = client.get(plan_url).json()["version"]
+    rule = client.get(f"{plan_url}/review").json()["rules"][0]["id"]
+
+    first = client.patch(
+        plan_url, json={"base_version": shown, "columns": {"commentaire": {"included": False}}}
+    )
+    assert first.status_code == 200 and first.json()["version"] == shown + 1
+
+    stale = [
+        client.patch(
+            plan_url, json={"base_version": shown, "columns": {"ville": {"included": False}}}
+        ),
+        client.post(
+            f"{plan_url}/review", json={"version": shown, "decisions": {rule: "validated"}}
+        ),
+        client.post(f"{plan_url}/approve", params={"version": shown}),
+    ]
+    for response in stale:
+        assert response.status_code == 409, response.text
+        error = response.json()["error"]
+        assert error["code"] == "plan_version_conflict"
+        assert error["details"] == {"version": shown, "current_version": shown + 1}
+    assert client.get(plan_url).json()["version"] == shown + 1
+
+    # Reloaded, the second tab approves what it now sees.
+    approved = client.post(f"{plan_url}/approve", params={"version": shown + 1})
+    assert approved.status_code == 200 and approved.json()["status"] == "approved"

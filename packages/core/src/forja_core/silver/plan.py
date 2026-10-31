@@ -194,6 +194,12 @@ class ColumnPatch(BaseModel):
 class PlanPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    base_version: int | None = Field(
+        default=None,
+        ge=1,
+        description="Version the edit was made on; refused (409) if the plan has moved since",
+    )
+
     columns: dict[str, ColumnPatch] = Field(
         default_factory=dict, description="Changes keyed by source column name"
     )

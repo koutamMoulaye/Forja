@@ -6,7 +6,7 @@ import uuid
 
 from forja_core.catalog import Catalog
 from forja_core.config import Settings
-from forja_core.errors import PlanStateError, PlanValidationError
+from forja_core.errors import PlanStateError, PlanValidationError, PlanVersionConflictError
 from forja_core.ingestion.service import IngestedVersion
 from forja_core.logging import get_logger
 from forja_core.silver.plan import PlanPatch, PlanStatus, TransformationPlan
@@ -60,6 +60,7 @@ class PlanService:
 
     def patch(self, source_id: str, patch: PlanPatch) -> TransformationPlan:
         current = self.catalog.get_plan(source_id)
+        _check_version(current, patch.base_version)
         plan = apply_patch(current, patch, plan_id=uuid.uuid4().hex, now=utcnow())
         if plan_signature(plan) == plan_signature(current):
             return current
@@ -70,10 +71,14 @@ class PlanService:
         return plan
 
     def review(
-        self, source_id: str, decisions: dict[str, ReviewDecision | None]
+        self,
+        source_id: str,
+        decisions: dict[str, ReviewDecision | None],
+        version: int | None = None,
     ) -> TransformationPlan:
         """Record decisions on the rules of the latest draft, in place (no new version)."""
         plan = self._draft(source_id)
+        _check_version(plan, version)
         rules = {rule.id: rule for rule in review_rules(plan)}
         for rule_id, decision in decisions.items():
             rule = rules.get(rule_id)
@@ -105,9 +110,12 @@ class PlanService:
             )
         return plan
 
-    def approve(self, source_id: str) -> TransformationPlan:
-        """Approve the latest draft; rejected rules are undone first, in a new version."""
+    def approve(self, source_id: str, version: int | None = None) -> TransformationPlan:
+        """Approve the latest draft; rejected rules are undone first, in a new version.
+        With ``version``, only if it is still the latest: nobody approves what they have
+        not seen."""
         plan = self._draft(source_id)
+        _check_version(plan, version)
         undo = rejection_patch(plan)
         if undo is not None:
             reviewed = apply_patch(plan, undo, plan_id=uuid.uuid4().hex, now=utcnow())
@@ -127,6 +135,16 @@ class PlanService:
         plan.updated_at = utcnow()
         self.catalog.update_plan(plan)
         return plan
+
+
+def _check_version(plan: TransformationPlan, version: int | None) -> None:
+    """An edit, a review or an approval made on an older version (another tab, another
+    engineer) is refused rather than applied to a plan its author has not seen."""
+    if version is not None and version != plan.version:
+        raise PlanVersionConflictError(
+            f"the plan is now at version {plan.version}, not {version}: reload it",
+            details={"version": version, "current_version": plan.version},
+        )
 
 
 def _untouched_reviews(plan: TransformationPlan, patch: PlanPatch) -> dict[str, ReviewDecision]:
