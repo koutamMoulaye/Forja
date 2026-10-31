@@ -32,6 +32,44 @@ async function offCentre(page: Page, id: string, inspector: boolean) {
 
 test.describe.configure({ mode: "serial" });
 
+// Production build (the e2e servers run `next start`), in Google Chrome (the « chrome »
+// project of playwright.config.ts): the pipeline page shows its nodes within 5 s, whether
+// ELK has to rank the graph (nothing remembered in this browser) or the ranking of the
+// last visit is reused; past 800 ms without ELK, a quick ranking is drawn in its place. The graph is asked for as soon as the address
+// is known; the canvas code, the layout worker and ELK load while it is fetched.
+test("the canvas shows its nodes within 5 seconds", { tag: "@perf" }, async ({ page }) => {
+  // Pipeline nodes, not the lanes (React Flow nodes too).
+  const nodes = page.locator(".react-flow__node-pipeline");
+  await signIn(page, credentials().engineer);
+  await expect(page).toHaveURL(/\/projects\/[^/]+\/pipeline$/);
+  await expect(nodes.first()).toBeVisible();
+  const cases = [
+    { name: "ranked by ELK", forget: true },
+    { name: "ranking reused", forget: false },
+  ];
+  for (const { name, forget } of cases) {
+    if (forget) {
+      await page.evaluate(() =>
+        Object.keys(localStorage)
+          .filter((key) => key.startsWith("forja.ranking."))
+          .forEach((key) => localStorage.removeItem(key)),
+      );
+    }
+    const started = Date.now();
+    await page.reload();
+    await expect(nodes.first(), name).toBeVisible({ timeout: 5000 });
+    const elapsed = Date.now() - started;
+    test.info().annotations.push({ type: "canvas load", description: `${name}: ${elapsed} ms` });
+    expect(elapsed, `${name}, in ms`).toBeLessThan(5000);
+  }
+  // Once shown, they stay shown: none is left hidden by a later render.
+  await page.waitForTimeout(1500);
+  const hidden = await nodes.evaluateAll(
+    (all) => all.filter((n) => getComputedStyle(n).visibility === "hidden").length,
+  );
+  expect(hidden, "pipeline nodes left hidden").toBe(0);
+});
+
 test("the canvas draws the demo pipeline", async ({ page }) => {
   await openCanvas(page);
   for (const lane of ["sources", "cleaning", "star_schema", "serving"]) {
@@ -108,6 +146,8 @@ test("the « À revoir » filter fades what needs nothing", async ({ page }) => 
 });
 
 test("a Silver run moves the cleaned tables from waiting to done", async ({ page }) => {
+  // dbt starts, parses the project, then builds four tables held « running » 1.5 s each.
+  test.setTimeout(240_000);
   await openCanvas(page);
   await page.getByRole("button", { name: "Lancer un run" }).click();
   await page.getByRole("menuitem", { name: /^Nettoyage/ }).click();
@@ -117,8 +157,9 @@ test("a Silver run moves the cleaned tables from waiting to done", async ({ page
     timeout: 30_000,
   });
   // The test API holds each dbt model « running » (FORJA_TEST_MODEL_DELAY_SECONDS): the node
-  // shows « En cours » and the flow runs along its incoming link.
-  await expect(page.locator('[data-state="running"]').first()).toBeVisible({ timeout: 30_000 });
+  // shows « En cours » and the flow runs along its incoming link. dbt itself takes up to
+  // 30 s to start and parse the project on a Windows workstation.
+  await expect(page.locator('[data-state="running"]').first()).toBeVisible({ timeout: 90_000 });
   await expect(page.getByTestId("edge-flow").first()).toBeAttached();
   await captureThemes(page, "run-in-progress");
   for (const id of cleaning) {

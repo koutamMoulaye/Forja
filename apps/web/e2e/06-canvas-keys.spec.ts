@@ -79,11 +79,23 @@ test("the canvas is driven with the keyboard", async ({ page }) => {
 test("a double-click grows the node into its detailed screen", async ({ page }) => {
   await openCanvas(page);
   const box = (await node(page, "dim_clients").boundingBox())!;
+  // The layer lives under a second: where it starts is read as soon as it is added.
+  await page.evaluate(() => {
+    new MutationObserver((_, observer) => {
+      const added = document.querySelector<HTMLElement>("div.fixed.z-\\[60\\]");
+      if (!added) return;
+      const rect = added.getBoundingClientRect();
+      Object.assign(window, { layerStart: { x: rect.x, text: added.textContent ?? "" } });
+      observer.disconnect();
+    }).observe(document.body, { childList: true, subtree: true });
+  });
   await node(page, "dim_clients").dblclick();
   // The node's card is drawn over itself while the route changes (shared layoutId)…
   const layer = page.locator("div.fixed.z-\\[60\\]");
-  await expect(layer).toContainText("dim_clients");
-  const start = (await layer.boundingBox())!;
+  const start = (await (
+    await page.waitForFunction(() => (window as { layerStart?: unknown }).layerStart)
+  ).jsonValue()) as { x: number; text: string };
+  expect(start.text).toContain("dim_clients");
   expect(Math.abs(start.x - box.x)).toBeLessThan(80);
   // …then lands on the model screen, as its header.
   await expect(page).toHaveURL(/\/projects\/[^/]+\/model$/);
