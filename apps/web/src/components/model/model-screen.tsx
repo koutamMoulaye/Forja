@@ -135,6 +135,17 @@ export function ModelScreen() {
             action={proposeButton}
           />
         )}
+        {/* The relations found are confirmed before the first proposal, which builds on them. */}
+        {(relations.data ?? []).length > 0 ? (
+          <ModelRelations
+            relations={relations.data ?? []}
+            loading={relations.isPending}
+            busy={mutations.relation.isPending || mutations.declare.isPending}
+            onConfirm={(id) => mutations.relation.mutate({ id, action: "confirm" })}
+            onReject={(id) => mutations.relation.mutate({ id, action: "reject" })}
+            onDeclare={(body) => mutations.declare.mutateAsync(body)}
+          />
+        ) : null}
       </ScreenBody>
     );
   }
