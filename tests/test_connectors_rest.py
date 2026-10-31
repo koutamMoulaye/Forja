@@ -201,6 +201,79 @@ def test_ssrf_allowlist_accepts_hosts_and_ranges() -> None:
     UrlGuard(allowed=("db.internal",), resolver=resolver).check("https://db.internal/")
 
 
+def test_connections_go_to_the_validated_address_only(api: tuple[str, FakeApiState]) -> None:
+    # « rebind.invalid » exists in no DNS: the request can only reach the fake API through
+    # the address the guard resolved and validated, once per request.
+    base, state = api
+    port = int(base.split(":")[2].split("/")[0])
+    calls: list[str] = []
+
+    def resolver(host: str, _port: int) -> list[str]:
+        calls.append(host)
+        return ["127.0.0.1"]
+
+    guard = UrlGuard(allowed=("127.0.0.0/8",), resolver=resolver)
+    params = _params(f"http://rebind.invalid:{port}/v1", PaginationKind.PAGE_NUMBER, "/page/orders")
+    with RestClient(params=params, secrets={}, guard=guard) as client:
+        ids = [r["id"] for page in client.pages(params.endpoints[0]) for r in page.records]
+    assert ids == list(range(1, 9))
+    assert calls == ["rebind.invalid"] * 3  # one resolution per request (three pages)
+    assert len(state.requests) == 3
+
+
+def test_dns_rebinding_cannot_reach_a_private_address(api: tuple[str, FakeApiState]) -> None:
+    # The first resolution looks public; a second one, made by the connection itself,
+    # would give the private address. The guard resolves once and connects there.
+    base, state = api
+    port = int(base.split(":")[2].split("/")[0])
+    answers = iter([["93.184.216.34"], ["127.0.0.1"]])
+
+    def resolver(host: str, _port: int) -> list[str]:
+        return next(answers)
+
+    guard = UrlGuard(resolver=resolver)
+    params = _params(
+        f"http://rebind.invalid:{port}/v1", PaginationKind.NONE, "/none/orders"
+    ).model_copy(update={"max_retries": 0, "timeout_seconds": 1})
+    with (
+        RestClient(params=params, secrets={}, guard=guard) as client,
+        pytest.raises(ApiError, match="cannot be reached"),
+    ):
+        list(client.pages(params.endpoints[0]))
+    # The connection went to the validated public address (unreachable here), never to
+    # the local fake API.
+    assert state.requests == []
+
+
+def test_redirect_to_a_private_address_is_refused(api: tuple[str, FakeApiState]) -> None:
+    base, _ = api
+    params = _params(base, PaginationKind.NONE, "/redirect/orders")
+    with (
+        RestClient(params=params, secrets={}, guard=LOCAL) as client,
+        pytest.raises(BlockedAddressError, match="private or local"),
+    ):
+        list(client.pages(params.endpoints[0]))
+
+
+def test_ipv4_mapped_ipv6_follows_the_ipv4_rules() -> None:
+    def resolver(host: str, _port: int) -> list[str]:
+        return ["::ffff:10.1.2.3"]
+
+    with pytest.raises(BlockedAddressError):
+        UrlGuard(resolver=resolver).check("http://mapped.example/")
+    target = UrlGuard(allowed=("10.0.0.0/8",), resolver=resolver).check("http://mapped.example/")
+    assert target.address == "::ffff:10.1.2.3"
+
+
+def test_tls_is_verified_against_the_host_name() -> None:
+    from forja_core.connectors.ssrf import PinnedTransport
+
+    context = PinnedTransport()._pool._ssl_context
+    assert context is not None
+    assert context.check_hostname is True
+    assert context.verify_mode.name == "CERT_REQUIRED"
+
+
 def test_next_page_on_another_site_is_refused(api: tuple[str, FakeApiState]) -> None:
     base, _ = api
     params = _params(base, PaginationKind.NEXT_URL, "/elsewhere/orders", next_url_path="next")

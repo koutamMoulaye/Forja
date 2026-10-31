@@ -34,7 +34,7 @@ from forja_core.connectors.models import (
     ProposedRelation,
     RestApiParams,
 )
-from forja_core.connectors.ssrf import UrlGuard
+from forja_core.connectors.ssrf import PinnedTransport, UrlGuard
 from forja_core.connectors.vault import redact
 from forja_core.errors import ForjaError
 from forja_core.logging import get_logger
@@ -134,10 +134,14 @@ class RestClient:
     _token: str | None = None
     _token_expires: float = 0.0
     _last_request: float | None = None
+    _pinned: PinnedTransport | None = None
 
     def __enter__(self) -> RestClient:
+        # Connections go to the addresses the guard validated (tests may pass a transport).
+        if self.transport is None:
+            self._pinned = PinnedTransport()
         self._client = httpx.Client(
-            transport=self.transport,
+            transport=self.transport or self._pinned,
             timeout=self.params.timeout_seconds,
             follow_redirects=False,
             headers={"User-Agent": "Forja", "Accept": "application/json", **self.params.headers},
@@ -214,7 +218,7 @@ class RestClient:
             return self._token
         auth = self.params.auth
         url = auth.token_url or ""
-        self.guard.check(url)
+        self.guard.validate(url)
         data = {"grant_type": "client_credentials"}
         if auth.scope:
             data["scope"] = auth.scope
@@ -259,7 +263,9 @@ class RestClient:
             request_params = dict(params or {})
             try:
                 while True:
-                    self.guard.check(current)
+                    target = self.guard.check(current)
+                    if self._pinned is not None:
+                        self._pinned.pin(target)
                     headers: dict[str, str] = {}
                     if authenticate and self._same_origin(current):
                         self._auth(request_params, headers)
@@ -272,17 +278,9 @@ class RestClient:
                         data=data,
                         headers=headers,
                     )
-                    # Streamed: the peer is checked before the body is read.
                     response = self.client.send(
-                        request,
-                        stream=True,
-                        auth=auth if auth is not None else httpx.USE_CLIENT_DEFAULT,
+                        request, auth=auth if auth is not None else httpx.USE_CLIENT_DEFAULT
                     )
-                    try:
-                        self._check_peer(current, response)
-                        response.read()
-                    finally:
-                        response.close()
                     if response.is_redirect and redirects < MAX_REDIRECTS:
                         location = response.headers.get("location", "")
                         current = urljoin(current, location)
@@ -321,17 +319,6 @@ class RestClient:
                 attempt += 1
                 continue
             return response
-
-    def _check_peer(self, url: str, response: httpx.Response) -> None:
-        stream = response.extensions.get("network_stream")
-        if stream is None:
-            return
-        try:
-            address = stream.get_extra_info("server_addr")
-        except OSError:
-            return
-        host = urlsplit(url).hostname or ""
-        self.guard.check_peer(host, address[0] if address else None)
 
     def send(self, method: str, url: str) -> httpx.Response:
         """One request with the connection's authentication, retries and checks."""

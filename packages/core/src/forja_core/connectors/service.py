@@ -163,7 +163,7 @@ class ConnectorService:
 
     def _check_rest(self, connection: Connection) -> None:
         if isinstance(connection.params, RestApiParams):
-            self.guard().check(connection.params.base_url)
+            self.guard().validate(connection.params.base_url)
 
     def update(self, connection_id: str, update: ConnectionUpdate) -> Connection:
         connection = self.catalog.get_connection(connection_id)

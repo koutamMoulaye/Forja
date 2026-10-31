@@ -178,6 +178,9 @@ def _handler(state: FakeApiState) -> type[BaseHTTPRequestHandler]:
                         self._send(200, {"records": chunk, "next": url if more else None})
                 case "elsewhere":
                     self._send(200, {"records": records[:1], "next": "http://example.org/x"})
+                case "redirect":
+                    # To the cloud metadata address: must never be followed.
+                    self._send(302, {}, {"Location": "http://169.254.169.254/latest/meta-data/"})
                 case _:
                     self._send(404, {"error": "not found"})
 
