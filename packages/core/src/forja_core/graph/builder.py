@@ -18,7 +18,6 @@ from typing import Literal
 
 from forja_core.agent.models import MartRequest, MartStatus
 from forja_core.catalog import Catalog
-from forja_core.errors import ProfileNotFoundError
 from forja_core.gold.dbt import gold_nodes, snapshot_name
 from forja_core.gold.plan import DATE_DIMENSION, ScdType
 from forja_core.graph.models import (
@@ -129,11 +128,12 @@ class _Builder:
     # ------------------------------------------------------------------ sources, Silver
 
     def sources(self, sources: list[Source], tables: dict[str, WarehouseTable]) -> None:
+        # Two queries for every source of the project: each catalog query costs
+        # milliseconds, and the canvas waits for this answer.
+        profiles = self.catalog.latest_profiles(self.project_id)
+        plans = self.catalog.latest_plans(self.project_id)
         for source in sources:
-            try:
-                profile = self.catalog.get_profile(source.id)
-            except ProfileNotFoundError:
-                profile = None
+            profile = profiles.get(source.id)
             keys = profile.candidate_keys[0].columns if profile and profile.candidate_keys else []
             visible = [c.name for c in source.columns if not c.technical]
             self.add(
@@ -159,10 +159,11 @@ class _Builder:
                 ),
                 source.id,
             )
-            self.silver(source, tables.get(silver_node_id(source.name)))
+            self.silver(source, tables.get(silver_node_id(source.name)), plans.get(source.id))
 
-    def silver(self, source: Source, table: WarehouseTable | None) -> None:
-        plan = self.catalog.latest_plan(source.id)
+    def silver(
+        self, source: Source, table: WarehouseTable | None, plan: TransformationPlan | None
+    ) -> None:
         node_id = silver_node_id(source.name)
         state: NodeState
         message = None

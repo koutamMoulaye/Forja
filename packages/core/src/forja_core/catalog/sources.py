@@ -235,6 +235,15 @@ class SourcesMixin(ProjectsMixin):
             ],
         )
 
+    def latest_profiles(self, project_id: str) -> dict[str, ProfileReport]:
+        """The profile of the latest version of every source of a project, in one query."""
+        rows = self._fetchall(
+            "SELECT s.id, p.report FROM sources s "
+            "JOIN profiles p ON p.version_id = s.latest_version_id WHERE s.project_id = ?",
+            [project_id],
+        )
+        return {str(row[0]): ProfileReport.model_validate_json(row[1]) for row in rows}
+
     def get_profile(self, source_id: str, version: int | None = None) -> ProfileReport:
         """Profile of the given version, by default of the latest one."""
         source = self.get_source(source_id)

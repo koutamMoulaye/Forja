@@ -45,6 +45,18 @@ class PlansMixin(SourcesMixin):
         )
         return None if row is None else TransformationPlan.model_validate_json(row[0])
 
+    def latest_plans(self, project_id: str) -> dict[str, TransformationPlan]:
+        """The latest plan of every source of a project, in one query."""
+        rows = self._fetchall(
+            "SELECT plan FROM ("
+            "  SELECT plan, row_number() OVER (PARTITION BY source_id ORDER BY version DESC) AS n"
+            "  FROM plans WHERE project_id = ?"
+            ") WHERE n = 1",
+            [project_id],
+        )
+        plans = [TransformationPlan.model_validate_json(row[0]) for row in rows]
+        return {plan.source_id: plan for plan in plans}
+
     def effective_plan(self, source_id: str) -> TransformationPlan | None:
         """Most recent approved or applied version: the one the Silver build uses."""
         row = self._fetchone(
