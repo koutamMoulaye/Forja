@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from forja_api.state import AppState
+from forja_core.config import Settings
 from forja_core.errors import PlanStateError, PlanValidationError
 from forja_core.gold.context import GoldContext, build_gold_context
 from forja_core.gold.heuristic import propose_heuristic
@@ -290,3 +291,37 @@ def test_gold_api(shop: tuple[AppState, Project]) -> None:
             assert bad.status_code == 422
     finally:
         state.catalog = type(state.catalog)(state.settings.catalog_path)
+
+
+def test_a_project_of_one_file_gets_a_fact(settings: Settings, tmp_path: Path) -> None:
+    """No relation to give the shape of a star: the file with numbers is a fact by itself,
+    its texts degenerate dimensions (personal data left out), its dates date keys."""
+    lines = ["id_commande;email;ville;montant;date_commande"] + [
+        f"{i};client{i}@exemple.fr;{('Lyon', 'Paris', 'Nantes')[i % 3]};{i * 1.5:.2f};"
+        f"2026-0{1 + i % 9}-1{i % 9}"
+        for i in range(1, 200)
+    ]
+    file = tmp_path / "commandes.csv"
+    file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with api_client(settings.model_copy(update={"job_runner": "inline"})) as client:
+        project_id = client.post("/projects", json={"name": "Un fichier"}).json()["id"]
+        with file.open("rb") as handle:
+            [source] = client.post(
+                f"/projects/{project_id}/sources", files={"file": ("commandes.csv", handle)}
+            ).json()
+        assert client.post(f"/sources/{source['id']}/plan/approve").status_code == 200
+        built = client.post(f"/projects/{project_id}/runs", json={"type": "build_silver"})
+        assert built.json()["status"] == "succeeded", built.text
+        proposed = client.post(f"/projects/{project_id}/gold-plan/propose", json={"use_llm": False})
+        assert proposed.json()["status"] == "succeeded", proposed.text
+        plan = client.get(f"/projects/{project_id}/gold-plan").json()
+        [fact] = plan["facts"]
+        assert fact["source"] == "commandes" and not fact["foreign_keys"]
+        degenerate = {d["column"] for d in fact["degenerate_dimensions"]}
+        assert "ville" in degenerate and "email" not in degenerate
+        assert {m["name"] for m in fact["measures"]} >= {"montant", "nb_lignes"}
+        assert [k["column"] for k in fact["date_keys"]] == ["date_commande"]
+        approved = client.post(f"/projects/{project_id}/gold-plan/approve")
+        assert approved.status_code == 200, approved.text
+        gold = client.post(f"/projects/{project_id}/runs", json={"type": "build_gold"})
+        assert gold.json()["status"] == "succeeded", gold.text

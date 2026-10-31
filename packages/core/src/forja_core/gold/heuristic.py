@@ -7,7 +7,9 @@ The confirmed relations give the shape of the star:
 - a referenced source that itself references others is a header (e.g. orders): it
   is joined to the fact along its many-to-one relation and lends it its foreign
   keys, dates and identifiers, never its additive amounts;
-- a referenced source that references nothing is a dimension.
+- a referenced source that references nothing is a dimension;
+- when the relations give no fact (a project of one file), a source left alone with
+  numbers is a fact by itself: its texts are degenerate dimensions, its dates date keys.
 """
 
 from __future__ import annotations
@@ -110,6 +112,41 @@ def _measures(base: SilverSource, excluded: set[str]) -> list[Measure]:
         )
     measures.append(Measure(name="nb_lignes", expression="1", aggregation=Aggregation.SUM))
     return measures
+
+
+def _standalone_fact(source: SilverSource) -> Fact | None:
+    """A source with numbers and no relation, as its own fact; None without numbers."""
+    key = set(source.key)
+    if not any(
+        is_numeric(column_type)
+        for column, column_type in source.columns.items()
+        if column not in key
+    ):
+        return None
+    texts = [
+        column
+        for column, column_type in source.columns.items()
+        # Personal data is never a degenerate dimension: it would reach Gold as is.
+        if column_type.upper() == "VARCHAR" and not _is_personal(source, column)
+    ]
+    degenerate = [DegenerateDimension(name=c, source=source.name, column=c) for c in texts]
+    return Fact(
+        name=_fact_name(source.name),
+        source=source.name,
+        grain=list(source.key) or list(source.columns),
+        grain_description=f"une ligne de {source.name}",
+        date_keys=[
+            DateKey(name=f"{column}_key", source=source.name, column=column)
+            for column, column_type in source.columns.items()
+            if is_temporal(column_type)
+        ],
+        degenerate_dimensions=degenerate,
+        measures=_measures(source, key | set(texts)),
+    )
+
+
+def _is_personal(source: SilverSource, column: str) -> bool:
+    return any(c.target_column == column and c.pii_type is not None for c in source.plan.columns)
 
 
 def _index(
@@ -222,6 +259,12 @@ def propose_heuristic(ctx: GoldContext) -> tuple[GoldModel, list[str]]:
     modeled = (
         set(dimensions) | {f.source for f in facts} | {j.source for f in facts for j in f.joins}
     )
+    if not facts:
+        for name in sorted(set(sources) - modeled):
+            fact = _standalone_fact(sources[name])
+            if fact is not None:
+                facts.append(fact)
+                modeled.add(name)
     for name in sorted(set(sources) - modeled):
         warnings.append(
             f"la source {name} n'est liée par aucune relation confirmée exploitable : "
