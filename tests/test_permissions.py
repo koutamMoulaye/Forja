@@ -178,6 +178,7 @@ MATRIX: list[tuple[str, str, Any, set[str]]] = [
     ("POST", "/projects/{project_id}/runs", {"type": "profile"}, {"engineer", "admin"}),
     ("GET", "/projects/{project_id}/runs", None, set(ROLES)),
     ("GET", "/projects/{project_id}/graph", None, set(ROLES)),
+    ("GET", "/projects/{project_id}/counters", None, set(ROLES)),
     ("GET", "/runs/{run_id}", None, {"engineer", "admin"}),
     ("GET", "/runs/{run_id}/logs", None, {"engineer", "admin"}),
     ("POST", "/runs/{run_id}/cancel", None, {"engineer", "admin"}),

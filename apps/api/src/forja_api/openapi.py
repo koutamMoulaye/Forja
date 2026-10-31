@@ -417,6 +417,12 @@ ROUTE_DOCS: dict[tuple[str, str], tuple[str, str]] = {
         "Rejeter une demande",
         "Avec un motif. Auteur de la demande ou engineer.",
     ),
+    ("get", "/projects/{project_id}/counters"): (
+        "Compteurs de la barre latérale",
+        "Ce qui attend quelqu'un, en une requête : plans Silver et plan Gold à revoir, data "
+        "marts à approuver (engineers), aperçus à vérifier (les siens, ou tous avec "
+        f"mart.read_all). {ALL}",
+    ),
     # --- Téléversements découpés ----------------------------------------------------
     ("post", "/projects/{project_id}/uploads"): (
         "Ouvrir un téléversement découpé",

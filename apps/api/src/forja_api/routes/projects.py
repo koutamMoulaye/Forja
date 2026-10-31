@@ -5,9 +5,11 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Query, status
+from pydantic import BaseModel, Field
 
 from forja_api.security import Access, AdminDep, PrincipalDep, require
 from forja_api.state import StateDep
+from forja_core.agent.models import MartStatus
 from forja_core.auth.models import (
     Action,
     AuditPage,
@@ -20,6 +22,7 @@ from forja_core.auth.models import (
 )
 from forja_core.models import Project, ProjectCreate
 from forja_core.pagination import DEFAULT_LIMIT, MAX_LIMIT
+from forja_core.silver.plan import PlanStatus
 
 router = APIRouter(tags=["projects"])
 
@@ -145,4 +148,48 @@ def _audit_page(
         offset=offset,
         limit=limit,
         facets=state.catalog.audit_facets(project_id),
+    )
+
+
+class ProjectCounters(BaseModel):
+    """What waits for someone, per section of the sidebar, in one request."""
+
+    plans_to_review: int | None = Field(description="Silver plans in draft (engineers)")
+    gold_plan_to_review: bool | None = Field(description="Latest Gold plan in draft (engineers)")
+    marts_to_approve: int | None = Field(
+        description="Validated data marts awaiting an approval (engineers)"
+    )
+    previews_to_check: int = Field(description="Previewed data marts of the caller")
+
+
+@router.get(
+    "/projects/{project_id}/counters",
+    summary="Items waiting for someone, per section of the sidebar",
+)
+def get_counters(
+    project_id: str,
+    state: StateDep,
+    access: Annotated[Access, require(Action.PROJECT_READ)],
+) -> ProjectCounters:
+    owner = None if access.can(Action.MART_READ_ALL) else access.principal.id
+    previews = state.catalog.count_mart_requests(
+        project_id, owner_id=owner, status=MartStatus.PREVIEWED
+    )
+    if not access.can(Action.PLAN_WRITE):
+        return ProjectCounters(
+            plans_to_review=None,
+            gold_plan_to_review=None,
+            marts_to_approve=None,
+            previews_to_check=previews,
+        )
+    plans = state.catalog.latest_plans(project_id).values()
+    gold = state.catalog.latest_gold_plan(project_id)
+    validated = state.catalog.list_mart_requests(project_id, status=MartStatus.VALIDATED)
+    return ProjectCounters(
+        plans_to_review=sum(1 for plan in plans if plan.status is PlanStatus.DRAFT),
+        gold_plan_to_review=gold is not None and gold.status == "draft",
+        marts_to_approve=sum(
+            1 for mart in validated if not mart.approved_at and not mart.publish_job_id
+        ),
+        previews_to_check=previews,
     )
