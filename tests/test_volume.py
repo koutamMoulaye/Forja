@@ -1,14 +1,16 @@
-"""Volume: a generated CSV file through ingestion, profiling and the Silver build.
+"""Volume: a generated CSV file from ingestion to an exported data mart.
 
 Opt-in, it takes minutes:
 
     FORJA_VOLUME_ROWS=5000000 uv run pytest tests/test_volume.py -s     # local
     FORJA_VOLUME_ROWS=1000000 ...                                         # CI
 
-Time and peak memory (resident set of the API process and of the dbt subprocess, sampled
-every 50 ms) are measured for each step, with the disk used; everything generated is
-deleted afterwards. The measures are printed as JSON and written to
-``$FORJA_VOLUME_REPORT`` when set.
+Ingestion, profile, Silver, Gold (heuristic proposal, no language model), a data mart
+asked in French, then the export of the published tables: time and peak memory (resident
+set of the API process and of the dbt subprocess, sampled every 50 ms) for each step, and
+the disk used after it; everything generated is deleted afterwards. The measures are
+printed as JSON and written to ``$FORJA_VOLUME_REPORT`` when set. Below 6 GB of free
+memory the test stops before measuring: the figures would be the machine's, not Forja's.
 """
 
 from __future__ import annotations
@@ -30,10 +32,12 @@ import pytest
 
 from forja_api.state import AppState
 from forja_core.config import Settings
-from forja_core.jobs.models import JobStatus, JobType, RunRequest
-from forja_core.models import Layer, ProjectCreate
+from forja_core.models import Layer
+from tests.auth import api_client
+from tests.campaign import reference as ref
 
 ROWS = int(os.environ.get("FORJA_VOLUME_ROWS", "0"))
+MIN_FREE_GB = float(os.environ.get("FORJA_VOLUME_MIN_FREE_GB", "6"))
 pytestmark = [
     pytest.mark.volume,
     pytest.mark.skipif(ROWS <= 0, reason="set FORJA_VOLUME_ROWS to run the volume test"),
@@ -75,7 +79,20 @@ class PeakSampler:
             self.peak = max(self.peak, self._rss())
 
 
-def measure[T](name: str, results: dict[str, Any], step: Callable[[], T]) -> T:
+def enough_memory() -> None:
+    free = psutil.virtual_memory().available / 1024**3
+    if free < MIN_FREE_GB:
+        pytest.fail(
+            f"only {free:.1f} GB of free memory (at least {MIN_FREE_GB:g} GB wanted): free "
+            "some before measuring",
+            pytrace=False,
+        )
+
+
+def measure[T](
+    name: str, results: dict[str, Any], step: Callable[[], T], disk: Path | None = None
+) -> T:
+    enough_memory()
     sampler = PeakSampler()
     started = time.perf_counter()
     with sampler.running():
@@ -84,6 +101,8 @@ def measure[T](name: str, results: dict[str, Any], step: Callable[[], T]) -> T:
         "seconds": round(time.perf_counter() - started, 1),
         "peak_memory_mb": round(sampler.peak / 1024**2),
     }
+    if disk is not None:
+        results[name]["disk_after_mb"] = round(_size(disk) / 1024**2)
     return value
 
 
@@ -118,6 +137,7 @@ def generate(path: Path, rows: int) -> None:
 
 
 def test_volume(tmp_path: Path) -> None:
+    enough_memory()
     root = tmp_path / "volume"
     settings = Settings(
         data_dir=root / "data",
@@ -135,46 +155,86 @@ def test_volume(tmp_path: Path) -> None:
         "duckdb_threads": settings.duckdb_threads,
     }}  # fmt: skip
     source_file = root / "commandes.csv"
+    data = settings.data_dir
     root.mkdir(parents=True)
-    state = AppState.build(settings)
     try:
-        measure("generate", results, lambda: generate(source_file, ROWS))
-        results["csv_mb"] = round(source_file.stat().st_size / 1024**2)
-        project = state.catalog.create_project(ProjectCreate(name="Volume"))
+        with api_client(settings) as client:
+            state: AppState = client.app.state.forja  # type: ignore[attr-defined]
+            measure("generate", results, lambda: generate(source_file, ROWS))
+            results["csv_mb"] = round(source_file.stat().st_size / 1024**2)
+            project_id = client.post("/projects", json={"name": "Volume"}).json()["id"]
 
-        [source] = measure(
-            "ingest_and_profile",
-            results,
-            lambda: state.ingestion.ingest_file(project.id, source_file, "commandes.csv"),
-        )
-        profile = state.catalog.get_profile(source.id)
-        assert source.row_count == ROWS
-        assert profile.row_count == ROWS and profile.sampled is (
-            settings.profiling_full_scan_rows < ROWS
-        )
-        assert profile.duplicates.duplicate_rows > 0
-        results["profile_seconds"] = round((profile.duration_ms or 0) / 1000, 1)
-        results["ingest_seconds"] = round(
-            results["ingest_and_profile"]["seconds"] - results["profile_seconds"], 1
-        )
-        results["bronze_mb"] = round(
-            _size(state.workspace.layer_dir(project.id, Layer.BRONZE)) / 1024**2
-        )
+            [source] = measure(
+                "ingest_and_profile",
+                results,
+                lambda: state.ingestion.ingest_file(project_id, source_file, "commandes.csv"),
+                data,
+            )
+            profile = state.catalog.get_profile(source.id)
+            assert source.row_count == ROWS
+            assert profile.row_count == ROWS and profile.sampled is (
+                settings.profiling_full_scan_rows < ROWS
+            )
+            assert profile.duplicates.duplicate_rows > 0
+            results["profile_seconds"] = round((profile.duration_ms or 0) / 1000, 1)
+            results["ingest_seconds"] = round(
+                results["ingest_and_profile"]["seconds"] - results["profile_seconds"], 1
+            )
+            results["bronze_mb"] = round(
+                _size(state.workspace.layer_dir(project_id, Layer.BRONZE)) / 1024**2
+            )
 
-        def build() -> None:
-            job = state.executor.create(project.id, RunRequest(type=JobType.BUILD_SILVER))
-            state.runner.submit(job.id)
-            done = state.catalog.get_job(job.id)
-            assert done.status is JobStatus.SUCCEEDED, done.error
-            results["silver_rows_valid"] = done.metrics.rows_valid if done.metrics else None
+            def silver() -> None:
+                job = ref.run(
+                    client,
+                    client.post(f"/projects/{project_id}/runs", json={"type": "build_silver"}),
+                )
+                results["silver_rows_valid"] = (job.get("metrics") or {}).get("rows_valid")
 
-        measure("silver_build", results, build)
-        results["warehouse_mb"] = round(
-            state.generator.warehouse_path(project.id).stat().st_size / 1024**2
-        )
-        results["disk_total_mb"] = round(_size(root) / 1024**2)
+            measure("silver_build", results, silver, data)
+            results["warehouse_mb"] = round(
+                state.generator.warehouse_path(project_id).stat().st_size / 1024**2
+            )
+
+            def gold() -> None:
+                ref.run(
+                    client,
+                    client.post(
+                        f"/projects/{project_id}/gold-plan/propose", json={"use_llm": False}
+                    ),
+                )
+                approved = client.post(f"/projects/{project_id}/gold-plan/approve")
+                assert approved.status_code == 200, approved.text
+                ref.run(
+                    client,
+                    client.post(f"/projects/{project_id}/runs", json={"type": "build_gold"}),
+                )
+
+            measure("gold_build", results, gold, data)
+
+            def mart() -> None:
+                request = ref.ask_mart(client, project_id, "Montant des commandes par ville")
+                validated = client.post(f"/mart-requests/{request['id']}/validate")
+                ref.run(client, validated)
+                published = client.get(f"/mart-requests/{request['id']}").json()
+                assert published["status"] == "published", published["status"]
+                results["mart"] = published["published_name"]
+
+            measure("data_mart", results, mart, data)
+
+            def export() -> None:
+                ref.run(
+                    client,
+                    client.post(
+                        f"/projects/{project_id}/runs",
+                        json={"type": "export", "formats": ["parquet", "csv"]},
+                    ),
+                )
+
+            measure("export", results, export, data)
+            results["exports_mb"] = round(_size(state.publisher.exports_dir(project_id)) / 1024**2)
+            results["disk_total_mb"] = round(_size(root) / 1024**2)
     finally:
-        state.close()
         shutil.rmtree(root, ignore_errors=True)
     assert not root.exists()
     report = json.dumps(results, indent=2, ensure_ascii=False)
@@ -184,5 +244,5 @@ def test_volume(tmp_path: Path) -> None:
         Path(target).write_text(report + "\n", encoding="utf-8")
     # Streaming keeps memory far below the data size, within DuckDB's limit.
     limit_mb = int(settings.duckdb_memory_limit.removesuffix("GB")) * 1024
-    for step in ("ingest_and_profile", "silver_build"):
+    for step in ("ingest_and_profile", "silver_build", "gold_build", "data_mart", "export"):
         assert results[step]["peak_memory_mb"] < limit_mb + 1024, results

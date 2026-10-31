@@ -99,6 +99,25 @@ def run(client: TestClient, response: Any) -> dict[str, Any]:
     return result
 
 
+def ask_mart(
+    analyst: TestClient, project_id: str, question: str, metric: str = "metric:montant"
+) -> dict[str, Any]:
+    """A data mart requested in French, clarified when the agent asks back."""
+    asked = analyst.post(f"/projects/{project_id}/mart-requests", json={"question": question})
+    run(analyst, asked)
+    mart_id = asked.json()["mart_request"]["id"]
+    for _ in range(3):
+        request: dict[str, Any] = analyst.get(f"/mart-requests/{mart_id}").json()
+        latest = request["iterations"][-1]
+        if request["status"] == "previewed":
+            return request
+        assert latest["status"] == "clarification", latest
+        options = latest["clarification"]["options"]
+        choice = next((i for i, o in enumerate(options) if o.get("ref") == metric), 0)
+        run(analyst, analyst.post(f"/mart-requests/{mart_id}/answer", json={"option": choice}))
+    raise AssertionError(f"no preview after three answers: {request}")
+
+
 def _rss(process: psutil.Process) -> int:
     """Resident memory of a process and its children (dbt), in bytes."""
     total = 0

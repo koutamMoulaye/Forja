@@ -10,10 +10,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
 from forja_api.state import AppState
 from forja_core import duck
@@ -33,23 +31,6 @@ class FakeClock:
 
     def __call__(self) -> datetime:
         return self.now
-
-
-def _ask(analyst: TestClient, project_id: str, question: str) -> dict[str, Any]:
-    """A data mart requested in French, clarified when the agent asks back."""
-    asked = analyst.post(f"/projects/{project_id}/mart-requests", json={"question": question})
-    ref.run(analyst, asked)
-    mart_id = asked.json()["mart_request"]["id"]
-    for _ in range(3):
-        request: dict[str, Any] = analyst.get(f"/mart-requests/{mart_id}").json()
-        latest = request["iterations"][-1]
-        if request["status"] == "previewed":
-            return request
-        assert latest["status"] == "clarification", latest
-        options = latest["clarification"]["options"]
-        choice = next((i for i, o in enumerate(options) if o.get("ref") == "metric:montant"), 0)
-        ref.run(analyst, analyst.post(f"/mart-requests/{mart_id}/answer", json={"option": choice}))
-    raise AssertionError(f"no preview after three answers: {request}")
 
 
 def _mart_total(path: Path, table: str) -> tuple[int, float]:
@@ -171,7 +152,9 @@ def test_reference_journey(settings: Settings, tmp_path: Path, postgres: db.Test
                     )
 
                 with timer.step("data mart"):
-                    request = _ask(analyst, project_id, "Montant des ventes par mois et par ville")
+                    request = ref.ask_mart(
+                        analyst, project_id, "Montant des ventes par mois et par ville"
+                    )
                     validated = analyst.post(f"/mart-requests/{request['id']}/validate")
                     assert validated.status_code in (200, 202), validated.text
                     ref.run(engineer, engineer.post(f"/mart-requests/{request['id']}/approve"))
