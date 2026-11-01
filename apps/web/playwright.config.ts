@@ -32,7 +32,7 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
-      grepInvert: /@perf/,
+      grepInvert: /@perf|@media/,
     },
     // Load times are measured in Google Chrome, the browser people use. Playwright's
     // Chromium build for Windows is x64: on the ARM64 reference workstation it runs
@@ -46,6 +46,13 @@ export default defineConfig({
         viewport: { width: 1440, height: 900 },
       },
       grep: /@perf/,
+    },
+    // The README's screenshot and GIF (e2e/media.spec.ts), run on request only:
+    // `pnpm exec playwright test --project media`.
+    {
+      name: "media",
+      use: { ...devices["Desktop Chrome"], channel: "chrome" },
+      grep: /@media/,
     },
   ],
   webServer: [
