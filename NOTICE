@@ -1,0 +1,35 @@
+Forja
+Copyright 2026 The Forja authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The Forja images and the web application include third-party software and fonts,
+listed with their versions and licenses in THIRD_PARTY_LICENSES.md
+(regenerated with scripts/third_party_licenses.py). The following ask for a notice:
+
+Fonts (SIL Open Font License 1.1, apps/web/src/fonts):
+- Instrument Sans, Copyright 2022 The Instrument Sans Project Authors
+  (https://github.com/Instrument/instrument-sans), OFL-InstrumentSans.txt
+- Commit Mono, Copyright (c) 2023 Eigil Nikolajsen (https://github.com/eigilnikolajsen/commit-mono),
+  OFL-CommitMono.txt
+
+Icons:
+- Phosphor Icons (@phosphor-icons/react), MIT License, Copyright (c) 2020 Phosphor Icons
+
+Libraries under weak copyleft licenses, shipped unmodified as separate modules; their
+source code is available from the projects below:
+- psycopg and psycopg-binary (LGPL-3.0-only), https://www.psycopg.org/
+  psycopg-binary bundles libpq (PostgreSQL License) and OpenSSL (Apache-2.0)
+- pymssql (LGPL-2.1-or-later), https://github.com/pymssql/pymssql, bundles FreeTDS (LGPL)
+- sharp and libvips (Apache-2.0 and LGPL-3.0-or-later), https://sharp.pixelplumbing.com
+- certifi (MPL-2.0), https://github.com/certifi/python-certifi
+- pathspec (MPL-2.0), https://github.com/cpburnz/python-pathspec
+
+Dual-licensed components, used under the license given here:
+- elkjs (EPL-2.0 OR GPL-3.0-or-later): EPL-2.0, https://github.com/kieler/elkjs
+- text-unidecode (Artistic-1.0 OR GPL-1.0-or-later): Artistic-1.0,
+  https://github.com/kmike/text-unidecode
+
+Data under an attribution license:
+- caniuse-lite (CC-BY-4.0), browser support data by the Can I use project,
+  https://caniuse.com
