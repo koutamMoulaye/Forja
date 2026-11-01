@@ -1,12 +1,12 @@
 [project]
-name = "forja-llm"
+name = "forjadata-llm"
 version = "0.1.0"
 description = "Forja LLM provider abstraction and privacy-safe context serialization."
 license = "Apache-2.0"
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=1.0",
-    "forja-core",
+    "forjadata-core",
     "httpx>=0.27",
     "openai>=1.40",
     "pydantic>=2.7",
@@ -14,8 +14,12 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-forja-core = { workspace = true }
+forjadata-core = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.8,<0.14"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# Distribution forjadata-*, modules forja_* (the import names stay).
+module-name = "forja_llm"

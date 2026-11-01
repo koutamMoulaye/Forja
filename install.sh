@@ -1,11 +1,13 @@
 #!/bin/sh
 # Forja: installation in one command (macOS, Linux).
 #
-#   ./install.sh                 build, create the administrator, start, open the browser
+#   ./install.sh                 pull the published images, create the administrator,
+#                                start, open the browser
 #   ./install.sh --demo          ... and load the demo project
 #   ./install.sh --ollama        ... with an Ollama container (several GB more)
+#   ./install.sh --build         build the images from this checkout instead of pulling
 #   ./install.sh --no-browser    do not open the browser
-#   ./install.sh --keep-build-cache   keep Docker's build cache after the build
+#   ./install.sh --keep-build-cache   with --build, keep Docker's build cache
 #
 # Needs Docker with the compose plugin. Data stays in Docker volumes (forja_forja-data,
 # forja_forja-secrets): `docker compose down` keeps them, `docker compose down -v`
@@ -17,14 +19,16 @@ cd "$(dirname "$0")"
 DEMO=""
 PROFILE=""
 BROWSER=1
+BUILD=0
 KEEP_CACHE=0
 for arg in "$@"; do
   case "$arg" in
     --demo) DEMO="--demo" ;;
     --ollama) PROFILE="--profile ollama" ;;
     --no-browser) BROWSER=0 ;;
+    --build) BUILD=1 ;;
     --keep-build-cache) KEEP_CACHE=1 ;;
-    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
     *) echo "Option inconnue : $arg" >&2; exit 2 ;;
   esac
 done
@@ -45,7 +49,7 @@ echo "Docker $(docker version --format '{{.Server.Version}}'), $(docker compose 
 FREE_KB=$(df -Pk . | awk 'NR==2 {print $4}')
 FREE_GB=$((FREE_KB / 1024 / 1024))
 echo "Espace libre : ${FREE_GB} Go (au moins ${NEEDED_GB} Go nécessaires)"
-[ "$FREE_GB" -ge "$NEEDED_GB" ] || fail "pas assez d'espace disque pour construire les images."
+[ "$FREE_GB" -ge "$NEEDED_GB" ] || fail "pas assez d'espace disque pour les images."
 if [ -n "$PROFILE" ]; then
   echo "Profil ollama : l'image Ollama pèse environ 4 Go, chaque modèle plusieurs Go de plus."
 fi
@@ -64,15 +68,21 @@ if [ -n "$PROFILE" ]; then
   export FORJA_OLLAMA_URL=http://ollama:11434
 fi
 
-say "Construction des images"
-docker compose build
-# Former Forja images left without a tag, then the build cache (intermediate layers),
-# not needed once the images exist; --keep-build-cache keeps the latter.
-docker image prune -f --filter dangling=true \
-  --filter "label=org.opencontainers.image.source=https://github.com/koutamMoulaye/Forja" >/dev/null
-if [ "$KEEP_CACHE" -eq 0 ]; then
-  echo "Suppression du cache de construction Docker (--keep-build-cache pour le garder)"
-  docker builder prune -f >/dev/null
+if [ "$BUILD" -eq 1 ]; then
+  say "Construction des images"
+  docker compose -f docker-compose.yml -f docker/compose.build.yml build
+  # Former Forja images left without a tag, then the build cache (intermediate layers),
+  # not needed once the images exist; --keep-build-cache keeps the latter.
+  docker image prune -f --filter dangling=true \
+    --filter "label=org.opencontainers.image.source=https://github.com/forjadata/forja" >/dev/null
+  if [ "$KEEP_CACHE" -eq 0 ]; then
+    echo "Suppression du cache de construction Docker (--keep-build-cache pour le garder)"
+    docker builder prune -f >/dev/null
+  fi
+else
+  say "Téléchargement des images"
+  docker compose pull api web \
+    || fail "images introuvables (hors ligne ?) : ./install.sh --build les construit ici."
 fi
 
 say "Premier démarrage"

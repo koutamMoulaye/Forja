@@ -27,7 +27,7 @@ ARG FORJA_VERSION=0.1.0
 LABEL org.opencontainers.image.title="Forja API" \
       org.opencontainers.image.version="${FORJA_VERSION}" \
       org.opencontainers.image.licenses="Apache-2.0" \
-      org.opencontainers.image.source="https://github.com/koutamMoulaye/Forja"
+      org.opencontainers.image.source="https://github.com/forjadata/forja"
 RUN useradd --create-home --uid 1000 forja \
     && mkdir -p /data /secrets \
     && chown forja:forja /data /secrets \

@@ -1,14 +1,14 @@
 [project]
-name = "forja"
+name = "forjadata"
 version = "0.1.0"
 description = "Automated, local-first data engineering platform: ingest, profile, model and deliver clean datasets."
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "forja-core",
-    "forja-llm",
-    "forja-api",
+    "forjadata-core",
+    "forjadata-llm",
+    "forjadata-api",
 ]
 
 [dependency-groups]
@@ -30,9 +30,9 @@ package = false
 members = ["apps/api", "packages/core", "packages/llm"]
 
 [tool.uv.sources]
-forja-core = { workspace = true }
-forja-llm = { workspace = true }
-forja-api = { workspace = true }
+forjadata-core = { workspace = true }
+forjadata-llm = { workspace = true }
+forjadata-api = { workspace = true }
 
 [tool.ruff]
 line-length = 100

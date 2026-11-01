@@ -1,0 +1,26 @@
+# Build the images from this checkout instead of pulling the published ones:
+#
+#   docker compose -f docker-compose.yml -f docker/compose.build.yml build
+#   docker compose up -d        # uses the images just built (same names and tags)
+#
+# ./install.sh --build and .\install.ps1 -Build do the same. Paths are relative to the
+# repository root (the folder of docker-compose.yml).
+
+x-version: &version ${FORJA_VERSION:-0.1.0}
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      args:
+        FORJA_VERSION: *version
+    pull_policy: build
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        FORJA_VERSION: *version
+    pull_policy: build

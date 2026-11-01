@@ -4,10 +4,10 @@ requires-python = ">=3.12, <3.14"
 
 [manifest]
 members = [
-    "forja",
-    "forja-api",
-    "forja-core",
-    "forja-llm",
+    "forjadata",
+    "forjadata-api",
+    "forjadata-core",
+    "forjadata-llm",
 ]
 
 [[package]]
@@ -596,13 +596,13 @@ wheels = [
 ]
 
 [[package]]
-name = "forja"
+name = "forjadata"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "forja-api" },
-    { name = "forja-core" },
-    { name = "forja-llm" },
+    { name = "forjadata-api" },
+    { name = "forjadata-core" },
+    { name = "forjadata-llm" },
 ]
 
 [package.dev-dependencies]
@@ -619,9 +619,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "forja-api", editable = "apps/api" },
-    { name = "forja-core", editable = "packages/core" },
-    { name = "forja-llm", editable = "packages/llm" },
+    { name = "forjadata-api", editable = "apps/api" },
+    { name = "forjadata-core", editable = "packages/core" },
+    { name = "forjadata-llm", editable = "packages/llm" },
 ]
 
 [package.metadata.requires-dev]
@@ -637,13 +637,13 @@ dev = [
 ]
 
 [[package]]
-name = "forja-api"
+name = "forjadata-api"
 version = "0.1.0"
 source = { editable = "apps/api" }
 dependencies = [
     { name = "fastapi" },
-    { name = "forja-core" },
-    { name = "forja-llm" },
+    { name = "forjadata-core" },
+    { name = "forjadata-llm" },
     { name = "python-multipart" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -651,14 +651,14 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
-    { name = "forja-core", editable = "packages/core" },
-    { name = "forja-llm", editable = "packages/llm" },
+    { name = "forjadata-core", editable = "packages/core" },
+    { name = "forjadata-llm", editable = "packages/llm" },
     { name = "python-multipart", specifier = ">=0.0.9" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 
 [[package]]
-name = "forja-core"
+name = "forjadata-core"
 version = "0.1.0"
 source = { editable = "packages/core" }
 dependencies = [
@@ -711,12 +711,12 @@ requires-dist = [
 ]
 
 [[package]]
-name = "forja-llm"
+name = "forjadata-llm"
 version = "0.1.0"
 source = { editable = "packages/llm" }
 dependencies = [
     { name = "anthropic" },
-    { name = "forja-core" },
+    { name = "forjadata-core" },
     { name = "httpx" },
     { name = "openai" },
     { name = "pydantic" },
@@ -726,7 +726,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=1.0" },
-    { name = "forja-core", editable = "packages/core" },
+    { name = "forjadata-core", editable = "packages/core" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "openai", specifier = ">=1.40" },
     { name = "pydantic", specifier = ">=2.7" },

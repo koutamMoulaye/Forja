@@ -1,13 +1,13 @@
 [project]
-name = "forja-api"
+name = "forjadata-api"
 version = "0.1.0"
 description = "Forja HTTP API."
 license = "Apache-2.0"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
-    "forja-core",
-    "forja-llm",
+    "forjadata-core",
+    "forjadata-llm",
     "python-multipart>=0.0.9",
     "uvicorn[standard]>=0.30",
 ]
@@ -17,9 +17,13 @@ forja-api = "forja_api.main:run"
 forja = "forja_api.cli:main"
 
 [tool.uv.sources]
-forja-core = { workspace = true }
-forja-llm = { workspace = true }
+forjadata-core = { workspace = true }
+forjadata-llm = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.8,<0.14"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# Distribution forjadata-*, modules forja_* (the import names stay).
+module-name = "forja_api"

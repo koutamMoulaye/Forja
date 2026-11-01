@@ -3,22 +3,20 @@
 #   docker compose up -d                     # Ollama of the host machine, if any
 #   docker compose --profile ollama up -d    # an Ollama container (several GB of models)
 #
-# The install scripts (install.sh, install.ps1) build the images, create the
-# administrator, optionally load the demo project, then start everything.
-# Settings: a .env file next to this one (see .env.example).
+# The images are the published ones (GitHub Container Registry), pulled on first start.
+# To build them from this checkout instead:
+#   docker compose -f docker-compose.yml -f docker/compose.build.yml build
+# The install scripts (install.sh, install.ps1) pull the images (or build them with
+# --build), create the administrator, optionally load the demo project, then start
+# everything. Settings: a .env file next to this one (see .env.example).
+# FORJA_IMAGE_PREFIX changes the registry (a mirror), FORJA_VERSION the release.
 
 name: forja
 
-x-version: &version ${FORJA_VERSION:-0.1.0}
-
 services:
   api:
-    build:
-      context: .
-      dockerfile: docker/api.Dockerfile
-      args:
-        FORJA_VERSION: *version
-    image: forja-api:${FORJA_VERSION:-0.1.0}
+    image: ${FORJA_IMAGE_PREFIX:-ghcr.io/forjadata}/forja-api:${FORJA_VERSION:-0.1.0}
+    pull_policy: missing
     env_file:
       - path: .env
         required: false
@@ -47,12 +45,8 @@ services:
     restart: unless-stopped
 
   web:
-    build:
-      context: .
-      dockerfile: docker/web.Dockerfile
-      args:
-        FORJA_VERSION: *version
-    image: forja-web:${FORJA_VERSION:-0.1.0}
+    image: ${FORJA_IMAGE_PREFIX:-ghcr.io/forjadata}/forja-web:${FORJA_VERSION:-0.1.0}
+    pull_policy: missing
     environment:
       FORJA_API_URL: http://api:8000
       # Plain HTTP on localhost; set to true behind HTTPS.

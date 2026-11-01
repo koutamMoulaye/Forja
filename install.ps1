@@ -1,10 +1,12 @@
 ﻿# Forja: installation in one command (Windows, PowerShell 5.1 or 7).
 #
-#   .\install.ps1                 build, create the administrator, start, open the browser
+#   .\install.ps1                 pull the published images, create the administrator,
+#                                 start, open the browser
 #   .\install.ps1 -Demo           ... and load the demo project
 #   .\install.ps1 -Ollama         ... with an Ollama container (several GB more)
+#   .\install.ps1 -Build          build the images from this checkout instead of pulling
 #   .\install.ps1 -NoBrowser      do not open the browser
-#   .\install.ps1 -KeepBuildCache keep Docker's build cache after the build
+#   .\install.ps1 -KeepBuildCache with -Build, keep Docker's build cache
 #
 # Needs Docker Desktop. Data stays in Docker volumes: `docker compose down` keeps them,
 # `docker compose down -v` deletes them.
@@ -12,6 +14,7 @@ param(
     [switch]$Demo,
     [switch]$Ollama,
     [switch]$NoBrowser,
+    [switch]$Build,
     [switch]$KeepBuildCache
 )
 $ErrorActionPreference = "Stop"
@@ -36,7 +39,7 @@ Write-Host ("Docker " + (docker version --format "{{.Server.Version}}") + ", com
 $drive = (Get-Item -Path $PSScriptRoot).PSDrive
 $freeGb = [math]::Floor($drive.Free / 1GB)
 Write-Host "Espace libre sur $($drive.Name): : $freeGb Go (au moins $neededGb Go nécessaires)"
-if ($freeGb -lt $neededGb) { Fail "pas assez d'espace disque pour construire les images." }
+if ($freeGb -lt $neededGb) { Fail "pas assez d'espace disque pour les images." }
 if ($Ollama) {
     Write-Host "Profil ollama : l'image Ollama pèse environ 4 Go, chaque modèle plusieurs Go de plus."
 }
@@ -55,15 +58,21 @@ if ($Ollama) {
     $env:FORJA_OLLAMA_URL = "http://ollama:11434"
 }
 
-Say "Construction des images"
-docker compose build
-if ($LASTEXITCODE -ne 0) { Fail "la construction des images a échoué." }
-# Former Forja images left without a tag, then the build cache (intermediate layers),
-# not needed once the images exist; -KeepBuildCache keeps the latter.
-docker image prune -f --filter dangling=true --filter "label=org.opencontainers.image.source=https://github.com/koutamMoulaye/Forja" | Out-Null
-if (-not $KeepBuildCache) {
-    Write-Host "Suppression du cache de construction Docker (-KeepBuildCache pour le garder)"
-    docker builder prune -f | Out-Null
+if ($Build) {
+    Say "Construction des images"
+    docker compose -f docker-compose.yml -f docker/compose.build.yml build
+    if ($LASTEXITCODE -ne 0) { Fail "la construction des images a échoué." }
+    # Former Forja images left without a tag, then the build cache (intermediate layers),
+    # not needed once the images exist; -KeepBuildCache keeps the latter.
+    docker image prune -f --filter dangling=true --filter "label=org.opencontainers.image.source=https://github.com/forjadata/forja" | Out-Null
+    if (-not $KeepBuildCache) {
+        Write-Host "Suppression du cache de construction Docker (-KeepBuildCache pour le garder)"
+        docker builder prune -f | Out-Null
+    }
+} else {
+    Say "Téléchargement des images"
+    docker compose pull api web
+    if ($LASTEXITCODE -ne 0) { Fail "images introuvables (hors ligne ?) : .\install.ps1 -Build les construit ici." }
 }
 
 Say "Premier démarrage"

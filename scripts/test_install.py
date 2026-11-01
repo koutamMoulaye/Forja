@@ -3,8 +3,8 @@
     uv run python scripts/test_install.py
 
 1. a clean copy of the committed repository (git archive) in a temporary folder;
-2. the images built with docker compose (tagged ``install-test``), the administrator
-   and the demo project created with ``forja init --demo``, everything started;
+2. the images built from the copy (docker/compose.build.yml, tagged ``install-test``),
+   the administrator and the demo project created with ``forja init --demo``, everything started;
 3. through the web container only: sign in with a demo account, ask the agent a question
    the simulated language model answers (docker/compose.install-test.yml), wait for its
    preview;
@@ -36,6 +36,12 @@ TAG = "install-test"
 PORT = 3999
 MIN_FREE_GB = 6
 QUESTION = "Chiffre d'affaires par ville des clients pro"
+# The images are built from the copy (docker/compose.build.yml), not pulled.
+FILES = (
+    "-f", "docker-compose.yml",
+    "-f", "docker/compose.build.yml",
+    "-f", "docker/compose.install-test.yml",
+)  # fmt: skip
 
 
 def step(text: str) -> None:
@@ -45,7 +51,7 @@ def step(text: str) -> None:
 def compose(folder: Path, *args: str, capture: bool = False) -> str:
     command = [
         "docker", "compose", "-p", PROJECT,
-        "-f", "docker-compose.yml", "-f", "docker/compose.install-test.yml", *args,
+        *FILES, *args,
     ]  # fmt: skip
     result = subprocess.run(
         command,
@@ -129,8 +135,7 @@ def report(folder: Path, current: str, error: BaseException) -> None:
     if isinstance(error, subprocess.CalledProcessError):
         detail = f"{error.cmd}: exit {error.returncode}\n{error.stdout or ''}{error.stderr or ''}"
     logs = subprocess.run(
-        ["docker", "compose", "-p", PROJECT, "-f", "docker-compose.yml",
-         "-f", "docker/compose.install-test.yml", "logs", "--no-color", "--tail", "60"],
+        ["docker", "compose", "-p", PROJECT, *FILES, "logs", "--no-color", "--tail", "60"],
         cwd=folder, env={**_env(), "FORJA_VERSION": TAG}, text=True, capture_output=True,
         check=False,
     )  # fmt: skip
@@ -184,15 +189,14 @@ def main() -> int:
     finally:
         step("clean-up")
         subprocess.run(
-            ["docker", "compose", "-p", PROJECT, "-f", "docker-compose.yml",
-             "-f", "docker/compose.install-test.yml", "down", "-v", "--rmi", "all",
+            ["docker", "compose", "-p", PROJECT, *FILES, "down", "-v", "--rmi", "all",
              "--remove-orphans"],
             cwd=folder, env={**_env(), "FORJA_VERSION": TAG}, check=False,
         )  # fmt: skip
         # Former Forja images left without a tag by the rebuild.
         subprocess.run(
             ["docker", "image", "prune", "-f", "--filter",
-             "label=org.opencontainers.image.source=https://github.com/koutamMoulaye/Forja",
+             "label=org.opencontainers.image.source=https://github.com/forjadata/forja",
              "--filter", "dangling=true"],
             check=False,
         )  # fmt: skip

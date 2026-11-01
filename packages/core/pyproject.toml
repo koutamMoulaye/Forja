@@ -1,5 +1,5 @@
 [project]
-name = "forja-core"
+name = "forjadata-core"
 version = "0.1.0"
 description = "Forja core: projects, ingestion, profiling, storage and configuration."
 license = "Apache-2.0"
@@ -31,3 +31,7 @@ dependencies = [
 [build-system]
 requires = ["uv_build>=0.8,<0.14"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# Distribution forjadata-*, modules forja_* (the import names stay).
+module-name = "forja_core"
