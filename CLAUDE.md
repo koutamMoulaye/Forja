@@ -70,8 +70,10 @@ pnpm test:e2e                            # Playwright + axe + CSP, against the r
 pnpm dev                                 # http://localhost:3000
 
 # Everything in Docker
-./install.sh  |  .\install.ps1           # checks, docker compose up, opens the browser
-docker compose up -d                     # API + web, host Ollama
+./install.sh  |  .\install.ps1           # checks, pulls the published images, starts, opens
+                                         # the browser (--build / -Build: build locally)
+docker compose up -d                     # API + web (ghcr.io/forjadata), host Ollama
+docker compose -f docker-compose.yml -f docker/compose.build.yml build   # local images
 docker compose --profile ollama up -d    # with an Ollama container (several GB)
 ```
 
@@ -83,7 +85,8 @@ apps/web        Next.js front (App Router), proxy to the API under /api/forja
 packages/core   ingestion, profiling, Silver/Gold planning, dbt, jobs, auth, agent, semantic layer
 packages/llm    LLM providers (Anthropic, OpenAI, Ollama) and context builders
 tests/          pytest suites, fixtures generated on the fly, agent evaluation
-docs/           architecture, decisions, security, agent, semantic layer, BI, guides
+docs/           French docs (architecture, decisions, security, agent, BI, guides...);
+                docs/en English versions; docs/assets README media; docs/naming.md
 design/         design references (ForjaApp.dc.html is authoritative)
 docker/         production images and first-start scripts
 ```
