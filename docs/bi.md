@@ -1,5 +1,7 @@
 # Connexion d'un outil BI
 
+*English: [en/bi.md](en/bi.md)*
+
 Forja publie les tables Gold d'un projet (et les tables Silver choisies) dans une base
 DuckDB dédiée à la lecture :
 

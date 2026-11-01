@@ -1,5 +1,7 @@
 # Guide analyst : demander un data mart
 
+*English: [en/guide-analyst.md](en/guide-analyst.md)*
+
 Un analyst n'a pas besoin de connaître les tables : il pose sa question en français et
 vérifie ce que Forja a compris avant toute publication. Connexion :
 <http://localhost:3000>, arrivée sur l'**Accueil**.

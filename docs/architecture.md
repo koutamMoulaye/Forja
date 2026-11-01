@@ -1,5 +1,7 @@
 # Architecture
 
+*English: [en/architecture.md](en/architecture.md)*
+
 ## Principes
 
 - **Local-first** : tout fonctionne sur un poste, sans service externe. DuckDB sert de
@@ -300,7 +302,7 @@ warehouse_busy`.
 ## Catalogue
 
 `forja_meta.duckdb` : `projects`, `sources`, `source_versions`, `profiles` (par
-version), `plans` (versionnés), `jobs`, `warehouse_tables` (tables Silver, Gold et data
+version), `plans` (versionnés), `jobs`, `silver_tables` (tables Silver, Gold et data
 marts, avec leur indicateur de publication et leur propriétaire), `relations`,
 `gold_plans`, `llm_calls`, `llm_cache`, `users`, `memberships`, `auth_sessions`,
 `refresh_tokens`, `api_keys`, `invitations`, `audit_log`, `semantic_layers`,

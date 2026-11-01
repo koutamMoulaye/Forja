@@ -1,5 +1,7 @@
 # Guide engineer : d'un fichier à un modèle publié
 
+*English: [en/guide-engineer.md](en/guide-engineer.md)*
+
 Ce guide suit le parcours d'un engineer dans l'interface, sur le projet de démo ou sur
 vos propres fichiers. Connexion : <http://localhost:3000>, avec un compte engineer ou
 administrateur ; l'arrivée se fait sur le **Pipeline**.

@@ -1,5 +1,7 @@
 # Couche sémantique
 
+*English: [en/semantic-layer.md](en/semantic-layer.md)*
+
 La couche sémantique donne des noms métier au modèle Gold appliqué : ce que l'agent
 comprend, ce que le futur front affichera, ce que les analysts manipulent. Elle est
 générée par des règles déterministes (`forja_core.semantic.generate`), versionnée dans le

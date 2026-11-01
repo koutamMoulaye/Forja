@@ -151,7 +151,7 @@ contre 2,5 s, profil 1,0 s contre 2,3 s, Silver 7,2 s contre 10,0 s, parcours co
 24,6 s contre 33,5 s (détail dans [benchmarks.md](benchmarks.md#python-natif-arm64)). La
 suite de tests passe dans ce conteneur (`uv run pytest -m "not databases"`).
 
-Pour une installation complète avec Docker, voir le [README](../README.md#installation-en-une-commande).
+Pour une installation complète avec Docker, voir le [guide de démarrage](getting-started.md).
 
 La configuration se fait par variables d'environnement préfixées par `FORJA_` ou via
 un fichier `.env` (voir [`.env.example`](../.env.example)).

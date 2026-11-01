@@ -1,5 +1,7 @@
 # Sécurité : authentification, rôles et audit
 
+*English: [en/security.md](en/security.md)*
+
 ## Modes
 
 | `FORJA_AUTH_MODE` | Usage | Comptes |

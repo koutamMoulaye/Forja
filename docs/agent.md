@@ -1,5 +1,7 @@
 # Agent métier
 
+*English: [en/agent.md](en/agent.md)*
+
 Un analyst demande un data mart en français ; Forja le comprend, montre ce qu'il a
 compris avec un aperçu vérifiable, et ne publie qu'après validation.
 

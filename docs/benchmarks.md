@@ -1,5 +1,7 @@
 # Mesures
 
+*English: [en/benchmarks.md](en/benchmarks.md)*
+
 Chiffres de la campagne de tests de l'étape 7 (octobre 2026). Ce qu'elle a trouvé et
 corrigé : [campaign-report.md](campaign-report.md). Toutes les mesures se rejouent avec
 les tests cités ; `FORJA_CAMPAIGN_REPORT=<dossier>` écrit le JSON de chaque scénario.

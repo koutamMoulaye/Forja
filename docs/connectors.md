@@ -1,5 +1,7 @@
 # Connecteurs, chargements planifiés et gros volumes
 
+*English: [en/connectors.md](en/connectors.md)*
+
 Une source Forja peut venir d'un fichier, d'une base de données ou d'une API REST. Une
 table ou un endpoint chargé devient une source comme une autre : versions, dérive de
 schéma, profil, plan Silver, puis Gold et diffusion. Les choix techniques sont expliqués
