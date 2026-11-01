@@ -98,18 +98,24 @@ def stop(profile: str) -> None:
     _compose("down", "-v", "--remove-orphans", profile=profile)
 
 
-def _wait(url: URL, seconds: float = 120) -> None:
+def _wait(url: URL, seconds: float = 120, steady: int = 3) -> None:
+    """Until the server answers ``steady`` times in a row: just after the containers
+    restart, a first answer may come from a server about to restart (docker-proxy also
+    accepts connections before anything listens behind it)."""
     deadline = time.monotonic() + seconds
-    while True:
-        engine = sa.create_engine(url)
+    answered = 0
+    while answered < steady:
+        engine = sa.create_engine(url, pool_pre_ping=True)
         try:
             with engine.connect() as con:
                 con.execute(sa.text("SELECT 1"))
-            return
-        except sa.exc.OperationalError:
+            answered += 1
+            time.sleep(0.5)
+        except sa.exc.DBAPIError:
+            answered = 0
             if time.monotonic() > deadline:
                 raise
-            time.sleep(2)
+            time.sleep(1)
         finally:
             engine.dispose()
 
