@@ -31,6 +31,7 @@ import {
   matchesFilter,
   nodeInfo,
   nodeLook,
+  SUCCESS_VISIBLE_MS,
   type Filter,
   type GraphNode,
   type Lane,
@@ -80,6 +81,23 @@ function writeStored(key: string, value: unknown) {
   }
 }
 
+/** Whether two layouts put every node and lane at the same place (nothing to tween). */
+function samePlaces(a: Layout, b: Layout): boolean {
+  const ids = Object.keys(b.nodes);
+  if (ids.length !== Object.keys(a.nodes).length || a.lanes.length !== b.lanes.length) {
+    return false;
+  }
+  const same = (p: { x: number; width: number }, q: { x: number; width: number }) =>
+    p.x === q.x && p.width === q.width;
+  return (
+    ids.every((id) => {
+      const p = a.nodes[id];
+      const q = b.nodes[id]!;
+      return p !== undefined && same(p, q) && p.y === q.y;
+    }) && a.lanes.every((lane, index) => same(lane, b.lanes[index]!))
+  );
+}
+
 /** Position tweening between two layouts (folding, new nodes), 340 ms. */
 function useTween(layout: Layout | null, reduce: boolean): Layout | null {
   const [shown, setShown] = useState(layout);
@@ -87,7 +105,7 @@ function useTween(layout: Layout | null, reduce: boolean): Layout | null {
   useEffect(() => {
     if (!layout) return;
     const start = from.current;
-    if (!start || reduce) {
+    if (!start || reduce || samePlaces(start, layout)) {
       from.current = layout;
       setShown(layout);
       return;
@@ -340,12 +358,20 @@ function Canvas({ projectId, graph, synthetic = false }: Props) {
   );
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    // « Réussi » fades back to the calm state a few seconds after a run.
-    const recent = graph.nodes.some((n) => n.run?.status === "succeeded" && n.run.finished_at);
-    if (!recent) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [graph]);
+    // « Réussi » fades back to the calm state a few seconds after a run: one render when
+    // the nearest one expires, none once every success is older.
+    const current = Date.now();
+    const ends = graph.nodes
+      .map((n) =>
+        n.run?.status === "succeeded" && n.run.finished_at
+          ? Date.parse(n.run.finished_at) + SUCCESS_VISIBLE_MS
+          : 0,
+      )
+      .filter((end) => end > current);
+    if (!ends.length) return;
+    const timer = window.setTimeout(() => setNow(Date.now()), Math.min(...ends) - current + 50);
+    return () => window.clearTimeout(timer);
+  }, [graph, now]);
 
   const nodes = useMemo<Node[]>(() => {
     if (!shown) return [];
@@ -602,9 +628,16 @@ function Canvas({ projectId, graph, synthetic = false }: Props) {
     };
   });
   const { registerCanvas } = shell;
+  // Registered again only when the nodes the palette lists change: a graph fetched again
+  // with new states would re-render the whole shell for nothing.
+  const listed = JSON.stringify(graph.nodes.map((n) => [n.id, n.name, n.lane, n.state]));
+  const latestNodes = useRef(graph.nodes);
+  useEffect(() => {
+    latestNodes.current = graph.nodes;
+  }, [graph.nodes]);
   useEffect(() => {
     registerCanvas({
-      nodes: graph.nodes.map((node) => ({ node, lane: LANE_TITLES[node.lane] })),
+      nodes: latestNodes.current.map((node) => ({ node, lane: LANE_TITLES[node.lane] })),
       focus: (id) => {
         actions.current.select(id);
         setFilter("all");
@@ -616,7 +649,7 @@ function Canvas({ projectId, graph, synthetic = false }: Props) {
       filter: (next) => setFilter(next),
       fit: () => actions.current.fit(),
     });
-  }, [registerCanvas, graph.nodes]);
+  }, [registerCanvas, listed]);
   useEffect(() => () => registerCanvas(null), [registerCanvas]);
 
   const [toolbarWidth, setToolbarWidth] = useState(660);

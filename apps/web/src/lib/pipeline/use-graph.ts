@@ -233,10 +233,14 @@ export function useLayout(
   );
   const ranked = cached ?? computed ?? quick;
 
+  // Placed from the structure, not from each graph object: a graph fetched again with the
+  // same nodes and links keeps the same layout, so nothing is tweened or drawn again.
+  const hasGraph = graph !== undefined;
   return useMemo(() => {
-    if (!graph || !ranked) return null;
+    if (!hasGraph || !ranked) return null;
     // Nodes the ranking does not know yet appear once it is done.
-    const known = { ...input, nodes: input.nodes.filter((n) => ranked.nodes[n.id]) };
+    const { input: placed } = structure;
+    const known = { ...placed, nodes: placed.nodes.filter((n) => ranked.nodes[n.id]) };
     return { ...placeLanes(known, ranked, folded), provisional: ranked === quick };
-  }, [graph, ranked, quick, input, folded]);
+  }, [hasGraph, ranked, quick, structure, folded]);
 }
