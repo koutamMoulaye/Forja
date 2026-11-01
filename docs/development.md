@@ -129,6 +129,28 @@ commande (omis pour la lisibilité). Pour un script, créez plutôt une clé API
 Si `uv` a été installé avec `pip` et n'est pas dans le `PATH`, préfixez chaque commande
 par `python -m` : `python -m uv sync`, `python -m uv run forja-api`, etc.
 
+**Mémoire de DuckDB.** Par défaut (`FORJA_DUCKDB_MEMORY_LIMIT=auto`), DuckDB prend la
+moitié de la mémoire disponible au démarrage de l'API (la limite du conteneur comprise),
+entre 1 et 16 Go, puis déborde sur disque. Une taille fixe (`6GB`) le remplace.
+
+### Windows sur ARM64 (Snapdragon)
+
+Sous Windows ARM64, `uv` installe un CPython **x64** qui tourne en émulation : tout
+fonctionne, mais les temps côté Python (ingestion, profil, dbt) sont pessimistes. Un
+CPython ARM64 natif (`uv python install cpython-3.12-windows-aarch64-none`) ne peut pas
+encore servir : en novembre 2026, PyPI n'a pas de roue `win_arm64` pour **pyarrow**
+(26.0, aucune version), **cryptography** (50.0), **psycopg-binary** (3.3), **dbt-extractor**
+(0.6) et **dbt-core-experimental-parser** (2.0, source seule) ; les compiler demande
+Arrow C++, Rust, MSVC et libpq. DuckDB, argon2, pydantic-core, SQLAlchemy, pymssql et les
+autres ont leur roue ARM64.
+
+Pour du natif sur ces machines, utilisez Docker : les images Linux `arm64` ont toutes
+leurs roues et tournent sans émulation. Mesuré sur le poste de référence (1 million de
+lignes, `tests/test_volume.py`, conteneur limité à 6 CPU et 8 Go) : ingestion 1,6 s
+contre 2,5 s, profil 1,0 s contre 2,3 s, Silver 7,2 s contre 10,0 s, parcours complet
+24,6 s contre 33,5 s (détail dans [benchmarks.md](benchmarks.md#python-natif-arm64)). La
+suite de tests passe dans ce conteneur (`uv run pytest -m "not databases"`).
+
 Pour une installation complète avec Docker, voir le [README](../README.md#installation-en-une-commande).
 
 La configuration se fait par variables d'environnement préfixées par `FORJA_` ou via

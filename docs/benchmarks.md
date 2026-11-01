@@ -14,7 +14,7 @@ les tests cités ; `FORJA_CAMPAIGN_REPORT=<dossier>` écrit le JSON de chaque sc
 | Python | 3.12.15 **x64, émulé** sur ARM64 | 3.12, natif |
 | Navigateur | Chrome 156 (ARM64 natif) ; Chromium de Playwright 1.64.1 (x64, émulé) | Chrome, Chromium de Playwright |
 | Pile | DuckDB 2.0.0, dbt 1.12.6, dbt-duckdb 1.11.0, FastAPI 0.158.1, Node 24.19, Next.js 16.4.3, React 19.3 | identique |
-| Réglages | `FORJA_DUCKDB_MEMORY_LIMIT=6GB`, `FORJA_DUCKDB_THREADS=4` | identiques |
+| Réglages | `FORJA_DUCKDB_MEMORY_LIMIT=6GB` (étape 7 ; `auto` par défaut depuis l'étape 8), `FORJA_DUCKDB_THREADS=4` | identiques |
 
 Sur le poste de référence, l'API, DuckDB et dbt tournent en x64 émulé : les temps côté
 Python y sont pessimistes. Le pic mémoire est celui du processus et de ses enfants
@@ -54,6 +54,43 @@ De bout en bout : 39 s pour un million de lignes, 73 s pour cinq millions.
 Les chiffres CI sont ceux du job « Volume, one million rows » (artefact `volume-report`),
 qui mesure depuis cette étape aussi Gold, le data mart et l'export. L'écart vient de
 l'émulation : la CI, sur moins de cœurs, est plus rapide.
+
+### Python natif ARM64
+
+Étape 8 : le même test d'un million de lignes, le même jour, sur le poste de référence,
+d'abord avec le Python x64 émulé de Windows, puis dans un conteneur Linux `arm64`
+(`ghcr.io/astral-sh/uv:python3.12-bookworm-slim`, Docker limité à 6 CPU et 8 Go), où
+Python, DuckDB et dbt sont natifs. Un CPython ARM64 natif sous Windows reste impossible
+(pas de roue `win_arm64` pour pyarrow notamment, voir
+[development.md](development.md#windows-sur-arm64-snapdragon)).
+
+| Étape | Windows, Python x64 émulé | Linux arm64 natif (conteneur) | Écart |
+|---|---|---|---|
+| Ingestion vers Bronze | 2,5 s | 1,6 s | −36 % |
+| Profil | 2,3 s | 1,0 s | −57 % |
+| Silver (dbt) | 10,0 s | 7,2 s | −28 % |
+| Gold | 6,7 s | 5,3 s | −21 % |
+| Data mart | 7,7 s | 6,1 s | −21 % |
+| Export Parquet et CSV | 2,7 s | 1,9 s | −30 % |
+| Test complet | 33,5 s | 24,6 s | −27 % |
+
+Avec deux fois moins de mémoire et quatre cœurs de moins, le natif gagne un bon quart :
+l'émulation coûte davantage que les ressources retirées. La suite complète passe dans ce
+conteneur (520 tests, bases de données exclues).
+
+### Démarrage de dbt et analyse partielle
+
+L'identifiant du run passe par `FORJA_RUN_ID` au lieu de `--vars`, qui obligeait dbt à
+analyser tout le projet à chaque run (« config vars … have changed »).
+
+| Mesure (poste de référence, Python émulé) | `--vars`, sans analyse partielle | variable d'environnement, analyse partielle |
+|---|---|---|
+| `dbt parse` d'un projet de 20 modèles, 4 passages | 5,6 à 5,8 s | 4,5 s après le premier |
+| `build_silver` complet de la boutique, 4 × 5 reconstructions, médiane | 7,55 s | 6,7 s |
+
+Le gain porte sur les builds répétés d'un même projet (chargements planifiés,
+reconstructions) ; le premier build d'un projet, ou après un changement du profil dbt,
+reste une analyse complète.
 
 ### Table PostgreSQL de 10 millions de lignes, chargée en incrémental
 
@@ -126,6 +163,25 @@ Le Chromium de Playwright, x64 émulé sur ce poste, met 2,1 à 5,5 s pour le m�
 rechargement : le test de durée tourne donc dans Chrome (projet `chrome` de
 `playwright.config.ts`), les autres tests e2e dans Chromium.
 
+### Rendus au chargement du canvas (étape 8)
+
+Rechargement du canvas de la démo, Chromium de Playwright (le navigateur lent du
+poste), build de production, 10 passages ; commits comptés par le crochet des outils de
+développement de React, temps lus par le protocole DevTools (`Performance.getMetrics`)
+jusqu'à 3 s après l'affichage des nœuds.
+
+| | Avant | Après |
+|---|---|---|
+| Commits React | 35 à 41 | 22 à 24 |
+| Temps de script (médiane) | 1,87 s | 1,5 s |
+| Temps des tâches du fil principal (médiane) | 4,1 s | 3,4 s |
+
+Causes retirées : un minuteur d'une seconde qui redessinait tous les nœuds tant qu'un run
+réussi existait, même ancien ; une mise en page recréée (et une animation de 340 ms
+lancée) à chaque nouvel objet graphe de structure identique ; les commandes de la palette
+réenregistrées dans l'enveloppe, qui redessinaient toute l'interface. Les rendus restants
+viennent surtout de React Flow (mesure des nœuds) et de l'entrée animée des nœuds.
+
 ### Lighthouse (préréglage desktop, Chrome, médiane de 3 passages)
 
 | Écran | Score | LCP | TBT | CLS |
@@ -171,7 +227,7 @@ quelques secondes.
   comparaison x64.
 - L'envoi de 2 Go est mesuré en local, sans réseau : le débit réel dépend de la connexion.
 - Les durées des scénarios dépendent du démarrage de dbt à chaque run (3,3 s d'import au
-  repos sur ce poste, bien davantage sur une machine chargée) ; elles ne mesurent pas un
-  débit.
+  repos sur ce poste, bien davantage sur une machine chargée ; l'analyse partielle en
+  retire environ 0,8 s depuis l'étape 8) ; elles ne mesurent pas un débit.
 - Lighthouse audite des écrans connectés, servis par `next start` et l'API locale, sans
   limitation réseau (préréglage desktop).

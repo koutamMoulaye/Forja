@@ -40,6 +40,11 @@ person in charge of the project says otherwise for that task.
 
 ## Machine
 
+- The workstation is Windows ARM64; uv's CPython there is x64, emulated. Native ARM64
+  CPython is blocked by missing `win_arm64` wheels (pyarrow, cryptography, psycopg-binary,
+  dbt-extractor): see `docs/development.md`. Native timings come from the linux/arm64
+  Docker image.
+
 - Keep the PC awake during long runs (`scripts/keep-awake.ps1 -Run "<command>"`, or
   `powercfg /change standby-timeout-ac 0` for the duration, restored afterwards).
 - Stop every server you started (API, `next start`, `docker compose`) at the end of a task.

@@ -66,21 +66,30 @@ sécurité exposées, ou parcours très dégradé), **mineure** (gêne, cas limi
 | 9 | Après un arrêt brutal de l'API, dbt survivait et gardait l'entrepôt ouvert : le build suivant échouait | majeure | corrigé | `0282ead` ; scénario 7 |
 | 10 | Des identifiants groupés par espaces (« 155 781 758 ») étaient des décimaux : relation manquée sur les données réelles | majeure | corrigé | `9558523` ; scénario 2, `test_type_inference` |
 | 11 | Écran Modèle vide : impossible de confirmer les relations avant la première proposition | mineure | corrigé | `c3964a0` ; `14-reference-journey.spec.ts` |
-| 12 | dbt démarre à chaque run : 3,3 s d'import au repos (Python émulé), jusqu'à 28 s avant le premier modèle sur une machine chargée ; l'analyse partielle ne servirait pas, `forja_run_id` change à chaque run | mineure | ouvert | voir recommandations |
-| 13 | Sans modèle de langage, la proposition Gold somme des colonnes de codes (nomenclatures BAAC) comme des mesures | mineure | ouvert | revue de l'ingénieur avant approbation |
-| 14 | Un mois écrit « 03 » est inféré comme texte (zéro initial) | mineure | ouvert | |
-| 15 | Sans modèle de langage, une question en français sur des colonnes nommées en anglais est refusée tant que la couche sémantique n'a pas de synonymes ; l'agent propose la forme comprise | mineure | ouvert | |
+| 12 | dbt démarre à chaque run : 3,3 s d'import au repos (Python émulé), jusqu'à 28 s avant le premier modèle sur une machine chargée ; l'analyse partielle ne servait pas, `forja_run_id` changeait à chaque run | mineure | corrigé (étape 8) | `65cff9e` : identifiant par `FORJA_RUN_ID`, analyse partielle gardée ; Silver reconstruit 7,55 → 6,7 s ; `test_e2e.py` (identifiant du second run) |
+| 13 | Sans modèle de langage, la proposition Gold somme des colonnes de codes (nomenclatures BAAC) comme des mesures | mineure | corrigé (étape 8) | `9db523e` : codes reconnus (nom, peu d'entiers courts), gardés en dimensions dégénérées ; `test_code_columns_are_not_measures` |
+| 14 | Un mois écrit « 03 » est inféré comme texte (zéro initial) | mineure | corrigé (étape 8) | `bef850a` : entier avec mention si le zéro n'est qu'un remplissage, texte pour un code ; `test_a_leading_zero_is_padding_or_part_of_a_code` |
+| 15 | Sans modèle de langage, une question en français sur des colonnes nommées en anglais est refusée tant que la couche sémantique n'a pas de synonymes ; l'agent propose la forme comprise | mineure | corrigé (étape 8) | `b6c57e9` : synonymes français proposés par dictionnaire, validés par un engineer ; `test_english_names_get_french_synonyms_to_validate` |
 | 16 | Relation suggérée à 85 % entre des noms de clients (texte) de deux sources | mineure | ouvert | reste une suggestion à confirmer |
-| 17 | Pic mémoire de l'ingestion d'un fichier de 2 Go : 6,1 Go, la limite par défaut de DuckDB (6 Go) | mineure | ouvert | `FORJA_DUCKDB_MEMORY_LIMIT` à adapter à la machine |
-| 18 | Thread principal occupé environ 2 s au chargement du canvas dans un navigateur lent (rendus React répétés) | mineure | ouvert | |
-| 19 | macOS : rien ne lie dbt à la vie de l'API (pas de job object ni de `PR_SET_PDEATHSIG`) | mineure | ouvert | un dbt orphelin finit son build, le suivant attend le verrou |
-| 20 | Premier passage du volume PostgreSQL en échec juste après l'arrêt des conteneurs par la suite complète, cause non élucidée ; le passage suivant a réussi | mineure | ouvert | à surveiller |
+| 17 | Pic mémoire de l'ingestion d'un fichier de 2 Go : 6,1 Go, la limite par défaut de DuckDB (6 Go) | mineure | corrigé (étape 8) | `520751b` : limite `auto` (moitié de la mémoire disponible, limite du conteneur comprise, entre 1 et 16 Go) ; `test_duckdb_memory_limit_is_computed_or_overridden` |
+| 18 | Thread principal occupé environ 2 s au chargement du canvas dans un navigateur lent (rendus React répétés) | mineure | corrigé (étape 8) | `7a58f32` : 22 à 24 commits React au lieu de 35 à 41, script 1,87 → 1,5 s (médianes, Chromium émulé) |
+| 19 | macOS : rien ne lie dbt à la vie de l'API (pas de job object ni de `PR_SET_PDEATHSIG`) | mineure | corrigé (étape 8) | `3fc856e` : groupe de processus arrêté à la fermeture, gardien sous macOS ; `tests/test_children.py` (Linux en CI) |
+| 20 | Premier passage du volume PostgreSQL en échec juste après l'arrêt des conteneurs par la suite complète | mineure | corrigé (étape 8) | `94c9bae` : contrôle de santé en TCP (le serveur temporaire du premier démarrage écoute sur le socket seulement), trois réponses d'affilée exigées |
 
 Pendant la campagne, une régression introduite par la réécriture du SSRF (un hôte autorisé
 par son nom était résolu à l'enregistrement) a été trouvée par la suite et corrigée avant
 tout commit.
 
 ## Recommandations avant de rendre le dépôt public
+
+État à l'étape 8 : 1 fait (identifiant de run par variable d'environnement ; dbt en
+processus, `dbtRunner`, n'est pas retenu pour garder l'isolation), 2 étudié (Python
+ARM64 natif bloqué sous Windows par les roues manquantes, natif en conteneur arm64 :
+[development.md](development.md#windows-sur-arm64-snapdragon)), 3, 4, 5 et 6 faits,
+7 fait (actions épinglées par commit, Ubuntu 24.04). Seule l'anomalie 16 reste ouverte :
+une suggestion à confirmer, par construction.
+
+Recommandations d'origine :
 
 1. **Démarrage de dbt.** Passer l'identifiant de run par une variable d'environnement
    plutôt que `--vars` permettrait l'analyse partielle (le tiers environ du démarrage) ;
