@@ -1,0 +1,17 @@
+# Secret scanning (gitleaks), CI job "Secrets" and `gitleaks git .` locally.
+# The default rules, with the false positives of this repository allowed line by line:
+# surrogate keys (md5 of a natural key) in the generated OpenAPI examples, and the
+# throwaway passwords of the test suites and of the API examples. Anything else that matches fails the job.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Surrogate keys of the generated OpenAPI examples"
+regexTarget = "line"
+regexes = ['''"(client|produit|_forja)_key"\s*:\s*"[0-9a-f]{32}"''']
+
+[[allowlists]]
+description = "Throwaway passwords of the test suites"
+regexTarget = "line"
+regexes = ['''(Forja-initial-2026|Nouveau-Forja-2026|Campagne-resilience-2026|Mot-De-Passe-Unique-77|Long-passw0rd-x|Nouveau-Passw0rd-26)''']
+
