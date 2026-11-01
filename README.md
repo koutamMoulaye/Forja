@@ -1,138 +1,183 @@
 # Forja
 
-[![CI](https://github.com/koutamMoulaye/Forja/actions/workflows/ci.yml/badge.svg)](https://github.com/koutamMoulaye/Forja/actions/workflows/ci.yml)
-[![Licence Apache 2.0](https://img.shields.io/badge/licence-Apache%202.0-blue.svg)](LICENSE)
+[![CI](https://github.com/forjadata/forja/actions/workflows/ci.yml/badge.svg)](https://github.com/forjadata/forja/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/forjadata/forja/actions/workflows/codeql.yml/badge.svg)](https://github.com/forjadata/forja/actions/workflows/codeql.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-**Forja transforme des fichiers bruts en données propres, documentées et prêtes pour la
-BI, puis laisse les équipes métier demander en français les tables dont elles ont
-besoin, avec un aperçu qu'elles vérifient avant toute publication.**
+*Français : [README.fr.md](README.fr.md)*
 
-Open source et *local-first* : tout tourne sur votre machine, avec ou sans modèle d'IA.
+**Forja turns raw files and tables into clean, documented, BI-ready data, then lets
+business teams ask for the tables they need in plain language, with a preview they
+check before anything is published.**
 
-![Le canvas du pipeline : sources, nettoyage, modèle en étoile et diffusion](docs/images/canvas.png)
+Open source and *local-first*: everything runs on your machine, with or without an AI
+model. A language model, when you add one, never sees your data values and never
+writes SQL.
 
-## Ce que fait Forja
+> **The interface is in French in v0.1** (and so are the questions to the agent).
+> English is the first item of the next version. Code, docs and issues are in English.
 
-- **Ingestion** de fichiers CSV, Excel, Parquet et JSON (jusqu'à 10 Go, envoi
-  reprenable, lecture en flux par DuckDB), de tables PostgreSQL, MySQL/MariaDB et SQL
-  Server (complètes ou incrémentales) et d'API REST paginées ; chaque chargement est une
-  version, avec détection de la dérive de schéma. Chargements **planifiés** (« tous les
-  jours à 6 h ») jusqu'aux data marts publiés.
-- **Profilage** de chaque colonne : types (dates et décimales à la française compris),
-  valeurs manquantes, clés, doublons, données personnelles (email, téléphone, IBAN,
-  noms) et score qualité.
-- **Nettoyage** par un plan Silver relu règle par règle (chaque règle expliquée, valeurs
-  avant et après), exécuté par [dbt](https://www.getdbt.com/) ; les lignes invalides
-  vont en quarantaine, rien ne disparaît en silence.
-- **Modélisation** en étoile (dimensions, SCD2, faits au grain explicite), proposée par
-  un modèle d'IA ou par des règles déterministes, validée puis construite par dbt.
-- **Diffusion** vers Power BI, Superset ou Metabase par une base DuckDB de diffusion, ou
-  en exports Parquet et CSV, données personnelles pseudonymisées.
-- **Questions en français** : un analyst demande un data mart (« CA par mois et par
-  ville en 2024, clients Pro »). Forja montre ce qu'il a compris, un échantillon, le SQL
-  et des contrôles de réconciliation ; l'analyst corrige un terme ou valide, un engineer
-  approuve, Forja publie.
+![The pipeline canvas: sources, cleaning, star schema and serving](docs/assets/canvas.png)
 
-Les engineers ont le canvas du pipeline, les plans, les runs et la gouvernance ; les
-analysts un accueil, l'agent, leurs data marts et le catalogue des indicateurs. Les
-notifications arrivent en direct ; l'interface existe en thème clair et sombre.
+## What Forja does
 
-## Installation en une commande
+- **Ingests** CSV, Excel, Parquet and JSON files (up to 10 GB, resumable upload,
+  streamed by DuckDB), PostgreSQL, MySQL/MariaDB and SQL Server tables (full or
+  incremental) and paginated REST APIs. Every load is a version; schema drift is
+  detected. **Scheduled** loads ("every day at 6 am") refresh everything down to the
+  published data marts.
+- **Profiles** every column: types (French and English dates and decimals), missing
+  values, keys, duplicates, personal data (email, phone, IBAN, names) and a quality
+  score.
+- **Cleans** with a Silver plan reviewed rule by rule (each rule explained, values
+  before and after), run by [dbt](https://www.getdbt.com/) on DuckDB; invalid rows go to
+  quarantine, nothing disappears silently.
+- **Models** a star schema (dimensions, SCD2, facts with an explicit grain), proposed by
+  an AI model or by deterministic rules, validated, then built by dbt.
+- **Serves** Power BI, Superset or Metabase through a DuckDB serving database, or Parquet
+  and CSV exports, with personal data pseudonymized.
+- **Answers questions**: an analyst asks for a data mart ("revenue per month and city in
+  2024, business customers"). Forja shows what it understood, a sample, the SQL and
+  reconciliation checks; the analyst corrects a term or validates, an engineer
+  approves, Forja publishes.
 
-Il faut [Docker](https://docs.docker.com/get-docker/) avec Compose v2 et environ 4 Go
-d'espace libre.
+![A short journey: the pipeline, a fact table in the inspector, an analyst's question and its preview](docs/assets/journey.gif)
+
+Engineers get the pipeline canvas, plans, runs and governance; analysts a home page,
+the agent, their data marts and the catalog of indicators. Notifications arrive live;
+the interface has light and dark themes.
+
+## Install in one command
+
+You need [Docker](https://docs.docker.com/get-docker/) with Compose v2 and about 4 GB
+of free disk. The images exist for linux/amd64 and linux/arm64.
 
 ```sh
-git clone https://github.com/koutamMoulaye/Forja.git && cd Forja
+git clone https://github.com/forjadata/forja.git && cd forja
 ./install.sh --demo            # macOS, Linux
 .\install.ps1 -Demo            # Windows (PowerShell)
 ```
 
-Le script vérifie Docker et l'espace disque, construit les deux images (API et web),
-crée l'administrateur, charge le projet de démo avec `--demo`, démarre le tout et ouvre
-<http://localhost:3000>. **Le mot de passe de l'administrateur et ceux des comptes de
-démo ne s'affichent qu'une fois** : notez-les ; la première connexion demande d'en
-choisir un nouveau.
+The script checks Docker and the free disk, pulls the two signed images (API and web)
+from GitHub Container Registry, creates the administrator, loads the demo project with
+`--demo`, starts everything and opens <http://localhost:3000>. **The administrator's and
+the demo accounts' passwords are shown once**: note them; the first sign-in asks for a
+new one. `--build` builds the images from the checkout instead.
 
 ```sh
-docker compose up -d           # redémarrer plus tard
-docker compose down            # arrêter (les données restent dans les volumes Docker)
-docker compose down -v         # arrêter et supprimer toutes les données
+docker compose up -d           # start again later
+docker compose down            # stop (data stays in Docker volumes)
+docker compose down -v         # stop and delete all data
 ```
 
-Les réglages vont dans un fichier `.env` à côté de `docker-compose.yml` (voir
-[`.env.example`](.env.example)) : port, mode multi-utilisateur, fournisseur d'IA. Sans
-Docker : [docs/development.md](docs/development.md) (uv et pnpm).
+Settings, upgrades, backups and troubleshooting: [getting started](docs/en/getting-started.md).
+Without Docker: [CONTRIBUTING.md](CONTRIBUTING.md#development-setup) (uv and pnpm).
 
-## Fournisseur d'IA : local, cloud ou aucun
+## AI provider: local, cloud or none
 
-Forja fonctionne sans modèle d'IA : des règles déterministes proposent le modèle en
-étoile et un analyseur local comprend la plupart des questions. Un modèle aide pour les
-questions ambiguës et les schémas inhabituels. Il se choisit dans **Réglages ›
-Fournisseur IA**, ou dans `.env` :
+Forja works without an AI model: deterministic rules propose the star schema and a local
+parser understands most questions. A model helps with ambiguous questions and unusual
+schemas. Choose it in the settings screen, or in `.env`:
 
-| Fournisseur | Réglage | Remarques |
+| Provider | Setting | Notes |
 |---|---|---|
-| Aucun | `FORJA_LLM_PROVIDER=` | Par défaut. Tout reste déterministe. |
-| Ollama (local, gratuit) | `FORJA_LLM_PROVIDER=ollama` | Utilise l'Ollama de votre machine (`qwen3.5:9b` par défaut). `./install.sh --ollama` le lance plutôt dans un conteneur (plusieurs Go). |
-| Anthropic | `FORJA_LLM_PROVIDER=anthropic` et `ANTHROPIC_API_KEY` | |
-| OpenAI | `FORJA_LLM_PROVIDER=openai`, `OPENAI_API_KEY` et `FORJA_LLM_MODEL` | |
+| None | `FORJA_LLM_PROVIDER=` | The default. Everything stays deterministic. |
+| Ollama (local, free) | `FORJA_LLM_PROVIDER=ollama` | Your machine's Ollama (`qwen3.5:9b` by default); `./install.sh --ollama` runs it in a container instead (several GB). |
+| Anthropic | `FORJA_LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` | |
+| OpenAI | `FORJA_LLM_PROVIDER=openai`, `OPENAI_API_KEY` and `FORJA_LLM_MODEL` | |
 
-## Garanties de confidentialité
+## Privacy guarantees
 
-Elles valent quel que soit le fournisseur, et des tests les vérifient :
+They hold whatever the provider, and tests check them:
 
-- **Un modèle ne reçoit jamais de valeur de données.** Il voit les schémas, des
-  statistiques, les relations et la couche sémantique ; jamais une ligne, un échantillon
-  ou une valeur distincte. Les valeurs tapées par un utilisateur sont résolues
-  localement.
-- **Un modèle n'écrit jamais de SQL.** Il renvoie une spécification structurée que Forja
-  valide contre la couche sémantique ; le SQL est produit par des templates.
-- **Les données personnelles sont pseudonymisées hors de Silver** : base de diffusion,
-  exports, aperçus et data marts utilisent HMAC-SHA256 avec un sel par projet, rangé hors
-  du dossier de données. Un analyst ne les voit jamais en clair.
-- **Chaque action est journalisée** (qui, quoi, quand, sur quel objet), les rôles sont
-  vérifiés sur chaque route, la session tient dans des cookies httpOnly et les pages
-  s'exécutent sous une Content-Security-Policy stricte. Détails dans
-  [docs/security.md](docs/security.md).
+- **A model never receives a data value.** It sees schemas, statistics, relations and
+  the semantic layer; never a row, a sample or a distinct value. Values typed by a user
+  are resolved locally.
+- **A model never writes SQL.** It returns a structured specification that Forja
+  validates against the semantic layer; SQL comes from templates.
+- **Personal data is pseudonymized outside Silver**: serving database, exports,
+  previews and data marts use HMAC-SHA256 with a per-project salt kept outside the data
+  folder. An analyst never sees it in clear.
+- **Every action is audited** (who, what, when, on which object), roles are checked on
+  every route, the session lives in httpOnly cookies and pages run under a strict
+  Content-Security-Policy. Details: [security](docs/en/security.md); to report a
+  vulnerability: [SECURITY.md](SECURITY.md).
+
+## Key figures
+
+Measured during the release test campaign ([benchmarks](docs/en/benchmarks.md)):
+
+| | |
+|---|---|
+| One million rows, from file to exported data mart | about 33 s, peak memory about 1 GB |
+| Five million rows, same journey | 73 s |
+| 10 million rows from PostgreSQL, then 100,000 new rows | 55.8 s, then 3.5 s incremental |
+| 2 GB upload cut twice, resumed | 12.8 s |
+| Canvas shown after sign-in (Chrome) | 1.5 to 1.8 s; Lighthouse 98 |
+| Agent questions answered without any model | 13 of 20 at once; ~200 tokens sent to a model otherwise, no value |
+
+On a laptop CPU, a question that needs a local 9B model takes about two minutes; a GPU
+or a cloud provider brings it to seconds.
 
 ## Architecture
 
 ```
- Navigateur ─► web (Next.js) ─proxy, session httpOnly─► API (FastAPI)
-                    ▲   Server-Sent Events (runs, notifications)  │
-                    └─────────────────────────────────────────────┤
-                                                                  ▼
-  fichiers, bases, API ─► Bronze (Parquet) ─► Silver ─► Gold (étoile) ─► diffusion, exports
-              profilage          dbt + DuckDB, plans relus           │
-                                                                     ▼
-  couche sémantique ◄── issue du Gold ──► agent : analyseur d'abord, modèle d'IA
-                                          optionnel (schémas seuls) ─► aperçu ─► dbt
+ Browser ─► web (Next.js) ─proxy, httpOnly session─► API (FastAPI)
+                ▲   Server-Sent Events (runs, notifications)    │
+                └───────────────────────────────────────────────┤
+                                                                ▼
+ files, databases, APIs ─► Bronze (Parquet) ─► Silver ─► Gold (star) ─► serving, exports
+              profiling        dbt + DuckDB, reviewed plans            │
+                                                                       ▼
+ semantic layer ◄── from Gold ──► agent: parser first, optional AI model
+                                  (schemas only) ─► preview ─► dbt
 ```
 
-Un processus porte l'API et ses workers de jobs ; DuckDB tient le catalogue de
-métadonnées et l'entrepôt ; dbt exécute les transformations. Plus de détails dans
-[docs/architecture.md](docs/architecture.md).
+One process holds the API and its job workers; DuckDB holds the metadata catalog and the
+warehouse; dbt runs the transformations. More in [architecture](docs/en/architecture.md).
 
 ## Documentation
 
 | | |
 |---|---|
-| [Guide engineer](docs/guide-engineer.md) | D'un fichier à un modèle en étoile publié |
-| [Connecteurs](docs/connectors.md) | Bases de données, API, planification, gros volumes |
-| [Guide analyst](docs/guide-analyst.md) | Demander un data mart et le vérifier |
-| [Architecture](docs/architecture.md) · [Décisions](docs/decisions.md) | Comment c'est construit, et pourquoi |
-| [Sécurité](docs/security.md) | Comptes, rôles, sessions, CSP, pseudonymisation |
-| [Agent](docs/agent.md) · [Couche sémantique](docs/semantic-layer.md) | Comment une question devient un data mart |
-| [BI](docs/bi.md) · [Profilage](docs/profiling.md) | Brancher un outil BI ; règles de profilage |
-| [Développement](docs/development.md) | Sans Docker, parcours par l'API, tests |
-| [Mesures](docs/benchmarks.md) · [Campagne de tests](docs/campaign-report.md) | Volumes, temps, mémoire, Lighthouse ; anomalies trouvées avant l'ouverture |
+| [Getting started](docs/en/getting-started.md) | Install, settings, upgrade, backup |
+| [Engineer guide](docs/en/guide-engineer.md) · [Analyst guide](docs/en/guide-analyst.md) | From a file to a published model; asking for a data mart |
+| [Connectors](docs/en/connectors.md) | Databases, APIs, scheduling, large volumes |
+| [Architecture](docs/en/architecture.md) · [Security](docs/en/security.md) | How it is built; accounts, roles, sessions, CSP, pseudonymization |
+| [Agent](docs/en/agent.md) · [Semantic layer](docs/en/semantic-layer.md) | How a question becomes a data mart |
+| [BI](docs/en/bi.md) · [Benchmarks](docs/en/benchmarks.md) | Plugging a BI tool; volumes, times, memory |
 
-## État du projet
+In French: the same pages in [docs/](docs/), plus the design decisions
+([decisions.md](docs/decisions.md)), profiling rules, development notes and the
+[report of the release test campaign](docs/campaign-report.md).
 
-Version **0.1.0**. Une seule instance : un processus d'API, son planificateur, son bus
-d'événements en mémoire et un catalogue DuckDB. Retours et tickets bienvenus.
+## Project status
 
-## Licence
+**v0.1.0**, the first public release. One instance: one API process, its scheduler, its
+in-memory event bus and a DuckDB catalog. It is tested end to end (Python, browser,
+install from scratch, real databases, a real model) but young: expect rough edges, and
+please report them.
 
-[Apache 2.0](LICENSE)
+## Roadmap
+
+- **English interface** and English questions to the agent (next version).
+- Sign-in through an identity provider (OIDC; the interface is ready).
+- More sources: object storage (S3-compatible), more databases.
+- Several API instances (shared event bus, scheduler and throttling).
+- Published Python packages (`forjadata` on PyPI).
+- The full agent evaluation on a cloud model; native Windows ARM64 Python once its
+  dependencies ship wheels.
+
+Ideas and votes are welcome in the issues.
+
+## Contributing
+
+Bug reports, questions and pull requests are welcome: see
+[CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
+Changes are listed in the [CHANGELOG](CHANGELOG.md).
+
+## License
+
+[Apache 2.0](LICENSE). Third-party components and fonts: [NOTICE](NOTICE) and
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md). The name choices are explained in
+[docs/naming.md](docs/naming.md).
