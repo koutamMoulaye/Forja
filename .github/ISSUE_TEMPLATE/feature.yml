@@ -1,0 +1,38 @@
+name: Feature request
+description: A new capability or an improvement.
+labels: [enhancement, needs triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do, and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+      description: How it could work for you. Sketches and examples welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: who
+    attributes:
+      label: Who it is for
+      multiple: true
+      options:
+        - Engineers (pipeline, plans, governance)
+        - Analysts (questions, data marts)
+        - Administrators (install, accounts)
+  - type: checkboxes
+    id: guarantees
+    attributes:
+      label: Guarantees
+      description: Forja's privacy guarantees hold for every feature.
+      options:
+        - label: This does not need a language model to receive data values or to write SQL.

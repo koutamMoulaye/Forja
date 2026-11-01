@@ -1,0 +1,66 @@
+name: Bug report
+description: Something does not work as documented.
+labels: [bug, needs triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. A vulnerability goes through
+        [a private report](https://github.com/forjadata/forja/security/advisories/new), not here.
+        Please never paste real personal data: generated data is enough.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest file, table or question that shows it helps most.
+      placeholder: |
+        1. Load a CSV with these columns: ...
+        2. Approve the Silver plan
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Forja version
+      description: Shown at the bottom of the sidebar, or by `GET /health`.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How Forja runs
+      options:
+        - Docker (install script or docker compose)
+        - From source (uv and pnpm)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system and browser
+      placeholder: Ubuntu 24.04, Chrome 156
+  - type: dropdown
+    id: llm
+    attributes:
+      label: Language model provider
+      options:
+        - None
+        - Ollama
+        - Anthropic
+        - OpenAI
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: The run logs or `docker compose logs api`, with secrets removed.
+      render: text

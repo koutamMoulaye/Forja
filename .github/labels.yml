@@ -1,0 +1,19 @@
+# Recommended labels (CONTRIBUTING.md). GitHub does not read this file: create them in
+# the repository settings, or with a label sync action or `gh label create`.
+- { name: bug, color: d73a4a, description: Something does not work as documented }
+- { name: enhancement, color: a2eeef, description: A new feature or an improvement }
+- { name: question, color: d876e3, description: A usage question }
+- { name: documentation, color: 0075ca, description: Docs only }
+- { name: good first issue, color: 7057ff, description: "Small, well described, a good way in" }
+- { name: help wanted, color: "008672", description: The maintainers would welcome a contribution }
+- { name: security, color: b60205, description: Hardening (vulnerabilities go through SECURITY.md) }
+- { name: needs triage, color: fbca04, description: "New, not looked at yet" }
+- { name: needs reproduction, color: fef2c0, description: Waiting for steps to reproduce }
+- { name: breaking, color: e11d21, description: "Changes the API, the format of plans or a setting" }
+- { name: dependencies, color: "0366d6", description: Dependency updates }
+- { name: "area: api", color: c5def5, description: FastAPI app and CLI }
+- { name: "area: web", color: c5def5, description: Next.js interface }
+- { name: "area: core", color: c5def5, description: "Ingestion, profiling, plans, dbt, agent" }
+- { name: "area: llm", color: c5def5, description: Language model providers }
+- { name: "area: connectors", color: c5def5, description: Databases and REST APIs }
+- { name: "area: docker", color: c5def5, description: "Images, compose, install scripts" }
