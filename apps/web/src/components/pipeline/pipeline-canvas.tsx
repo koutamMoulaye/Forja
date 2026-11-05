@@ -306,7 +306,10 @@ function Canvas({ projectId, graph, synthetic = false }: Props) {
   );
 
   // First view: the stored camera of this project, otherwise « Ajuster ». Placed on the
-  // quick ranking, it is placed again on ELK's unless the user has moved the camera.
+  // quick ranking, it is placed again on ELK's unless the user has moved the camera. A
+  // stored camera keeps its zoom, but the compartments start below the transparent top bar
+  // and right of the sidebar: a zoom at the centre lifts them under the bar, and that
+  // camera is what the next visit finds.
   const placedOn = useRef<"quick" | "final" | null>(null);
   const userMoved = useRef(false);
   useEffect(() => {
@@ -324,9 +327,25 @@ function Canvas({ projectId, graph, synthetic = false }: Props) {
       const width = last.x + last.width;
       flow.setViewport(fitViewport({ width, height: layout.height }, area));
       requestAnimationFrame(() => reveal(shared.id));
-    } else if (stored && Number.isFinite(stored.zoom)) flow.setViewport(stored);
-    else fit(false);
+    } else if (stored && Number.isFinite(stored.zoom)) {
+      flow.setViewport({
+        zoom: stored.zoom,
+        x: Math.max(stored.x, area.left),
+        y: Math.max(stored.y, area.top),
+      });
+    } else fit(false);
   }, [layout, flow, fit, projectId, selectedId, reveal, synthetic, byId, area]);
+
+  // The sidebar opens over the canvas, folds back to its rail: the graph is framed again in
+  // the free area, as in the mockup, rather than left under the sidebar. Not before the
+  // first view: the shell settles its sidebar while the canvas mounts, and an animated
+  // camera then would fade every node out and in again.
+  const sidebarWas = useRef(shell.sidebarOpen);
+  useEffect(() => {
+    if (sidebarWas.current === shell.sidebarOpen) return;
+    sidebarWas.current = shell.sidebarOpen;
+    if (placedOn.current !== null) fit();
+  }, [shell.sidebarOpen, fit]);
 
   // An empty project receiving its first nodes: frame them.
   const hadNodes = useRef(graph.nodes.length > 0);
