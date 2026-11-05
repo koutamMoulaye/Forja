@@ -6,6 +6,16 @@ Ce guide suit le parcours d'un engineer dans l'interface, sur le projet de démo
 vos propres fichiers. Connexion : <http://localhost:3000>, avec un compte engineer ou
 administrateur ; l'arrivée se fait sur le **Pipeline**.
 
+## Créer un projet et y ajouter l'équipe
+
+L'administrateur de l'instance crée les projets : **Nouveau projet** dans le sélecteur
+de projet (en haut à gauche) ou sur la page *Vos projets*. Un nom, une description
+facultative, et le canvas vide du nouveau projet s'ouvre, prêt à recevoir des fichiers.
+
+*Réglages › Membres › Ajouter un membre* ajoute ensuite un compte existant, avec le rôle
+engineer ou analyst ; il voit le projet dans son sélecteur à la connexion suivante. En
+mode `multi`, *Inviter* envoie aussi un lien d'inscription à une adresse sans compte.
+
 ## 1. Charger des fichiers, des tables ou une API
 
 *Sources › Ajouter une source* (ou glisser des fichiers sur le canvas d'un projet vide).
