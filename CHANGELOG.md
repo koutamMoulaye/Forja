@@ -55,6 +55,14 @@ First public release. The interface is in French; English arrives in the next ve
 - dbt is bound to the life of the API on macOS and Linux, as on Windows.
 - The pipeline canvas renders far less while it loads.
 
+### Fixed during the manual tests
+
+- The administrator creates a project from the interface (« Nouveau projet » in the
+  project selector and on the projects page), then adds existing accounts to it as
+  engineer or analyst from the members settings, in local mode too.
+- The canvas no longer frames its compartments under the transparent top bar (a
+  remembered camera) nor under the sidebar once opened: it is framed again.
+
 ### Security
 
 - Secret scanning of the whole history (gitleaks), dependency audit (pip-audit,

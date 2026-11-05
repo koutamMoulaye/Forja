@@ -168,6 +168,38 @@ def test_invitations_need_multi_mode(client: TestClient) -> None:
     assert "FORJA_AUTH_MODE=multi" in response.json()["error"]["message"]
 
 
+def test_local_mode_admin_adds_existing_accounts(client: TestClient) -> None:
+    """No invitation in local mode, but the accounts of the workstation (the demo's) join a
+    new project with a role: the members screen lists them from GET /auth/users."""
+    from forja_core.auth.identity import hash_password
+    from forja_core.auth.models import User
+    from forja_core.catalog.auth import new_id
+    from forja_core.utils import utcnow
+
+    state = client.app.state.forja  # type: ignore[attr-defined]
+    engineer = state.catalog.add_user(
+        User(id=new_id(), email="ingenieur@exemple.fr", created_at=utcnow()),
+        hash_password(USER_PASSWORD),
+    )
+    project_id = _project(client, "Cas 1")
+    users = {u["email"] for u in client.get("/auth/users").json()}
+    assert users == {ADMIN_EMAIL, "ingenieur@exemple.fr"}
+
+    added = client.put(f"/projects/{project_id}/members/{engineer.id}", json={"role": "engineer"})
+    assert added.status_code == 200 and added.json()["role"] == "engineer"
+    members = client.get(f"/projects/{project_id}/members").json()
+    assert {(m["email"], m["role"]) for m in members} == {
+        (ADMIN_EMAIL, "admin"),
+        ("ingenieur@exemple.fr", "engineer"),
+    }
+    other = bearer(
+        TestClient(client.app), login(client, engineer.email, USER_PASSWORD)["access_token"]
+    )
+    assert [p["id"] for p in other.get("/projects").json()] == [project_id]
+    assert other.get(f"/projects/{project_id}/sources").status_code == 200
+    assert other.get("/auth/users").status_code == 403  # the list is the administrator's
+
+
 def test_invitation_registration_and_roles(multi: TestClient) -> None:
     project_id = _project(multi)
     other_project = _project(multi, "Finance")
