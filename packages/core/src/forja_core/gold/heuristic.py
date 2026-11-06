@@ -30,6 +30,10 @@ from forja_core.gold.context import (
     is_numeric,
     is_temporal,
 )
+from forja_core.gold.dates import date_keys as dated
+from forja_core.gold.dates import period_grain
+from forja_core.gold.naming import entity_name as business_entity
+from forja_core.gold.naming import fact_name, process_label
 from forja_core.gold.plan import (
     Aggregation,
     DateDimension,
@@ -48,9 +52,6 @@ from forja_core.profiling.pii import column_tokens
 from forja_core.relations.models import Relation, RelationStatus
 from forja_core.relations.naming import singular
 
-SALES_TOKENS = frozenset(
-    {"ligne", "line", "commande", "order", "vente", "sale", "facture", "invoice", "achat"}
-)
 HISTORIZED_TOKENS = frozenset(
     {"segment", "categorie", "category", "statut", "status", "ville", "city", "region",
      "adresse", "address", "pays", "country", "niveau", "tier", "type", "groupe", "group"}
@@ -80,6 +81,8 @@ CODE_TOKENS = frozenset(
 CODE_PREFIXES = ("cat", "code", "num", "typ", "id")  # catu, catv, numveh, typeroute...
 # Coordinates are numbers no aggregation makes sense of.
 COORDINATE_TOKENS = frozenset({"lat", "latitude", "lon", "lng", "long", "longitude"})
+# An entity is worth a dimension with at least two attributes besides its key.
+ENTITY_MIN_ATTRIBUTES = 2
 # A few short integers (at most two digits, -1 for "unknown") look like a nomenclature.
 CODE_MAX_DISTINCT = 30
 CODE_MAX_VALUE = 99
@@ -142,8 +145,8 @@ def entity_name(source: str) -> str:
     return "_".join(singular(t) for t in source.split("_") if t)
 
 
-def _fact_name(base: str) -> str:
-    return "fct_ventes" if _tokens(base) & SALES_TOKENS else f"fct_{base}"
+def _fact_name(base: SilverSource) -> str:
+    return fact_name(base.name, base.columns)
 
 
 def _scd(source: SilverSource) -> tuple[ScdType, str]:
@@ -195,8 +198,55 @@ def _measures(base: SilverSource, excluded: set[str]) -> list[Measure]:
     return measures
 
 
-def _standalone_fact(source: SilverSource, warnings: list[str]) -> Fact | None:
-    """A source with numbers and no relation, as its own fact; None without numbers."""
+def _entity_dimensions(
+    source: SilverSource, grain: list[str], warnings: list[str]
+) -> list[tuple[Dimension, str]]:
+    """Entities stored on every row of a denormalized source, as dimensions with the
+    fact column holding their key.
+
+    A key whose attributes repeat (a museum's name, city, region on each year) becomes
+    ``dim_<entity>`` with those attributes; the fact keeps the key and the measures.
+    """
+    found: list[tuple[Dimension, str]] = []
+    taken: set[str] = set()
+    period = next((c for c in grain if period_grain(source, c) is not None), None)
+    for entity in sorted(source.entities, key=lambda e: (e.key not in grain, -len(e.attributes))):
+        if entity.key in taken or entity.key not in source.columns:
+            continue
+        attributes = [
+            a
+            for a in entity.attributes
+            if a in source.columns and a not in grain and a not in taken and a != entity.key
+        ]
+        if len(attributes) < ENTITY_MIN_ATTRIBUTES:
+            continue
+        name = business_entity(entity.key, attributes)
+        dimension = Dimension(
+            name=f"dim_{name}",
+            source=source.name,
+            natural_key=[entity.key],
+            surrogate_key=f"{name}_key",
+            attributes=[DimensionAttribute(column=a, name=a) for a in attributes],
+            scd=ScdType.SCD1,
+            extracted=True,
+            latest_by=period,
+        )
+        found.append((dimension, entity.key))
+        taken |= {entity.key, *attributes}
+        if entity.conflicts:
+            listed = ", ".join(f"{c} ({n})" for c, n in sorted(entity.conflicts.items()))
+            warnings.append(
+                f"{dimension.name} : quelques {entity.key} ont plusieurs valeurs de {listed} ; "
+                "la valeur de la ligne la plus récente est retenue"
+            )
+    return found
+
+
+def _standalone_fact(
+    source: SilverSource, warnings: list[str]
+) -> tuple[Fact, list[Dimension]] | None:
+    """A source with numbers and no relation, as its own fact (with the entities stored on
+    its rows as dimensions); None without numbers."""
     key = set(source.key)
     if not any(
         is_numeric(column_type)
@@ -204,31 +254,75 @@ def _standalone_fact(source: SilverSource, warnings: list[str]) -> Fact | None:
         if column not in key
     ):
         return None
+    grain = list(source.key) or list(source.columns)
+    entities = _entity_dimensions(source, grain, warnings)
+    in_dimensions = {
+        c for dim, _ in entities for c in [*dim.natural_key, *(a.column for a in dim.attributes)]
+    }
+    process = process_label(source.name, source.columns)
+    # A date of the entity (its opening, its labelling) stays a date of the fact too,
+    # under its own role; a period number of the entity (a closure year) does not.
+    dates = dated(
+        source,
+        [c for c in source.columns if c not in in_dimensions or period_grain(source, c) == "day"],
+        grain,
+        process,
+    )
+    date_columns = {d.column for d in dates}
     texts = [
         column
         for column, column_type in source.columns.items()
         # Personal data is never a degenerate dimension: it would reach Gold as is.
-        if column_type.upper() == "VARCHAR" and not _is_personal(source, column)
+        if column_type.upper() == "VARCHAR"
+        and not _is_personal(source, column)
+        and column not in in_dimensions
     ]
-    codes = _codes(source, key)
+    codes = _codes(source, key | in_dimensions | date_columns)
     if codes:
         warnings.append(_code_warning(source.name, codes))
     degenerate = [
         DegenerateDimension(name=c, source=source.name, column=c) for c in [*texts, *codes]
     ]
-    return Fact(
-        name=_fact_name(source.name),
+    foreign_keys = [
+        ForeignKey(name=dim.surrogate_key, dimension=dim.name, source=source.name, column=column)
+        for dim, column in entities
+    ]
+    excluded = key | set(texts) | set(codes) | _coordinates(source) | in_dimensions | date_columns
+    fact = Fact(
+        name=_fact_name(source),
         source=source.name,
-        grain=list(source.key) or list(source.columns),
-        grain_description=f"une ligne de {source.name}",
-        date_keys=[
-            DateKey(name=f"{column}_key", source=source.name, column=column)
-            for column, column_type in source.columns.items()
-            if is_temporal(column_type)
-        ],
+        grain=grain,
+        grain_description=_grain_description(source, grain, entities, dates),
+        foreign_keys=foreign_keys,
+        date_keys=dates,
+        primary_date=dates[0].name if dates else None,
         degenerate_dimensions=degenerate,
-        measures=_measures(source, key | set(texts) | set(codes) | _coordinates(source)),
+        measures=_measures(source, excluded),
     )
+    if len(dates) > 1:
+        others = ", ".join(f"{d.column} ({d.role})" for d in dates[1:])
+        warnings.append(
+            f"{fact.name} : date principale {dates[0].column} ({dates[0].role}), la plus "
+            f"remplie et liée au grain ; autres dates : {others}"
+        )
+    return fact, [dim for dim, _ in entities]
+
+
+_GRAIN_WORDS = {"day": "jour", "month": "mois", "quarter": "trimestre", "year": "année"}
+
+
+def _grain_description(
+    source: SilverSource,
+    grain: list[str],
+    entities: list[tuple[Dimension, str]],
+    dates: list[DateKey],
+) -> str:
+    if not source.key:
+        return f"une ligne de {source.name}"
+    names = {column: dim.name.removeprefix("dim_") for dim, column in entities}
+    levels = {d.column: _GRAIN_WORDS[d.grain] for d in dates}
+    parts = [names.get(c) or levels.get(c) or c for c in grain]
+    return "une ligne par " + " et par ".join(p.replace("_", " ") for p in parts)
 
 
 def _is_personal(source: SilverSource, column: str) -> bool:
@@ -305,13 +399,13 @@ def propose_heuristic(ctx: GoldContext) -> tuple[GoldModel, list[str]]:
                     )
 
         fk_columns = {(fk.source, fk.column) for fk in foreign_keys}
+        process = process_label(base_name, base.columns)
         for source_name in [base_name, *(j.source for j in joins)]:
             source = sources[source_name]
-            for column, column_type in source.columns.items():
-                if is_temporal(column_type):
-                    date_keys.append(
-                        DateKey(name=f"{column}_key", source=source_name, column=column)
-                    )
+            temporal = [c for c, t in source.columns.items() if is_temporal(t)]
+            date_keys.extend(dated(source, temporal, list(base.key), process))
+        # The main date: the most filled (an order date before a delivery date).
+        date_keys.sort(key=lambda d: -sources[d.source].fill_rate(d.column))
         for column in base.key:
             if (base_name, column) not in fk_columns:
                 degenerate.append(DegenerateDimension(name=column, source=base_name, column=column))
@@ -341,13 +435,14 @@ def propose_heuristic(ctx: GoldContext) -> tuple[GoldModel, list[str]]:
         excluded |= set(codes) | _coordinates(base)
         facts.append(
             Fact(
-                name=_fact_name(base_name),
+                name=_fact_name(base),
                 source=base_name,
                 grain=list(base.key) or list(base.columns),
                 grain_description=f"une ligne de {base_name}",
                 joins=joins,
                 foreign_keys=foreign_keys,
                 date_keys=date_keys,
+                primary_date=date_keys[0].name if date_keys else None,
                 degenerate_dimensions=degenerate,
                 measures=_measures(base, excluded),
             )
@@ -360,16 +455,19 @@ def propose_heuristic(ctx: GoldContext) -> tuple[GoldModel, list[str]]:
     pending = any(r.status is RelationStatus.SUGGESTED for r in ctx.relations)
     if not facts and not pending:
         for name in sorted(set(sources) - modeled):
-            fact = _standalone_fact(sources[name], warnings)
-            if fact is not None:
+            standalone = _standalone_fact(sources[name], warnings)
+            if standalone is not None:
+                fact, extracted = standalone
                 facts.append(fact)
+                for dim in extracted:
+                    dimensions[dim.name] = dim
                 modeled.add(name)
     for name in sorted(set(sources) - modeled):
         warnings.append(
             f"la source {name} n'est liée par aucune relation confirmée exploitable : "
             "elle n'est pas modélisée en Gold"
         )
-    if not ctx.confirmed:
+    if not ctx.confirmed and len(sources) > 1:
         warnings.append("aucune relation confirmée : confirmez les relations avant de modéliser")
 
     model = GoldModel(

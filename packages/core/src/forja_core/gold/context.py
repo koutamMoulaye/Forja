@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from forja_core.catalog import Catalog
-from forja_core.profiling.models import ColumnProfile
+from forja_core.profiling.models import ColumnProfile, EntityAttributes
 from forja_core.relations.models import Relation, RelationStatus
-from forja_core.silver.plan import PiiTreatment, TransformationPlan
+from forja_core.silver.plan import TransformationPlan
 from forja_core.silver.tables import SilverTable, TableLayer
 
 _NUMERIC_PREFIXES = (
@@ -39,16 +39,21 @@ class SilverSource:
     # Profile of the source column behind each Silver column (statistics, never values
     # beyond what the profile keeps); empty when the source was never profiled.
     profiles: dict[str, ColumnProfile] = field(default_factory=dict)
+    # Attributes repeated for each value of an identifier, in Silver names.
+    entities: tuple[EntityAttributes, ...] = ()
+    row_count: int = 0
 
     @property
     def model(self) -> str:
         return self.table.name
 
-    def pii_treatment(self, column: str) -> PiiTreatment:
-        for plan_column in self.plan.columns:
-            if plan_column.target_column == column:
-                return plan_column.pii_treatment
-        return PiiTreatment.NONE
+    def fill_rate(self, column: str) -> float:
+        """Share of rows with a value (placeholders such as « Inconnu » count as empty)."""
+        profile = self.profiles.get(column)
+        if profile is None or not self.row_count:
+            return 1.0
+        empty = profile.null_count + profile.inferred.sentinel_count
+        return max(0.0, 1 - empty / self.row_count)
 
 
 @dataclass(frozen=True)
@@ -76,6 +81,25 @@ class GoldContext:
         return None
 
 
+def _entities(plan: TransformationPlan, report: object) -> tuple[EntityAttributes, ...]:
+    names = {c.source_column: c.target_column for c in plan.columns if c.included}
+    found: list[EntityAttributes] = []
+    for entity in getattr(report, "entities", []) or []:
+        if entity.key not in names:
+            continue
+        attributes = [names[a] for a in entity.attributes if a in names]
+        if attributes:
+            found.append(
+                EntityAttributes(
+                    key=names[entity.key],
+                    entities=entity.entities,
+                    attributes=attributes,
+                    conflicts={names[a]: n for a, n in entity.conflicts.items() if a in names},
+                )
+            )
+    return tuple(found)
+
+
 def build_gold_context(catalog: Catalog, project_id: str) -> GoldContext:
     sources: dict[str, SilverSource] = {}
     reports = catalog.latest_profiles(project_id)
@@ -95,6 +119,8 @@ def build_gold_context(catalog: Catalog, project_id: str) -> GoldContext:
                 for c in plan.columns
                 if c.source_column in by_source
             },
+            entities=_entities(plan, report),
+            row_count=report.row_count if report else 0,
         )
     return GoldContext(
         project_id=project_id,

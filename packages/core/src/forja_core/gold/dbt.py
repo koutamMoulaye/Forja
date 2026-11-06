@@ -16,10 +16,12 @@ from __future__ import annotations
 from typing import Any
 
 from forja_core.gold.context import GoldContext
+from forja_core.gold.dates import date_key_sql, first_day_sql
 from forja_core.gold.expressions import check_expression
 from forja_core.gold.plan import (
     DATE_DIMENSION,
     UNKNOWN_KEY,
+    DateGrain,
     Dimension,
     Fact,
     GoldPlan,
@@ -114,6 +116,20 @@ def render_dimension(plan: GoldPlan, dim: Dimension, ctx: GoldContext) -> str:
     upstream = snapshot_name(dim) if historized else silver_model(dim.source)
 
     ctes = [f"source as (\n\n{INDENT}select * from {{{{ ref({sql_literal(upstream)}) }}}}\n\n)"]
+    if dim.extracted:
+        # One row per key out of a source holding it on many rows: the latest one.
+        partition = ", ".join(_q(c) for c in dim.natural_key)
+        order = f"{_q(dim.latest_by)} desc nulls last" if dim.latest_by else partition
+        present = " and ".join(f"{_q(c)} is not null" for c in dim.natural_key)
+        ctes[0] = (
+            "source as (\n\n"
+            f"{INDENT}-- {dim.source} repeats each {', '.join(dim.natural_key)} on several rows:\n"
+            f"{INDENT}-- the attributes of its latest row describe it.\n"
+            f"{INDENT}select * from {{{{ ref({sql_literal(upstream)}) }}}}\n"
+            f"{INDENT}where {present}\n"
+            f"{INDENT}qualify row_number() over (partition by {partition} order by {order}) = 1"
+            "\n\n)"
+        )
     if historized:
         partition = ", ".join(_q(c) for c in dim.natural_key)
         ctes.append(
@@ -174,16 +190,16 @@ def render_snapshot(dim: Dimension) -> dict[str, Any]:
     }
 
 
-def _date_columns(plan: GoldPlan) -> list[tuple[str, str]]:
-    return sorted({(k.source, k.column) for f in plan.facts for k in f.date_keys})
+def _date_columns(plan: GoldPlan) -> list[tuple[str, str, DateGrain]]:
+    return sorted({(k.source, k.column, k.grain) for f in plan.facts for k in f.date_keys})
 
 
 def render_date_dimension(plan: GoldPlan) -> str:
     sources = _date_columns(plan)
     union = f"\n{INDENT * 2}union all\n".join(
-        f"{INDENT * 2}select cast({_q(column)} as date) as day "
+        f"{INDENT * 2}select {first_day_sql(grain, _q(column))} as day "
         f"from {{{{ ref({sql_literal(silver_model(source))}) }}}}"
-        for source, column in sources
+        for source, column, grain in sources
     )
     months = " ".join(f"when {i} then {sql_literal(m)}" for i, m in enumerate(_MONTHS, 1))
     days = " ".join(f"when {i} then {sql_literal(d)}" for i, d in enumerate(_DAYS, 1))
@@ -234,8 +250,10 @@ def render_date_dimension(plan: GoldPlan) -> str:
 
 def _fact_event(fact: Fact, ctx: GoldContext) -> str | None:
     """The fact date used to pick the SCD2 version valid at the time of the fact."""
-    for key in fact.date_keys:
-        return f"{_q(key.source)}.{_q(key.column)}"
+    main = [k for k in fact.date_keys if k.name == fact.primary_date] or fact.date_keys
+    for key in main:
+        column = f"{_q(key.source)}.{_q(key.column)}"
+        return column if key.grain == "day" else first_day_sql(key.grain, column)
     return None
 
 
@@ -295,8 +313,7 @@ def render_fact(plan: GoldPlan, fact: Fact, ctx: GoldContext) -> str:
         joins.append(f"left join {source_alias}\n{INDENT}on {condition}")
     for key in fact.date_keys:
         columns.append(
-            f"coalesce(cast(strftime({_q(key.source)}.{_q(key.column)}, '%Y%m%d') as integer), -1)"
-            f" as {_q(key.name)}"
+            f"{date_key_sql(key.grain, f'{_q(key.source)}.{_q(key.column)}')} as {_q(key.name)}"
         )
 
     columns.append("-- Measures (row level; default aggregation in schema.yml)")
