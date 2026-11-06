@@ -327,7 +327,7 @@ class JobExecutor:
             metrics.unknown_member_rows = gold.unknown_member_rows
             metrics.dbt_tests = _merge_tests(metrics.dbt_tests, gold.dbt_tests)
         else:
-            log_line("no approved Gold plan matching the Silver tables: model skipped")
+            self._stop_before_gold(job, log_line)
         if self.publisher.published_tables(job.project_id):
             with stage(90, 100):
                 report("serving", "publication et exports", 0)
@@ -336,6 +336,26 @@ class JobExecutor:
         else:
             log_line("no published table: serving skipped")
         return metrics
+
+    def _stop_before_gold(self, job: Job, log_line: Callable[[str], None]) -> None:
+        """No approved star schema: the run stops after the cleaning, as planned, and says
+        what to do next instead of failing."""
+        draft = self.catalog.latest_gold_plan(job.project_id)
+        if draft is None:
+            message = (
+                "Nettoyage terminé. Le modèle en étoile n'est pas encore défini : proposez un "
+                "modèle, approuvez-le, puis relancez le run."
+            )
+            action = "propose_gold_plan"
+        else:
+            message = (
+                f"Nettoyage terminé. La proposition de modèle v{draft.version} attend votre "
+                "approbation : vérifiez-la et approuvez-la, puis relancez le run."
+            )
+            action = "approve_gold_plan"
+        log_line("no approved Gold plan matching the Silver tables: model skipped")
+        job.result = {**(job.result or {}), "stopped_after": "silver", "message": message,
+                      "next_action": action}  # fmt: skip
 
     def build_after_load(
         self, job: Job, source_ids: list[str], log_line: Callable[[str], None]
@@ -382,6 +402,13 @@ class JobExecutor:
     def _build_gold(self, job: Job, log_line: Callable[[str], None]) -> RunMetrics:
         if self.gold_builder is None:
             raise ForjaError("Gold builds are not configured")
+        if (
+            job.type is JobType.BUILD_GOLD
+            and self.catalog.effective_gold_plan(job.project_id) is None
+        ):
+            self._stop_before_gold(job, log_line)
+            job.result = {**(job.result or {}), "stopped_after": "none"}
+            return RunMetrics()
         metrics = self.gold_builder.build(job.project_id, run_id=job.id, log_line=log_line)
         for model in metrics.models:
             log_line(f"{model.name}: {model.rows} row(s)")

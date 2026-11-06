@@ -60,7 +60,8 @@ class GoldBuilder:
         plan = self.catalog.effective_gold_plan(project_id)
         if plan is None:
             raise BuildError(
-                "no approved Gold plan in this project: propose and approve one first",
+                "aucun modèle en étoile approuvé dans ce projet : proposez un modèle et "
+                "approuvez-le d'abord",
                 details={"project_id": project_id},
             )
         ctx = build_gold_context(self.catalog, project_id)
@@ -71,8 +72,8 @@ class GoldBuilder:
         ]
         if errors:
             raise BuildError(
-                f"the Gold plan v{plan.version} no longer matches the Silver tables "
-                f"({len(errors)} error(s)): propose or edit a new version",
+                f"le modèle en étoile v{plan.version} ne correspond plus aux tables nettoyées "
+                f"({len(errors)} erreur(s)) : proposez ou modifiez une nouvelle version",
                 details={"issues": [i.model_dump() for i in errors]},
             )
 
