@@ -76,7 +76,10 @@ def test_silver_model_sql(plans: list[TransformationPlan], project: Project) -> 
     assert "{{ forja_unprocessed_rows('stg_clients') }}" in checked
     assert "partition by _row_hash" in checked
     assert "try_strptime(date_inscription__raw, '%d/%m/%Y')" in checked
-    assert "'date_inscription : valeur non convertible en date (JJ/MM/AAAA)'" in checked
+    # A value that does not convert sends its row to quarantine for the key only; an
+    # impossible date is set to empty and the row kept (MT-13).
+    assert "'id : valeur non convertible en entier'" in checked
+    assert "date_inscription : valeur non convertible" not in checked
     assert "'email : format d''email invalide'" in checked
     assert "nullif(trim(\"prénom\"), '') as prenom__raw" in checked
 

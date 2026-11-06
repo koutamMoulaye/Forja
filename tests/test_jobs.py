@@ -90,7 +90,8 @@ def test_build_silver_routes_rows_and_measures(
             "SELECT count(*) FROM stg_clients__rejects WHERE _batch_id IS NULL"
         ).fetchall()
     assert reasons["6"] == "email : format d'email invalide"
-    assert reasons["9"] == "date_inscription : valeur non convertible en date (JJ/MM/AAAA)"
+    # The impossible date is not a key: set to empty, the row kept in the table (MT-13).
+    assert "9" not in reasons
     assert reasons["<vide>"] == "id : clé primaire manquante"
     assert reasons["21"] == "clé primaire en double dans le lot"
     assert missing_batch == 0

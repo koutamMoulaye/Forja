@@ -168,7 +168,9 @@ CLIENTS_V1_MISSING_ID = 12
 CLIENTS_V1_KEY_CONFLICT = 20
 CLIENTS_V1_ROWS = FR_ROW_COUNT + len(FR_DUPLICATED_INDEXES) + 1
 CLIENTS_V1_DISTINCT = CLIENTS_V1_ROWS - len(FR_DUPLICATED_INDEXES)
-CLIENTS_V1_REJECTED = 5  # email, date, missing id, and both rows of the conflicting key
+# email, missing id, and both rows of the conflicting key; the impossible date is not
+# a key: it is set to empty, the row kept (MT-13)
+CLIENTS_V1_REJECTED = 4
 CLIENTS_V1_VALID = CLIENTS_V1_DISTINCT - CLIENTS_V1_REJECTED
 
 # clients_v2.csv: a delta with a new "segment" column, one update and one invalid row.
