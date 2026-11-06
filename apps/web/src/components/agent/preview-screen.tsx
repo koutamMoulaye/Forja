@@ -30,7 +30,7 @@ import {
 import { HatchGlyph, Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toast } from "@/components/ui/toast";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { useAgentActions, useAgentRun, useMartRequest } from "@/lib/agent/queries";
 import { agentSteps } from "@/lib/agent/steps";
 import {
@@ -58,7 +58,9 @@ import { formatAgo, formatDateTime, formatInteger, plural } from "@/lib/format";
 import { downloadFile, useSemanticLayer } from "@/lib/project/queries";
 
 function errorText(error: unknown): string {
-  return error instanceof ApiError ? error.message : "Réessayez dans un instant.";
+  return error instanceof ApiError
+    ? frenchMessage(error.code, error.message)
+    : "Réessayez dans un instant.";
 }
 
 function Banner({
@@ -823,18 +825,27 @@ export function PreviewScreen({ martId }: { martId: string }) {
             </Button>
           }
         >
-          {latest.clarification?.question}
+          {latest.clarification?.question} En attendant, la version {iteration.version} ci-dessous
+          est complète : vous pouvez la valider telle quelle.
         </Banner>
       ) : latest &&
         latest !== iteration &&
-        (latest.status === "refused" || latest.status === "failed") ? (
+        (latest.status === "refused" ||
+          latest.status === "failed" ||
+          latest.status === "answered") ? (
         <Banner
           tone="queue"
           icon={<WarningCircle size={20} />}
-          title="Le dernier ajustement n’a pas abouti"
+          title={
+            latest.status === "answered"
+              ? "Dernier message : une question sur les données"
+              : "Le dernier ajustement n’a pas abouti"
+          }
         >
-          {latest.refusal ?? (latest.error === "annulée" ? "Annulé." : latest.error)} L’aperçu
-          ci-dessous reste celui de la version {iteration.version}.
+          {latest.refusal ??
+            latest.answer ??
+            (latest.error === "annulée" ? "Annulé." : latest.error)}{" "}
+          L’aperçu ci-dessous reste celui de la version {iteration.version}.
         </Banner>
       ) : null}
       {data.status === "validated" && !data.publish_job_id ? (

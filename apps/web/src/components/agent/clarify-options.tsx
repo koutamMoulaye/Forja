@@ -57,7 +57,7 @@ export function ClarifyOptions({
           const chosen = picked === index;
           return (
             <button
-              key={option.ref}
+              key={`${index}-${option.ref}`}
               type="button"
               role="radio"
               aria-checked={chosen}
@@ -83,7 +83,9 @@ export function ClarifyOptions({
               />
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="text-[16px] font-semibold">{option.label}</span>
-                <span className="text-[14px] text-tx3">{describeRef(option.ref)}</span>
+                <span className="text-[14px] text-tx3">
+                  {option.detail || describeRef(option.ref)}
+                </span>
               </span>
               {count ? (
                 <span className="text-[14.5px] whitespace-nowrap text-tx2 tabular-nums">

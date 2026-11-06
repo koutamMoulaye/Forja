@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toast } from "@/components/ui/toast";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import {
   useAgentActions,
   useAgentOverview,
@@ -24,27 +24,32 @@ import {
   useMartRequest,
 } from "@/lib/agent/queries";
 import {
-  controlsSummary,
   destinationLabel,
   freshnessLabel,
   latestIteration,
   martBadge,
   martTitle,
   pickSuggestions,
+  previewedIteration,
+  refineSuggestions,
+  type Destination,
   type MartIteration,
   type MartRequest,
 } from "@/lib/agent/view";
 import { askNotificationPermission, useWatched } from "@/lib/agent/watch";
 import { cn } from "@/lib/cn";
-import { formatAgo, formatWhen, plural } from "@/lib/format";
+import { formatAgo, formatWhen } from "@/lib/format";
 import { useSemanticLayer } from "@/lib/project/queries";
+import { AnswerCard } from "./answer-card";
 import { AgentAvatar, PreparationCard } from "./preparation-card";
 import { ClarifyOptions } from "./clarify-options";
 import { Composer } from "./composer";
 import { SuggestionChips } from "./home-screen";
 
 function errorText(error: unknown): string {
-  return error instanceof ApiError ? error.message : "Réessayez dans un instant.";
+  return error instanceof ApiError
+    ? frenchMessage(error.code, error.message)
+    : "Réessayez dans un instant.";
 }
 
 function UserBubble({ children, current }: { children: React.ReactNode; current: boolean }) {
@@ -81,11 +86,13 @@ function EarlierResult({
         ? (iteration.clarification?.question ?? "Une précision demandée")
         : iteration.status === "refused"
           ? (iteration.refusal ?? "Hors du périmètre des données")
-          : iteration.status === "failed"
-            ? iteration.error === "annulée"
-              ? "Préparation annulée"
-              : "Préparation interrompue"
-            : "En préparation";
+          : iteration.status === "answered"
+            ? (iteration.answer ?? "Réponse sur les données")
+            : iteration.status === "failed"
+              ? iteration.error === "annulée"
+                ? "Préparation annulée"
+                : "Préparation interrompue"
+              : "En préparation";
   return (
     <div className="flex gap-3">
       <span className="w-[34px] flex-none" />
@@ -108,26 +115,30 @@ function EarlierResult({
   );
 }
 
-function ReadyCard({ request, iteration }: { request: MartRequest; iteration: MartIteration }) {
-  const shell = useShell();
-  const preview = iteration.preview;
+/** A question about the data, answered from the semantic layer (no data mart). */
+function DataAnswer({ text }: { text: string }) {
   return (
-    <div className="flex gap-3" data-testid="ready-card">
+    <div className="flex items-start gap-3" data-testid="data-answer">
+      <AgentAvatar />
+      <p className="m-0 min-w-0 flex-1 rounded-[6px_22px_22px_22px] bg-node px-[18px] py-3 text-[15.5px] leading-normal shadow-sm">
+        {text}
+      </p>
+    </div>
+  );
+}
+
+/** A question is waiting while an earlier version is ready: it can still be validated. */
+function EarlierVersionReady({ version, href }: { version: number; href: string }) {
+  return (
+    <div className="flex gap-3" data-testid="earlier-version-ready">
       <span className="w-[34px] flex-none" />
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4 rounded-2xl bg-node px-5 py-[18px] shadow-float">
-        <div className="min-w-0 flex-1">
-          <div className="text-[16.5px] font-semibold">Votre data mart est prêt à vérifier</div>
-          <div className="text-[14px] text-tx2">
-            {preview ? plural(preview.row_count, "ligne", "lignes") : ""}
-            {preview?.controls?.length ? ` · ${controlsSummary(preview.controls)}` : ""} · rien
-            n’est publié pour l’instant
-          </div>
-        </div>
-        <Button asChild variant="primary" size="xl" className="rounded-[14px]">
-          <Link href={`/projects/${shell.project.id}/marts/${request.id}/preview`}>
-            Ouvrir l’aperçu
-          </Link>
-        </Button>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3 rounded-[18px] bg-sunk px-4 py-3 text-[14.5px] text-tx2">
+        <span className="min-w-0 flex-1">
+          La version {version} reste prête : vous pouvez la valider sans répondre.
+        </span>
+        <Link href={href} className="text-meta font-medium whitespace-nowrap text-acc-tx">
+          Valider la version {version}
+        </Link>
       </div>
     </div>
   );
@@ -253,10 +264,12 @@ function Thread({
   request,
   latestJob,
   onAsk,
+  onRefine,
 }: {
   request: MartRequest;
   latestJob: ReturnType<typeof useAgentRun>["data"];
   onAsk: (question: string) => void;
+  onRefine: () => void;
 }) {
   const shell = useShell();
   const actions = useAgentActions(shell.project.id);
@@ -267,6 +280,25 @@ function Thread({
   const last = iterations.length - 1;
   const previewHref = `/projects/${shell.project.id}/marts/${request.id}/preview`;
   const metrics = (layer.data?.metrics ?? []).filter((m) => !m.hidden).map((m) => m.label);
+  const ready = previewedIteration(request);
+  const validate = (destination: Destination) =>
+    actions.validate.mutate(
+      { martId: request.id, destination },
+      {
+        onSuccess: (result) =>
+          result.status === "validated" && !result.approved_at
+            ? toast.info({
+                title: "Envoyé pour approbation",
+                description: "Un engineer du projet vérifie l’aperçu avant la publication",
+              })
+            : toast.success({
+                title: "Publication lancée",
+                description: `${martTitle(result)} · ${destinationLabel(destination)}`,
+              }),
+        onError: (error) =>
+          toast.error({ title: "Validation refusée", description: errorText(error) }),
+      },
+    );
 
   return (
     <>
@@ -285,7 +317,9 @@ function Thread({
             ) : null}
             {current ? (
               <>
-                {iteration.status !== "refused" ? (
+                {iteration.status === "answered" ? (
+                  <DataAnswer text={iteration.answer ?? ""} />
+                ) : iteration.status !== "refused" ? (
                   <PreparationCard
                     iteration={iteration}
                     job={latestJob}
@@ -308,6 +342,9 @@ function Thread({
                     </div>
                   </div>
                 )}
+                {iteration.status === "previewed" && iteration.answer ? (
+                  <DataAnswer text={iteration.answer} />
+                ) : null}
                 {iteration.status === "clarification" ? (
                   <div className="flex gap-3">
                     <span className="w-[34px] flex-none" />
@@ -332,6 +369,12 @@ function Thread({
                     />
                   </div>
                 ) : null}
+                {iteration.status === "clarification" &&
+                ready &&
+                ready !== iteration &&
+                request.status === "previewed" ? (
+                  <EarlierVersionReady version={ready.version} href={previewHref} />
+                ) : null}
                 {iteration.status === "refused" ? (
                   <RefusalCard
                     iteration={iteration}
@@ -341,7 +384,14 @@ function Thread({
                   />
                 ) : null}
                 {iteration.status === "previewed" && request.status === "previewed" ? (
-                  <ReadyCard request={request} iteration={iteration} />
+                  <AnswerCard
+                    request={request}
+                    iteration={iteration}
+                    previewHref={previewHref}
+                    validating={actions.validate.isPending}
+                    onValidate={validate}
+                    onRefine={onRefine}
+                  />
                 ) : null}
               </>
             ) : (
@@ -376,8 +426,10 @@ export function ConversationScreen({ conversationId }: { conversationId?: string
   const actions = useAgentActions(shell.project.id);
   const overview = useAgentOverview(shell.project.id);
   const request = useMartRequest(conversationId ?? null);
+  const layer = useSemanticLayer(shell.project.id);
   const data = request.data;
   const latest = data ? latestIteration(data) : null;
+  const previewed = data ? previewedIteration(data) : null;
   const run = useAgentRun(latest?.job_id);
   const bottom = useRef<HTMLDivElement>(null);
   const versions = data?.iterations?.length ?? 0;
@@ -411,11 +463,17 @@ export function ConversationScreen({ conversationId }: { conversationId?: string
     if (mode === "answer") actions.answer.mutate({ martId: data.id, text }, { onError });
     else actions.refine.mutate({ martId: data.id, instruction: text }, { onError });
   };
+  const examples = refineSuggestions(previewed?.spec, layer.data);
   const placeholder =
     mode === "answer"
       ? "Répondez avec vos mots, ou choisissez une option"
       : mode === "refine"
-        ? "Affinez : « ajoute le nombre de commandes », « seulement le T1 »"
+        ? examples.length
+          ? `Affinez : ${examples
+              .slice(0, 2)
+              .map((e) => `« ${e.charAt(0).toLowerCase()}${e.slice(1)} »`)
+              .join(", ")}`
+          : "Affinez la demande"
         : "Posez une question sur vos données";
   const pending = actions.ask.isPending || actions.answer.isPending || actions.refine.isPending;
   const suggestions = pickSuggestions(overview.data);
@@ -486,7 +544,16 @@ export function ConversationScreen({ conversationId }: { conversationId?: string
               <ScreenError error={request.error} onRetry={() => void request.refetch()} />
             )
           ) : data ? (
-            <Thread request={data} latestJob={run.data} onAsk={askNew} />
+            <Thread
+              request={data}
+              latestJob={run.data}
+              onAsk={askNew}
+              onRefine={() =>
+                document
+                  .querySelector<HTMLInputElement>('[data-testid="agent-composer"] input')
+                  ?.focus()
+              }
+            />
           ) : null}
           <div ref={bottom} />
         </div>
