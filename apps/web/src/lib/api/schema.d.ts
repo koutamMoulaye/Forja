@@ -2129,6 +2129,12 @@ export type components = {
              * @enum {string}
              */
             kind: "simple" | "composite";
+            /**
+             * Uniqueness
+             * @description Distinct combinations / distinct rows; below 1 for a near-unique key whose few conflicting rows will be quarantined
+             * @default 1
+             */
+            uniqueness: number;
         };
         /** CastSpec */
         CastSpec: {
@@ -2176,6 +2182,12 @@ export type components = {
         };
         /** ClarificationOption */
         ClarificationOption: {
+            /**
+             * Detail
+             * @description Where it comes from, in small print: « Musée · axe d'analyse », « colonne annee »
+             * @default
+             */
+            detail: string;
             /**
              * Label
              * @description What the user reads
@@ -2246,6 +2258,11 @@ export type components = {
             present_in_latest: boolean;
             /** Rules */
             rules?: components["schemas"]["ValidityRule"][];
+            /**
+             * Sentinels
+             * @description Placeholders found at profiling (inconnu, nc...), treated as empty while they are among the null values
+             */
+            sentinels?: string[];
             /** Source Column */
             source_column: string;
             /**
@@ -2650,10 +2667,23 @@ export type components = {
              */
             explanation: string;
             /**
+             * Grain
+             * @description day: a date or timestamp column; year, quarter, month: an integer column (2023, 20231, 202301) linked to the first day of its period
+             * @default day
+             * @enum {string}
+             */
+            grain: "day" | "month" | "quarter" | "year";
+            /**
              * Name
              * @description Column of the fact holding the dim_date key (YYYYMMDD)
              */
             name: string;
+            /**
+             * Role
+             * @description Business name of this date for the fact, in French (« fréquentation », « appellation »)
+             * @default
+             */
+            role: string;
             /** Source */
             source: string;
         };
@@ -2744,6 +2774,17 @@ export type components = {
              * @default
              */
             explanation: string;
+            /**
+             * Extracted
+             * @description Entity taken out of a denormalized source (its attributes repeated on every row): one row per natural key, the latest row giving the attributes; the natural key is then a part of the source key, not the whole of it
+             * @default false
+             */
+            extracted: boolean;
+            /**
+             * Latest By
+             * @description Extracted dimension: column ordering the rows of a key, the latest wins
+             */
+            latest_by?: string | null;
             /**
              * Name
              * @description dim_<entity>
@@ -2838,6 +2879,35 @@ export type components = {
              */
             include_children: boolean;
         };
+        /**
+         * EntityAttributes
+         * @description Columns that repeat the same value for each value of a key: the attributes of an
+         *     entity stored on every row of a denormalized file (a museum's city on each year).
+         */
+        EntityAttributes: {
+            /**
+             * Attributes
+             * @description Columns with one value per key, in source order
+             */
+            attributes: string[];
+            /**
+             * Conflicts
+             * @description Keys holding more than one value, by attribute (a few are tolerated)
+             */
+            conflicts?: {
+                [key: string]: number;
+            };
+            /**
+             * Entities
+             * @description Distinct values of the key
+             */
+            entities: number;
+            /**
+             * Key
+             * @description Source column identifying the entity
+             */
+            key: string;
+        };
         /** ExportedFile */
         ExportedFile: {
             format: components["schemas"]["ExportFormat"];
@@ -2885,6 +2955,11 @@ export type components = {
              * @description fct_<process>
              */
             name: string;
+            /**
+             * Primary Date
+             * @description Name of the main date key: the one a period (« en 2023 ») filters on, the most filled and the closest to the grain
+             */
+            primary_date?: string | null;
             /**
              * Source
              * @description Silver source at the grain of the fact
@@ -3219,6 +3294,65 @@ export type components = {
          * @enum {string}
          */
         IngestMode: "auto" | "new_source" | "new_version";
+        /**
+         * Insight
+         * @description The answer in the conversation: a sentence and the data of its visual.
+         */
+        Insight: {
+            /**
+             * Alt
+             * @description Text alternative of the visual
+             */
+            alt: string;
+            /**
+             * Axis
+             * @description Column of the axis shown, if any
+             */
+            axis?: string | null;
+            /** Axis Label */
+            axis_label?: string | null;
+            /**
+             * Format
+             * @default decimal
+             */
+            format: string;
+            /**
+             * Metric
+             * @description Column of the metric shown
+             */
+            metric: string;
+            /** Metric Label */
+            metric_label: string;
+            /**
+             * Points
+             * @description Chart data: bars sorted, line in time order
+             */
+            points?: components["schemas"]["InsightPoint"][];
+            /**
+             * Sentence
+             * @description Computed from the result, in French
+             */
+            sentence: string;
+            /**
+             * Total
+             * @description Total of an additive metric
+             */
+            total?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /**
+             * Visual
+             * @enum {string}
+             */
+            visual: "kpi" | "line" | "bars" | "table";
+        };
+        /** InsightPoint */
+        InsightPoint: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: number | null;
+        };
         /** Invitation */
         Invitation: {
             /** Accepted At */
@@ -3607,11 +3741,25 @@ export type components = {
             /** Additivity */
             additivity?: string | null;
             /**
+             * Detail
+             * @description Where it comes from (dimension, date), for tooltips
+             * @default
+             */
+            detail: string;
+            /**
+             * Format
+             * @description Metric: currency, integer, decimal or percent
+             */
+            format?: string | null;
+            /**
              * Kind
              * @enum {string}
              */
             kind: "axis" | "metric";
-            /** Label */
+            /**
+             * Label
+             * @description Business name, as read: « Région », « Fréquentation »
+             */
             label: string;
             /** Name */
             name: string;
@@ -3622,6 +3770,11 @@ export type components = {
             pii?: string | null;
             /** Ref */
             ref: string;
+            /**
+             * Unit
+             * @description Metric: unit of its values (EUR, entrées...), none for a number
+             */
+            unit?: string | null;
         };
         /** MartFilter */
         MartFilter: {
@@ -3637,6 +3790,11 @@ export type components = {
         };
         /** MartIteration */
         MartIteration: {
+            /**
+             * Answer
+             * @description A question about the data answered from the semantic layer and the sources (« ce cas parle de quoi ? »), without a data mart
+             */
+            answer?: string | null;
             clarification?: components["schemas"]["Clarification"] | null;
             /**
              * Context Tokens
@@ -3696,7 +3854,7 @@ export type components = {
              * @default processing
              * @enum {string}
              */
-            status: "processing" | "clarification" | "refused" | "previewed" | "failed";
+            status: "processing" | "clarification" | "refused" | "previewed" | "answered" | "failed";
             /** Summary */
             summary?: string | null;
             /**
@@ -3713,6 +3871,8 @@ export type components = {
             columns: components["schemas"]["MartColumn"][];
             /** Controls */
             controls?: components["schemas"]["Control"][];
+            /** @description The answer shown in the conversation: a sentence computed from the result and the data of its visual (personal values pseudonymized) */
+            insight?: components["schemas"]["Insight"] | null;
             /** Pseudonymized */
             pseudonymized?: string[];
             /** Row Count */
@@ -4422,6 +4582,11 @@ export type components = {
              * @description Time spent profiling
              */
             duration_ms?: number | null;
+            /**
+             * Entities
+             * @description Attributes repeated for each value of an identifier (one row per entity and period, say): candidates for a dimension
+             */
+            entities?: components["schemas"]["EntityAttributes"][];
             /** Pii */
             pii: components["schemas"]["PiiDetection"][];
             /**
@@ -4805,7 +4970,7 @@ export type components = {
          * ReviewRuleKind
          * @enum {string}
          */
-        ReviewRuleKind: "cast" | "normalize" | "pii" | "format" | "exclude" | "deduplicate" | "primary_key";
+        ReviewRuleKind: "cast" | "normalize" | "pii" | "format" | "exclude" | "deduplicate" | "primary_key" | "sentinel";
         /** ReviewUpdate */
         ReviewUpdate: {
             /**
@@ -5117,6 +5282,11 @@ export type components = {
             /** Attributes */
             attributes?: components["schemas"]["Attribute"][];
             /**
+             * Column
+             * @description Time dimension: the fact column it reads, shown in details only
+             */
+            column?: string | null;
+            /**
              * Description
              * @default
              */
@@ -5155,6 +5325,12 @@ export type components = {
             label: string;
             /** Name */
             name: string;
+            /**
+             * Primary
+             * @description Time dimension: the main date of its fact, the one a period filters on
+             * @default false
+             */
+            primary: boolean;
             /** Synonyms */
             synonyms?: string[];
             /**
@@ -5167,6 +5343,8 @@ export type components = {
              * @description Key column of the dimension
              */
             table_key?: string | null;
+            /** @description Time dimension: the finest level it holds (annee for a year column) */
+            time_level?: components["schemas"]["TimeGrain"] | null;
         };
         /** SemanticLayer */
         SemanticLayer: {
@@ -5741,6 +5919,17 @@ export type components = {
             near_type_ratio?: number | null;
             /** Physical Type */
             physical_type: string;
+            /**
+             * Sentinel Count
+             * @description Rows holding one of the placeholders
+             * @default 0
+             */
+            sentinel_count: number;
+            /**
+             * Sentinels
+             * @description Placeholders written instead of a value (Inconnu, NC, N/A), as written; left out of the type inference
+             */
+            sentinels?: string[];
         };
         /**
          * UnknownMemberRows
