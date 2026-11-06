@@ -217,7 +217,7 @@ test("the reference journey, engineer then analyst, in both themes", async ({ pa
     // agent suggests it (French synonyms come from the semantic layer, or a model).
     await analyst.page.getByLabel("Posez une question").fill("Amount par customer");
     await analyst.page.keyboard.press("Enter");
-    await expect(analyst.page.getByTestId("ready-card")).toBeVisible({ timeout: 60_000 });
+    await expect(analyst.page.getByTestId("answer-card")).toBeVisible({ timeout: 60_000 });
     await captureThemes(analyst.page, "agent");
     await analyst.page.getByRole("link", { name: "Ouvrir l’aperçu" }).click();
     await expect(analyst.page.getByTestId("understood")).toBeVisible();

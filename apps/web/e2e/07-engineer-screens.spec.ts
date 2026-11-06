@@ -70,7 +70,9 @@ test("Silver plan: edit a rule, validate, approve, clean, see the quarantine", a
   await expect(cast.getByTestId("before-after")).toBeVisible();
   await cast.getByRole("button", { name: "Modifier" }).click();
   await cast.getByRole("combobox", { name: "Valeur invalide" }).click();
-  await page.getByRole("option", { name: "Mettre à vide et garder la ligne" }).click();
+  // Outside the key, an invalid date is set to empty by default (MT-13): send it to
+  // quarantine instead.
+  await page.getByRole("option", { name: "Mettre la ligne en quarantaine" }).click();
   await cast.getByRole("button", { name: "Appliquer la modification" }).click();
   await expect(page.getByRole("status").filter({ hasText: /Plan modifié, version/ })).toBeVisible();
   await expect(page.getByTestId("action-bar")).toContainText("règles en attente");
