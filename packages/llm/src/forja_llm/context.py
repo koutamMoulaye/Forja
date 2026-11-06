@@ -15,10 +15,12 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from forja_core.agent.preselect import ContextItem, render_context
+from forja_core.gold.dates import column_period
 from forja_core.models import Architecture, Project, Source
 from forja_core.profiling.models import ColumnProfile, InferredType, PiiType, ProfileReport
 from forja_core.profiling.types import KNOWN_FORMATS
@@ -54,6 +56,14 @@ class SafeColumn(_SafeModel):
     is_unique: bool
     pii_type: PiiType | None = None
     pii_confidence: float | None = None
+    period_level: Literal["day", "month", "quarter", "year"] | None = Field(
+        default=None,
+        description="Set by Forja: the column links to the date dimension at this level "
+        "(an integer year column: year)",
+    )
+    placeholders_pct: float = Field(
+        default=0, description="Rows holding a placeholder (Inconnu, NC...) treated as empty"
+    )
 
     _check_name = field_validator("name", "physical_type")(_check_identifier)
 
@@ -72,6 +82,18 @@ class SafeColumn(_SafeModel):
         return value
 
 
+class SafeEntity(_SafeModel):
+    """Columns repeating one value per value of ``key``: an entity's attributes stored on
+    every row (statistics of the profile, no value)."""
+
+    key: str
+    entities: int
+    attributes: list[str]
+    conflicting_keys: int = 0
+
+    _check_names = field_validator("key")(_check_identifier)
+
+
 class SafeSource(_SafeModel):
     name: str
     silver_table: str | None = None
@@ -80,6 +102,7 @@ class SafeSource(_SafeModel):
     columns: list[SafeColumn]
     primary_key: list[str] = Field(default_factory=list)
     candidate_keys: list[list[str]] = Field(default_factory=list)
+    entities: list[SafeEntity] = Field(default_factory=list)
     duplicate_pct: float
     quality_score: float
 
@@ -131,9 +154,15 @@ class SourceContext:
     table: SilverTable | None = None
 
 
-def _profile_column(column: ColumnProfile, *, name: str | None = None) -> dict[str, object]:
+def _profile_column(
+    column: ColumnProfile, *, name: str | None = None, row_count: int = 0, silver_type: str = ""
+) -> dict[str, object]:
     inferred = column.inferred
     return {
+        "period_level": column_period(
+            name or column.name, silver_type or column.physical_type, column
+        ),
+        "placeholders_pct": round(100 * inferred.sentinel_count / row_count, 2) if row_count else 0,
         "name": name or column.name,
         "physical_type": column.physical_type,
         "inferred_type": inferred.inferred_type,
@@ -154,7 +183,9 @@ def _safe_source(item: SourceContext) -> SafeSource:
     columns: list[SafeColumn] = []
     primary_key: list[str] = []
     if plan is None:
-        columns = [SafeColumn(**_profile_column(c)) for c in profile.columns]
+        columns = [
+            SafeColumn(**_profile_column(c, row_count=profile.row_count)) for c in profile.columns
+        ]
     else:
         keys = {c.source_column for c in plan.key_columns()}
         primary_key = [c.target_column for c in plan.key_columns()]
@@ -162,7 +193,12 @@ def _safe_source(item: SourceContext) -> SafeSource:
             stats = by_name.get(column.source_column)
             if stats is None:
                 continue
-            fields = _profile_column(stats, name=column.target_column)
+            fields = _profile_column(
+                stats,
+                name=column.target_column,
+                row_count=profile.row_count,
+                silver_type=column.target_type.value.upper(),
+            )
             fields.update(
                 silver_type=column.target_type,
                 included=column.included,
@@ -179,6 +215,15 @@ def _safe_source(item: SourceContext) -> SafeSource:
         columns=columns,
         primary_key=primary_key,
         candidate_keys=[[rename.get(c, c) for c in k.columns] for k in profile.candidate_keys],
+        entities=[
+            SafeEntity(
+                key=rename.get(e.key, e.key),
+                entities=e.entities,
+                attributes=[_check_identifier(rename.get(a, a)) for a in e.attributes],
+                conflicting_keys=max(e.conflicts.values(), default=0),
+            )
+            for e in profile.entities
+        ],
         duplicate_pct=profile.duplicates.duplicate_pct,
         quality_score=profile.quality.score,
     )

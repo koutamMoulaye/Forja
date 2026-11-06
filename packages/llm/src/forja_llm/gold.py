@@ -27,10 +27,24 @@ Rules:
 - A dimension's natural_key is the primary_key of its source; surrogate_key is a new
   column name such as <entity>_key. Use scd2 for entities whose attributes change over
   time (customers, products), scd1 otherwise.
+- A source listing "entities" repeats an entity's attributes on every row (a single
+  denormalized file: one row per entity and year, say). Extract each entity as a
+  dimension: name dim_<entity> after what it describes (its name attribute, e.g.
+  nom_du_musee gives dim_musee), source = that source, natural_key = [the entity key],
+  attributes = the listed attributes, extracted = true, latest_by = the period column
+  of the grain, scd1. The fact keeps the entity key as a foreign key (source = the fact
+  source, column = the key) and keeps only keys and measures, not the attributes.
 - A fact's grain is the primary key of its source. Join other tables only along a
   relation read from the fact side towards the referenced key (many-to-one).
 - Foreign keys follow relations from the fact or a joined table to a dimension key.
-- date_keys reference date columns; date_dimension.enabled is true when there are some.
+- date_keys reference the columns with a period_level: grain "day" for dates, "year",
+  "month" or "quarter" for integer period columns (annee, mois). Give each a role, a
+  French business word (the fact's process for its own period, « fréquentation »; the
+  event it dates otherwise, « appellation »). primary_date is the name of the main date
+  key: part of the grain, the most filled. date_dimension.enabled is true when there are
+  date keys.
+- Name a fact after the business process it records (fct_ventes, fct_frequentation),
+  not after the file it comes from.
 - Measures: expression is a row-level formula over the fact's tables, using only column
   names, numbers, + - * /, coalesce, nullif, abs, round, least, greatest, case. No SQL
   statement, no aggregate function: set the aggregation field instead (sum, avg, min,
