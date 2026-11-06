@@ -61,7 +61,9 @@ def test_fr_dates_and_decimals(fr_profile: ProfileReport) -> None:
 
     amounts = _column(fr_profile, "montant_total")
     assert amounts.inferred.decimal_separator == ","
-    assert amounts.inferred.match_ratio == pytest.approx(31 / 32, abs=1e-3)
+    # « n/a » is a placeholder, not an invalid amount: left out of the inference.
+    assert amounts.inferred.match_ratio == pytest.approx(1.0)
+    assert [s.lower() for s in amounts.inferred.sentinels] == ["n/a"]
     assert isinstance(amounts.min, float) and isinstance(amounts.max, float)
     assert 0 < amounts.min < amounts.max <= 25_000
     assert amounts.mean is not None and amounts.min <= amounts.mean <= amounts.max
