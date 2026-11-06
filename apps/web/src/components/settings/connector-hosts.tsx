@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import { api, unwrap } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/cn";
 import { connectionKeys, useConnectorSettings } from "@/lib/connections/queries";
 
@@ -31,7 +31,8 @@ export function ConnectorHosts({ className }: { className?: string }) {
     onError: (error) =>
       toast.error({
         title: "Adresses non enregistrées",
-        description: error instanceof ApiError ? error.message : undefined,
+        description:
+          error instanceof ApiError ? frenchMessage(error.code, error.message) : undefined,
       }),
   });
   const saved = settings.data?.allowed_hosts ?? [];

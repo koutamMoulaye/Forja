@@ -146,7 +146,11 @@ def column_explanation(column: ColumnPlan) -> str:
         sentence = _NORMALIZATION_SENTENCES[column.normalization]
         if sentence:
             parts.append(sentence)
-    if column.from_text and column.cast.null_values:
+    placeholders = [v for v in column.sentinels if v in column.cast.null_values]
+    if column.from_text and placeholders:
+        shown = ", ".join(f"« {v} »" for v in placeholders)
+        parts.append(f"Valeurs de remplissage {shown} traitées comme vides.")
+    elif column.from_text and column.cast.null_values:
         shown = ", ".join(f"« {v} »" for v in column.cast.null_values[:4])
         parts.append(f"Valeurs vides ou {shown}… traitées comme nulles.")
     if column.target_column != column.source_column:
@@ -165,6 +169,13 @@ def column_explanation(column: ColumnPlan) -> str:
 def rule_explanation(column: ColumnPlan, rule: ValidityRule) -> str:
     status = "" if rule.enabled else " (règle désactivée)"
     match rule.kind:
+        case RuleKind.CASTABLE if not rule.enabled:
+            # Off by default outside the key: the row is kept, the value set to empty.
+            return (
+                f"Les valeurs non convertibles en {type_label(column.target_type)} sont "
+                "mises à vide et signalées ; la ligne est conservée. Activez la règle pour "
+                "les mettre en quarantaine."
+            )
         case RuleKind.CASTABLE:
             text = (
                 f"Les valeurs non convertibles en {type_label(column.target_type)} "

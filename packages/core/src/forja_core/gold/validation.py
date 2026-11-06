@@ -16,13 +16,14 @@ from __future__ import annotations
 
 import re
 
-from forja_core.gold.context import GoldContext, is_numeric, is_temporal
+from forja_core.gold.context import GoldContext, is_integer, is_numeric, is_temporal
 from forja_core.gold.expressions import ExpressionError, check_expression
 from forja_core.gold.plan import (
     Aggregation,
     Dimension,
     Fact,
     GoldModel,
+    ScdType,
     ValidationIssue,
 )
 
@@ -71,7 +72,30 @@ def _check_dimension(issues: _Issues, dim: Dimension, ctx: GoldContext, taken: s
             issues.error(
                 "unknown_column", f"{dim.name} : colonne inconnue {dim.source}.{column}", location
             )
-    if tuple(dim.natural_key) != source.key:
+    if dim.extracted:
+        # Out of a source holding the entity on many rows: its key is a part of the
+        # source key (or an identifier repeated on the rows), one row per key is kept.
+        if len(dim.natural_key) != 1:
+            issues.error(
+                "natural_key_not_unique",
+                f"{dim.name} : une dimension extraite a une clé naturelle d'une seule colonne",
+                location,
+            )
+        known = {e.key for e in source.entities}
+        if dim.natural_key and dim.natural_key[0] not in known | set(source.key):
+            issues.warning(
+                "attributes_not_checked",
+                f"{dim.name} : {dim.natural_key[0]} n'identifie pas une entité au profilage ; "
+                "la valeur de la ligne la plus récente sera retenue pour chaque attribut",
+                location,
+            )
+        if dim.scd is not ScdType.SCD1:
+            issues.error(
+                "extracted_scd",
+                f"{dim.name} : une dimension extraite d'une source dénormalisée est en SCD1",
+                location,
+            )
+    elif tuple(dim.natural_key) != source.key:
         key = ", ".join(source.key) or "aucune"
         issues.error(
             "natural_key_not_unique",
@@ -210,7 +234,8 @@ def _check_fact(
                 where,
             )
             continue
-        if (
+        internal = dim.extracted and dim.source == fk.source
+        if not internal and (
             len(dim.natural_key) != 1
             or ctx.relation(fk.source, fk.column, dim.source, dim.natural_key[0]) is None
         ):
@@ -242,13 +267,28 @@ def _check_fact(
                 f"{fact.name} : colonne de date inconnue {date_key.source}.{date_key.column}",
                 where,
             )
-        elif not is_temporal(column_type):
+        elif date_key.grain == "day" and not is_temporal(column_type):
             issues.error(
                 "not_a_date",
                 f"{fact.name} : {date_key.source}.{date_key.column} n'est pas une date "
-                f"({column_type})",
+                f"({column_type}) ; une année ou un mois entier se relie au niveau year ou month",
                 where,
             )
+        elif date_key.grain != "day" and not is_integer(column_type):
+            issues.error(
+                "not_a_period",
+                f"{fact.name} : {date_key.source}.{date_key.column} ({column_type}) n'est pas "
+                f"un nombre entier de période ({date_key.grain})",
+                where,
+            )
+    names = {d.name for d in fact.date_keys}
+    if fact.primary_date is not None and fact.primary_date not in names:
+        issues.error(
+            "unknown_primary_date",
+            f"{fact.name} : la date principale {fact.primary_date} n'est pas une clé de date "
+            "du fait",
+            location,
+        )
 
     for degenerate in fact.degenerate_dimensions:
         where = f"{location}.degenerate_dimensions.{degenerate.name}"

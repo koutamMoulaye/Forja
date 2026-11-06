@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/toast";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { keys } from "@/lib/project/queries";
 import {
   progressLabel,
@@ -33,7 +33,10 @@ export function useFileUpload(projectId: string) {
     } catch (error) {
       toast.error({
         title: "Chargement impossible",
-        description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+        description:
+          error instanceof ApiError
+            ? frenchMessage(error.code, error.message)
+            : "Réessayez dans un instant.",
       });
     } finally {
       setUploading(false);

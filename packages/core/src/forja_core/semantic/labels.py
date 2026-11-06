@@ -6,6 +6,7 @@ completes it through overrides, and an analyst can propose synonyms.
 
 from __future__ import annotations
 
+from forja_core.profiling.naming import name_words
 from forja_core.profiling.pii import column_tokens
 from forja_core.utils import strip_accents
 
@@ -32,7 +33,49 @@ _WORDS = {
     "unitaire": "unitaire",
     "inscription": "inscription",
     "livraison": "livraison",
+    "musee": "musée",
+    "entree": "entrée",
+    "entrees": "entrées",
+    "frequentation": "fréquentation",
+    "periode": "période",
+    "ecole": "école",
+    "eleve": "élève",
+    "eleves": "élèves",
+    "etablissement": "établissement",
+    "activite": "activité",
+    "creation": "création",
+    "operation": "opération",
+    "siege": "siège",
+    "electricite": "électricité",
+    "energie": "énergie",
+    "theatre": "théâtre",
+    "cinema": "cinéma",
+    "evenement": "événement",
+    "categories": "catégories",
+    "duree": "durée",
+    "cout": "coût",
+    "ferme": "fermé",
+    "insee": "INSEE",
+    "tva": "TVA",
+    "ht": "HT",
+    "ttc": "TTC",
+    "siren": "SIREN",
+    "siret": "SIRET",
+    "naf": "NAF",
+    "ape": "APE",
 }
+# Heads of a name that read « <head> de <rest> »: date_commande, annee_fermeture.
+_HEADS = {
+    "date": "date",
+    "num": "numéro",
+    "numero": "numéro",
+    "nb": "nombre",
+    "nombre": "nombre",
+    "annee": "année",
+    "mois": "mois",
+}
+# Level of a time dimension, as the head of its label.
+TIME_HEADS = {"day": "Date", "month": "Mois", "quarter": "Trimestre", "year": "Année"}
 _VOWELS = tuple("aeiouyéèh")
 
 # Business labels of common measures (otherwise derived from the name).
@@ -52,7 +95,7 @@ METRIC_SYNONYMS: dict[str, list[str]] = {
         "quantité", "quantité vendue", "quantités", "volume", "unités vendues",
         "articles vendus", "nombre d'articles", "ventes",
     ],
-    "nb_lignes": ["nombre de lignes", "lignes de commande", "nombre de lignes de commande"],
+    "nb_lignes": ["nombre de lignes"],
     "prix_moyen": ["prix moyen", "prix unitaire moyen", "prix de vente moyen", "prix"],
     "panier_moyen": [
         "panier moyen", "valeur moyenne des commandes", "montant moyen par commande",
@@ -168,17 +211,25 @@ def _of(word: str) -> str:
 
 
 def label(name: str) -> str:
-    """``date_commande`` → « Date de commande », ``id_client`` → « Identifiant client »."""
-    parts = [t for t in name.split("_") if t]
+    """``date_commande`` → « Date de commande », ``id_client`` → « Identifiant client »,
+    ``dateappellation`` → « Date d'appellation », ``nom_du_musee`` → « Nom du musée »."""
+    parts = [t for t in name_words(name) if t]
     if not parts:
         return name
-    if len(parts) > 1 and parts[0] in ("date", "num", "numero", "nb", "nombre"):
-        head = {"date": "date", "num": "numéro", "numero": "numéro"}.get(parts[0], "nombre")
+    if len(parts) > 1 and parts[0] in _HEADS:
         rest = " ".join(_word(p) for p in parts[1:])
-        text = f"{head} {_of(rest)}"
+        text = f"{_HEADS[parts[0]]} {_of(rest)}"
     else:
         text = " ".join(_word(p) for p in parts)
     return text[:1].upper() + text[1:]
+
+
+def time_label(level: str, role: str, column: str) -> str:
+    """« Année de fréquentation », « Date de commande », « Date d'appellation »."""
+    if not role:
+        return label(column)
+    words = " ".join(_word(w) for w in role.split())
+    return f"{TIME_HEADS.get(level, 'Date')} {_of(words)}"
 
 
 def tokens(name: str) -> set[str]:
@@ -197,8 +248,28 @@ def dimension_synonyms(entity: str) -> list[str]:
 
 
 def entity_label(entity: str) -> str:
-    text = " ".join(_word(p) for p in entity.split("_"))
+    text = " ".join(_word(p) for p in name_words(entity))
     return text[:1].upper() + text[1:]
+
+
+def _feminine_plural(word: str) -> str:
+    """payant → payantes, individuel → individuelles, scolaire → scolaires."""
+    if word.endswith("s"):
+        return word
+    if word.endswith("el"):
+        return word + "les"
+    if word.endswith("e"):
+        return word + "s"
+    return word + "es"
+
+
+def qualified_count(unit: str, measure: str) -> str:
+    """« Entrées payantes » for the measure payant of a count of entrées."""
+    words = [w for w in name_words(measure) if not w.isdigit()]
+    if not words:
+        return label(measure)
+    qualifier = " ".join(_feminine_plural(_word(w)) for w in words)
+    return f"{unit[:1].upper()}{unit[1:]} {qualifier}"
 
 
 def plural(word: str) -> str:

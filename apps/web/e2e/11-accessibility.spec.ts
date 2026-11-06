@@ -5,9 +5,22 @@ import { credentials, expectShell, signIn } from "./helpers";
 
 const API = `http://127.0.0.1:${E2E.apiPort}`;
 
-/** No serious or critical WCAG 2.2 AA violation on the screen as it stands. */
+/**
+ * No serious or critical WCAG 2.2 AA violation on the screen as it stands, once its
+ * entrance is over: text caught half-way through a fade-in reads as low contrast (the
+ * canvas nodes can appear after the network is idle).
+ */
 async function audit(page: Page, name: string, scope?: string) {
   await page.evaluate(() => document.fonts.ready);
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every(
+        (animation) =>
+          animation.playState !== "running" ||
+          animation.effect?.getComputedTiming().iterations === Infinity,
+      ),
+  );
   const builder = new AxeBuilder({ page });
   // A panel over the page: the text seen through its glass is not what is audited.
   if (scope) builder.include(scope);

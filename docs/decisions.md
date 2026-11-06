@@ -586,3 +586,38 @@ désactive le fil, par exemple pour une instance de secours.
   un worker à la demande ; aucun autre écran ne les embarque.
 
 Mesures : `docs/connectors.md`.
+
+## D33 — Graphiques de la réponse : SVG et HTML maison, sans bibliothèque
+
+Depuis le cas 1 des tests manuels, la réponse de l'agent dans la conversation porte un
+visuel choisi par la forme du résultat : tuile (une valeur), courbe (axe de temps seul),
+barres horizontales triées (une catégorie, jusqu'à 15 membres), tableau compact au-delà.
+La phrase de synthèse et les points du visuel sont calculés côté serveur à partir du
+résultat (`agent/insight.py`) ; le modèle de langage ne voit toujours aucune valeur.
+
+**Choix : des composants SVG et HTML écrits dans Forja** (`components/agent/answer-card.tsx`,
+géométrie et formats dans `lib/agent/chart.ts`, environ 4 Ko gzip), plutôt qu'une
+bibliothèque de graphiques.
+
+| Option | Poids (gzip) | CSP stricte | Thèmes ForjaApp | Accessibilité |
+|---|---|---|---|---|
+| Recharts 3 | ~110 Ko (d3 inclus) | oui (styles en attributs) | couleurs passées en JS | SVG sans texte alternatif par défaut |
+| Chart.js 4 | ~70 Ko | oui | couleurs passées en JS, relues au changement de thème | canvas : à doubler d'un tableau |
+| uPlot | ~20 Ko | oui | idem, canvas | canvas : à doubler d'un tableau |
+| Observable Plot | ~150 Ko (d3) | oui | classes CSS possibles | SVG, texte alternatif à écrire |
+| **SVG/HTML maison** | **~4 Ko** | **oui : aucun script ni style injecté** | **classes Tailwind sur les jetons (`stroke-acc`, `fill-tx3`)** | **`role="img"`, `<title>`, tableau équivalent dépliable** |
+
+**Pourquoi.** Trois formes simples suffisent : la courbe et les barres tiennent en une
+centaine de lignes (graduations « rondes », formats français par `Intl`). Une
+bibliothèque coûterait de 20 à 150 Ko sur la route de l'agent, déjà la plus lourde, pour
+des fonctions inutilisées. Les couleurs viennent des jetons CSS : le thème sombre
+s'applique sans code, la CSP stricte (D27) n'est pas touchée (largeur des barres en
+attribut `style`, permis par `style-src-attr`). Chaque visuel a un texte alternatif
+calculé et le tableau des dix premières lignes, dépliable, en est l'équivalent.
+
+**Budget JS.** La route `/projects/[id]/ask` mesure 422 Ko gzip au premier chargement,
+sous son budget de 470 Ko : le budget n'est pas changé.
+
+**Quand en changer.** Si l'on veut des graphiques interactifs riches (zoom, séries
+multiples, cartes), une bibliothèque chargée à la demande (`next/dynamic`) sur l'écran
+d'aperçu, pas dans la conversation.

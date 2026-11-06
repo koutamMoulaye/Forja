@@ -6,7 +6,7 @@
 
 | `FORJA_AUTH_MODE` | Usage | Comptes |
 |---|---|---|
-| `local` (défaut) | Poste individuel | Un administrateur créé au premier démarrage. Pas d'invitation. |
+| `local` (défaut) | Poste individuel | Un administrateur créé au premier démarrage. Pas d'invitation ; l'administrateur ajoute aux projets les comptes déjà présents (ceux de la démo, par exemple). |
 | `multi` | Instance partagée | L'administrateur crée les projets et invite des utilisateurs par email, avec un rôle par projet. |
 
 **Premier démarrage.** Quand le catalogue ne contient aucun utilisateur, Forja crée
@@ -167,7 +167,10 @@ Les rôles se gèrent ensuite par `PUT` / `DELETE /projects/{id}/members/{user_i
 | `analyst` | Équipe métier | Lecture du Gold (pseudonymisé), agent métier, ses propres data marts, propositions de synonymes |
 
 L'administrateur de l'instance (créé au premier démarrage) est `admin` de tous les
-projets et seul à pouvoir créer un projet (il en devient membre `admin`).
+projets et seul à pouvoir créer un projet (il en devient membre `admin`) : « Nouveau
+projet » dans le sélecteur de projet ou sur la page des projets. Lui seul voit la liste
+des comptes (`GET /auth/users`), d'où *Réglages › Membres › Ajouter un membre* ajoute un
+compte existant avec le rôle engineer ou analyst, dans les deux modes.
 
 ### Matrice rôles × actions
 

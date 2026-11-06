@@ -282,7 +282,7 @@ export function formatOptionCount(count: OptionCount | null | undefined): string
     case "decimal":
       return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(count.value);
     default:
-      return `${formatInteger(count.value)}${count.unit ? ` ${count.unit}` : ""}`;
+      return `${formatInteger(count.value)}${count.unit && count.unit !== "lignes" ? ` ${count.unit}` : ""}`;
   }
 }
 
@@ -369,7 +369,15 @@ export function finishedRecently(job: Job | null | undefined, now = Date.now()):
 }
 
 export type ConversationState =
-  "working" | "question" | "ready" | "refused" | "failed" | "pending" | "published" | "rejected";
+  | "working"
+  | "question"
+  | "answered"
+  | "ready"
+  | "refused"
+  | "failed"
+  | "pending"
+  | "published"
+  | "rejected";
 
 export type ConversationOutcome = {
   state: ConversationState;
@@ -447,6 +455,15 @@ export function conversationOutcome(request: MartRequest): ConversationOutcome {
       href: ask,
     };
   }
+  if (latest?.status === "answered" && !previewedIteration(request)) {
+    return {
+      state: "answered",
+      title: "Réponse sur les données",
+      detail: name,
+      tone: "info",
+      href: ask,
+    };
+  }
   if (latest?.status === "failed") {
     return {
       state: "failed",
@@ -494,10 +511,28 @@ export function greetingName(user: { name?: string | null; email: string }): str
 
 type LayerLike = {
   metrics?: { name: string; label: string; hidden?: boolean; default?: boolean; fact: string }[];
+  dimensions?: {
+    name: string;
+    label: string;
+    kind: string;
+    time_level?: string | null;
+    display_attribute?: string | null;
+    attributes?: { name: string; label: string }[];
+  }[];
 };
+
+function lowerFirst(text: string): string {
+  return text.charAt(1) && text.charAt(1) === text.charAt(1).toUpperCase()
+    ? text
+    : `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+}
 type SpecLike = NonNullable<MartIteration["spec"]>;
 
-/** Adjustments offered under « Affiner »: phrases the parser understands. */
+/**
+ * Adjustments offered under « Affiner » and in the field's placeholder: phrases the
+ * parser understands, written from the project's semantic layer (its metrics, its time
+ * level: no month for a yearly date, no example from another dataset).
+ */
 export function refineSuggestions(
   spec: SpecLike | null | undefined,
   layer: LayerLike | null | undefined,
@@ -505,17 +540,33 @@ export function refineSuggestions(
   if (!spec) return [];
   const out: string[] = [];
   const fact = layer?.metrics?.find((m) => m.name === spec.metrics[0])?.fact;
-  const extra = layer?.metrics?.find(
-    (m) => !m.hidden && m.default && m.fact === fact && !spec.metrics.includes(m.name),
+  const extra =
+    layer?.metrics?.find(
+      (m) => !m.hidden && m.default && m.fact === fact && !spec.metrics.includes(m.name),
+    ) ??
+    layer?.metrics?.find((m) => !m.hidden && m.fact === fact && !spec.metrics.includes(m.name));
+  if (extra) out.push(`Ajoute ${lowerFirst(extra.label)}`);
+  const time = layer?.dimensions?.find(
+    (d) => d.kind === "time" && (d.name === spec.time_dimension || !spec.time_dimension),
   );
-  if (extra) out.push(`Ajoute ${extra.label.charAt(0).toLowerCase()}${extra.label.slice(1)}`);
-  if (spec.time_grain === "mois") out.push("Par trimestre");
-  else out.push("Par mois");
+  const yearly = time?.time_level === "annee";
   const year = spec.period?.label && /^\d{4}$/.test(spec.period.label) ? spec.period.label : null;
-  out.push(year ? `Seulement le T1 ${year}` : "Seulement le T1");
+  if (yearly) {
+    if (year) out.push(`Seulement ${Number(year) - 1}`);
+    if (spec.time_grain !== "annee") out.push("Par année");
+  } else {
+    out.push(spec.time_grain === "mois" ? "Par trimestre" : "Par mois");
+    out.push(year ? `Seulement le T1 ${year}` : "Seulement le T1");
+  }
   const axes = spec.axes ?? [];
-  if (axes.length)
-    out.push(`Retire ${axes[axes.length - 1]!.split(".").pop()!.replace(/_/g, " ")}`);
+  if (axes.length) {
+    const [dimName, attrName] = axes[axes.length - 1]!.split(".");
+    const dim = layer?.dimensions?.find((d) => d.name === dimName);
+    const attribute = dim?.attributes?.find((a) => a.name === attrName);
+    const label =
+      dim && attrName === dim.display_attribute ? dim.label : (attribute?.label ?? attrName ?? "");
+    out.push(`Retire ${lowerFirst(label.replace(/_/g, " "))}`);
+  }
   return out.slice(0, 3);
 }
 

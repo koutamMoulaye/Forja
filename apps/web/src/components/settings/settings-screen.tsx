@@ -45,7 +45,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Segmented } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { api, unwrap } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { ConnectorHosts } from "./connector-hosts";
 import { cn } from "@/lib/cn";
 import { invitationLink } from "@/lib/auth/invitation";
@@ -56,6 +56,7 @@ import {
   useInvitations,
   useLlmSettings,
   useMembers,
+  useUsers,
   type CreatedApiKey,
   type Invitation,
   type LLMConfigView,
@@ -68,7 +69,10 @@ function failure(title: string) {
   return (error: unknown) =>
     toast.error({
       title,
-      description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+      description:
+        error instanceof ApiError
+          ? frenchMessage(error.code, error.message)
+          : "Réessayez dans un instant.",
     });
 }
 
@@ -130,14 +134,19 @@ function ring(on: boolean) {
 }
 
 const ROLES: Role[] = ["admin", "engineer", "analyst"];
+/** Roles given when adding a member; administrators are made from the member list. */
+const MEMBER_ROLES: Role[] = ["engineer", "analyst"];
 
 function Members({ highlighted }: { highlighted: boolean }) {
   const { project, me } = useShell();
   const queryClient = useQueryClient();
   const members = useMembers(project.id);
   const multi = me.auth_mode === "multi";
+  // Existing accounts are listed to the instance administrator only (GET /auth/users).
+  const admin = me.user.is_admin;
   const invitations = useInvitations(project.id, multi);
   const [inviting, setInviting] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [created, setCreated] = useState<Invitation | null>(null);
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: keys.members(project.id) });
@@ -156,6 +165,21 @@ function Members({ highlighted }: { highlighted: boolean }) {
       refresh();
     },
     onError: failure("Rôle non modifié"),
+  });
+  const add = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: Role }) =>
+      unwrap(
+        await api.PUT("/projects/{project_id}/members/{user_id}", {
+          params: { path: { project_id: project.id, user_id: userId } },
+          body: { role },
+        }),
+      ),
+    onSuccess: (m) => {
+      setAdding(false);
+      toast.success({ title: "Membre ajouté", description: `${m.email} : ${ROLE_LABELS[m.role]}` });
+      refresh();
+    },
+    onError: failure("Membre non ajouté"),
   });
   const invite = useMutation({
     mutationFn: async (body: { email: string; role: Role }) =>
@@ -204,11 +228,25 @@ function Members({ highlighted }: { highlighted: boolean }) {
           count={members.data?.length}
           className="pb-2"
           action={
-            multi ? (
-              <Button variant="primary" size="md" onClick={() => setInviting(true)}>
-                <UserPlus size={16} />
-                Inviter
-              </Button>
+            admin || multi ? (
+              <div className="flex gap-2">
+                {admin ? (
+                  <Button
+                    variant={multi ? "secondary" : "primary"}
+                    size="md"
+                    onClick={() => setAdding(true)}
+                  >
+                    <Plus size={16} />
+                    Ajouter un membre
+                  </Button>
+                ) : null}
+                {multi ? (
+                  <Button variant="primary" size="md" onClick={() => setInviting(true)}>
+                    <UserPlus size={16} />
+                    Inviter
+                  </Button>
+                ) : null}
+              </div>
             ) : null
           }
         >
@@ -254,7 +292,8 @@ function Members({ highlighted }: { highlighted: boolean }) {
         ))}
         {!multi ? (
           <p className="m-0 pt-2 text-meta text-tx3">
-            Mode local : un seul administrateur. Les invitations demandent FORJA_AUTH_MODE=multi.
+            Mode local : les comptes existants de ce poste s’ajoutent ici. Les invitations par
+            e-mail demandent FORJA_AUTH_MODE=multi.
           </p>
         ) : null}
       </Card>
@@ -299,6 +338,15 @@ function Members({ highlighted }: { highlighted: boolean }) {
           ))}
         </Card>
       ) : null}
+      {admin ? (
+        <AddMemberDialog
+          open={adding}
+          onOpenChange={setAdding}
+          memberIds={new Set((members.data ?? []).map((m) => m.user_id))}
+          saving={add.isPending}
+          onAdd={(userId, role) => add.mutate({ userId, role })}
+        />
+      ) : null}
       <InviteDialog
         open={inviting}
         onOpenChange={setInviting}
@@ -315,6 +363,104 @@ function Members({ highlighted }: { highlighted: boolean }) {
         secret={created?.token ? invitationLink(created.token) : ""}
       />
     </>
+  );
+}
+
+function AddMemberDialog({
+  open,
+  onOpenChange,
+  memberIds,
+  saving,
+  onAdd,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  memberIds: Set<string>;
+  saving: boolean;
+  onAdd: (userId: string, role: Role) => void;
+}) {
+  const users = useUsers(open);
+  const [userId, setUserId] = useState("");
+  const [role, setRole] = useState<Role>("analyst");
+  const candidates = (users.data ?? []).filter((u) => !memberIds.has(u.id) && !u.disabled);
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange(next);
+        if (!next) setUserId("");
+      }}
+    >
+      <DialogContent data-testid="add-member-dialog">
+        <DialogHeader>
+          <DialogTitle>Ajouter un membre</DialogTitle>
+          <DialogDescription>
+            Un compte existant de cette instance rejoint le projet avec le rôle choisi.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogBody className="flex flex-col gap-3">
+          {users.isPending ? <Skeleton className="h-[42px] w-full rounded-[11px]" /> : null}
+          {users.isError ? (
+            <ScreenError error={users.error} onRetry={() => void users.refetch()} />
+          ) : null}
+          {users.data && candidates.length === 0 ? (
+            <p className="m-0 text-ui text-tx3">
+              Tous les comptes de l’instance sont déjà membres du projet.
+            </p>
+          ) : null}
+          {candidates.length ? (
+            <>
+              <Field label="Compte">
+                {({ id }) => (
+                  <Select value={userId} onValueChange={setUserId}>
+                    <SelectTrigger id={id} className="w-full">
+                      <SelectValue placeholder="Choisir un compte" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {candidates.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name ? `${user.name} · ${user.email}` : user.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </Field>
+              <Field label="Rôle">
+                {({ id }) => (
+                  <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                    <SelectTrigger id={id} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MEMBER_ROLES.map((r) => (
+                        <SelectItem key={r} value={r}>
+                          {ROLE_LABELS[r]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </Field>
+            </>
+          ) : null}
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="quiet" size="lg" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button
+            variant="primary"
+            size="lg"
+            loading={saving}
+            disabled={!userId}
+            onClick={() => onAdd(userId, role)}
+          >
+            Ajouter
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

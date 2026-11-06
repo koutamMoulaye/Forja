@@ -63,6 +63,7 @@ export const keys = {
   audit: (projectId: string) => ["audit", projectId] as const,
   members: (projectId: string) => ["members", projectId] as const,
   invitations: (projectId: string) => ["invitations", projectId] as const,
+  users: () => ["users"] as const,
   apiKeys: () => ["api-keys"] as const,
   llm: () => ["settings-llm"] as const,
   runLogs: (runId: string) => ["run-logs", runId] as const,
@@ -337,6 +338,15 @@ export function useMembers(projectId: string) {
     queryKey: keys.members(projectId),
     queryFn: async () =>
       unwrap(await api.GET("/projects/{project_id}/members", project(projectId))),
+  });
+}
+
+/** Every account of the instance (instance administrator only). */
+export function useUsers(enabled: boolean) {
+  return useQuery({
+    queryKey: keys.users(),
+    enabled,
+    queryFn: async () => unwrap(await api.GET("/auth/users")),
   });
 }
 

@@ -169,6 +169,8 @@ class NotificationService:
         elif latest.status == "clarification":
             question = latest.clarification.question if latest.clarification else ""
             title, detail, label = "Une question pour vous", question, "Répondre"
+        elif latest.status == "answered":
+            title, detail, label = "Réponse sur les données", latest.answer or "", "Ouvrir"
         elif latest.status == "refused":
             title, detail, label = "Demande hors périmètre", latest.refusal or "", "Ouvrir"
         else:

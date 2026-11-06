@@ -110,6 +110,18 @@ class SemanticDimension(BaseModel):
     historized: bool = Field(
         default=False, description="SCD2: attributes as they were at the fact date"
     )
+    time_level: TimeGrain | None = Field(
+        default=None,
+        description="Time dimension: the finest level it holds (annee for a year column)",
+    )
+    column: str | None = Field(
+        default=None,
+        description="Time dimension: the fact column it reads, shown in details only",
+    )
+    primary: bool = Field(
+        default=False,
+        description="Time dimension: the main date of its fact, the one a period filters on",
+    )
     attributes: list[Attribute] = Field(default_factory=list)
     hierarchies: list[Hierarchy] = Field(default_factory=list)
     synonyms: list[str] = Field(default_factory=list)

@@ -104,7 +104,7 @@ def test_analyst_requests_a_data_mart(settings: Settings, ecommerce_dir: Path) -
             preview_version = request["iterations"][-1]
             assert request["status"] == "previewed" and preview_version["version"] == 2
             assert preview_version["summary"] == (
-                "Chiffre d'affaires par mois et par ville, sur 2024."
+                "Chiffre d'affaires par mois et par ville, en 2024 (date de commande)."
             )
             preview = preview_version["preview"]
             assert preview["row_count"] > 0 and len(preview["rows"]) <= 50

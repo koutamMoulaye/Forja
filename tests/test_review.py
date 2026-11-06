@@ -37,7 +37,8 @@ def test_rules_of_a_plan(catalog: Catalog, clients: Source) -> None:
     assert cast.kind is ReviewRuleKind.CAST
     assert cast.title == "Convertir en date (JJ/MM/AAAA)"
     assert cast.affected == 1
-    assert "quarantaine" in cast.explanation
+    # Not a key column: the value is set to empty, the row kept (MT-13).
+    assert "mises à vide" in cast.explanation and "quarantaine" not in cast.explanation
     assert rules["cast:montant_total"].title == "Convertir en montant décimal"
 
     collapse = rules["normalize:collapse_whitespace"]
@@ -153,7 +154,7 @@ def test_quarantine_by_reason(built: tuple[AppState, Source]) -> None:
     assert "_reject_reason" in quarantine.columns
     assert "jean.dupont@example.fr" not in str(quarantine.rows)
     run_id = quarantine.runs[0].run_id
-    assert state.publisher.quarantine(plan, 2, run_id=run_id).total_rows == 5
+    assert state.publisher.quarantine(plan, 2, run_id=run_id).total_rows == fx.CLIENTS_V1_REJECTED
     assert len(state.publisher.quarantine(plan, 2).rows) == 2
     assert state.publisher.quarantine(plan, 5, run_id="autre").total_rows == 0
 

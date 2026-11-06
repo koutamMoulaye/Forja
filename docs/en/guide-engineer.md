@@ -9,6 +9,17 @@ labels are quoted as they appear on screen, followed by their meaning.
 Sign in at <http://localhost:3000> with an engineer or administrator account; you land
 on the **Pipeline** canvas.
 
+## Create a project and add the team
+
+The instance administrator creates projects: **« Nouveau projet »** (new project) in the
+project selector (top left) or on the *Vos projets* (your projects) page. A name, an
+optional description, and the empty canvas of the new project opens, ready for files.
+
+*Réglages › Membres › Ajouter un membre* (settings, members, add a member) then adds an
+existing account as engineer or analyst; that person finds the project in their
+selector at their next sign-in. In `multi` mode, *Inviter* (invite) also sends a
+registration link to an address without an account.
+
 ## 1. Load files, tables or an API
 
 *Sources › Ajouter une source* (add a source), or drop files on the canvas of an empty

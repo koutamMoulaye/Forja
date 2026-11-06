@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, Minus, X } from "@phosphor-icons/react";
 import { Spinner } from "@/components/ui/spinner";
+import { frenchMessage, runNotice } from "@/lib/api/errors";
 import { Tooltip } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
@@ -177,7 +178,10 @@ function useRunEndToast(run: Job | null, projectId: string) {
       label: "Voir le run",
       onClick: () => router.push(`/projects/${projectId}/runs/${run.id}`),
     };
-    if (run.status === "succeeded") {
+    const stopped = runNotice(run);
+    if (run.status === "succeeded" && stopped) {
+      toast.info({ title: "Run arrêté après le nettoyage", description: stopped, action: open });
+    } else if (run.status === "succeeded") {
       const tables = run.progress?.done?.filter((item) => !item.endsWith("__rejects")).length;
       toast.success({
         title: text.done,
@@ -186,7 +190,11 @@ function useRunEndToast(run: Job | null, projectId: string) {
           .join(" en "),
       });
     } else if (run.status === "failed") {
-      toast.error({ title: text.failed, description: run.error ?? undefined, action: open });
+      toast.error({
+        title: text.failed,
+        description: run.error ? frenchMessage("build_failed", run.error) : undefined,
+        action: open,
+      });
     }
   }, [run, projectId, router]);
 }

@@ -44,6 +44,35 @@ KNOWN_FORMATS = frozenset({*DATE_FORMATS, *DATETIME_FORMATS, ISO8601})
 
 NEAR_TYPE_THRESHOLD = 0.6
 
+# Placeholders written instead of a value (« Inconnu », « N/A », « NC », « - »). Compared
+# lowercased, without spaces; they are left out of type inference and proposed in the
+# plan as values to treat as empty.
+SENTINEL_VALUES = frozenset(
+    {"inconnu", "inconnue", "n/a", "na", "nc", "n.c.", "nd", "n.d.", "n.d", "-", "--", "?",
+     "vide", "null", "none", "nan", "#n/a", "nr", "n.r.", "s.o.", "so", "unknown"}
+)  # fmt: skip
+# In a text column some of them may be data (« NA » is the code of Namibia, « SO » an
+# abbreviation): only the unambiguous ones are proposed there.
+TEXT_SENTINEL_VALUES = SENTINEL_VALUES - {"na", "so", "nd", "nr", "none"}
+
+
+def sentinel_key(value: str) -> str:
+    return "".join(value.split()).lower()
+
+
+def is_sentinel(value: str, *, text: bool = False) -> bool:
+    return sentinel_key(value) in (TEXT_SENTINEL_VALUES if text else SENTINEL_VALUES)
+
+
+def split_sentinels(values: ValueCounts) -> tuple[list[tuple[str, int]], list[tuple[str, int]]]:
+    """The values that are data, and the placeholders among them."""
+    kept: list[tuple[str, int]] = []
+    found: list[tuple[str, int]] = []
+    for value, count in values:
+        (found if is_sentinel(value) else kept).append((value, count))
+    return kept, found
+
+
 # A leading zero is padding in a calendar field ("03" for March) and part of the value in
 # a code ("01" for the Ain department, "06000" for Nice): the column name decides, then
 # the values (two digits, at most 31, read as a padded day or month).
@@ -208,7 +237,23 @@ def infer_text_type(
     """Infer the semantic type of a text column from its trimmed non-blank values.
 
     ``name``, the column name, tells a padded month ("03") from a code ("01000").
+    Placeholders (« Inconnu », « NC ») are left out and reported in ``sentinels``.
     """
+    data, placeholders = split_sentinels(values)
+    inference = _infer(data, threshold, name)
+    if placeholders:
+        if inference.inferred_type in (InferredType.STRING, InferredType.EMPTY):
+            # Kept as text: only the placeholders that cannot be data are reported.
+            placeholders = [(v, c) for v, c in placeholders if is_sentinel(v, text=True)]
+            if inference.inferred_type is InferredType.EMPTY:
+                inference.inferred_type = InferredType.STRING
+                inference.match_ratio = 1.0
+        inference.sentinels = sorted({v.strip() for v, _ in placeholders})
+        inference.sentinel_count = sum(c for _, c in placeholders)
+    return inference
+
+
+def _infer(values: ValueCounts, threshold: float, name: str | None) -> TypeInference:
     total = sum(count for _, count in values)
     if total == 0:
         return TypeInference(

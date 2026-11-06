@@ -196,6 +196,11 @@ def parse_period(state: _State, today: date, default_year: int) -> Period | None
     return None
 
 
+def mentions_period(text: str, today: date) -> bool:
+    """Whether a text names a period (« en 2023 », « au T1 », « l'année dernière »)."""
+    return parse_period(_State(words(text)), today, today.year) is not None
+
+
 def parse_limit(state: _State) -> tuple[int | None, Literal["asc", "desc"]]:
     w = state.words
     for i, word in enumerate(w):
@@ -225,29 +230,51 @@ def _surface(match: Match) -> str:
     return match.text
 
 
-def _label(layer: SemanticLayer, ref: str) -> str:
+def _label(layer: SemanticLayer, ref: str) -> tuple[str, str]:
+    """What an option reads (« Région », « Lyon ») and where it comes from, in small
+    print (« Musée · axe d'analyse »): the source never weighs on the label."""
     kind, _, name = ref.partition(":")
     if kind == "metric":
         metric = layer.metric(name)
-        return metric.label if metric else name
+        if metric is None:
+            return name, ""
+        unit = f" · en {metric.unit}" if metric.unit and metric.unit != "EUR" else ""
+        return metric.label, f"Mesure{unit}"
     if kind in ("attribute", "value"):
         attribute_ref, _, value = name.partition("=")
         found = layer.attribute(attribute_ref)
         if found is None:
-            return name
+            return name, ""
         dim, attribute = found
-        text = f"{attribute.label} ({dim.label.lower()})"
-        return f"{text} = {value}" if value else text
-    if kind in ("dimension", "time"):
+        label = dim.label if attribute.name == dim.display_attribute else attribute.label
+        if value:
+            return value, f"{label} · {dim.label}" if label != dim.label else label
+        if dim.kind == "time":
+            return label, dim.label
+        return label, f"{dim.label} · axe d'analyse" if label != dim.label else "Axe d'analyse"
+    if kind == "time":
         named = layer.dimension(name)
-        return named.label if named else name
-    return name
+        if named is None:
+            return name, ""
+        return named.label, f"colonne {named.column}" if named.column else "Date du fait"
+    if kind == "dimension":
+        named = layer.dimension(name)
+        return (named.label, "Axe d'analyse") if named else (name, "")
+    return name, ""
 
 
 def clarification(
     layer: SemanticLayer, term: str, refs: list[str], question: str | None = None
 ) -> Clarification | None:
-    options = [ClarificationOption(label=_label(layer, r), ref=r) for r in dict.fromkeys(refs)]
+    options = []
+    for ref in dict.fromkeys(refs):
+        label, detail = _label(layer, ref)
+        options.append(ClarificationOption(label=label, detail=detail, ref=ref))
+    # Two options read the same (« Région » of two dimensions): the detail tells them apart.
+    labels = [o.label for o in options]
+    for option in options:
+        if labels.count(option.label) > 1 and option.detail:
+            option.label = f"{option.label} ({option.detail.split(' · ')[0].lower()})"
     if len(options) < 2:
         return None
     return Clarification(

@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import {
   ArrowClockwise,
+  Info,
   CaretRight,
   CheckCircle,
   CircleDashed,
@@ -37,7 +38,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Segmented } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { api, unwrap } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage, runNotice } from "@/lib/api/errors";
 import { cn } from "@/lib/cn";
 import { formatWhen, plural } from "@/lib/format";
 import { springs } from "@/lib/motion";
@@ -97,7 +98,10 @@ export function RunsScreen({ runId }: { runId?: string }) {
     onError: (error) =>
       toast.error({
         title: "Run non lancé",
-        description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+        description:
+          error instanceof ApiError
+            ? frenchMessage(error.code, error.message)
+            : "Réessayez dans un instant.",
       }),
   });
 
@@ -369,7 +373,22 @@ function RunDetail({
             <WarningCircle size={18} weight="fill" />
             Le run a échoué
           </div>
-          <p className="m-0 text-ui leading-normal break-words text-tx2">{run.error}</p>
+          <p className="m-0 text-ui leading-normal break-words text-tx2">
+            {frenchMessage("build_failed", run.error)}
+          </p>
+        </div>
+      ) : null}
+      {run.status === "succeeded" && runNotice(run) ? (
+        <div
+          className="flex flex-col gap-2 rounded-[14px] bg-prop-bg p-3.5"
+          role="status"
+          data-testid="run-notice"
+        >
+          <div className="flex items-center gap-2 text-[14px] font-semibold text-prop-fg">
+            <Info size={18} weight="fill" />
+            Run arrêté après le nettoyage
+          </div>
+          <p className="m-0 text-ui leading-normal text-tx2">{runNotice(run)}</p>
         </div>
       ) : null}
 

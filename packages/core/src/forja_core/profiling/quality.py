@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from forja_core.profiling.grain import is_entity_period
 from forja_core.profiling.models import (
     CandidateKey,
     ColumnProfile,
@@ -21,13 +22,16 @@ WEIGHTS: dict[str, float] = {
     "identifiability": 15.0,
 }
 COMPOSITE_KEY_SCORE = 0.7
+NEAR_KEY_SCORE = 0.5
 HIGH_NULL_THRESHOLD = 0.5
 
 FORMULA = (
     "score = 35 x completeness + 25 x uniqueness + 25 x validity + 15 x identifiability; "
     "completeness = 1 - mean null rate; uniqueness = 1 - duplicate row rate; "
     "validity = mean share of values matching each column's type; "
-    f"identifiability = 1 (simple key), {COMPOSITE_KEY_SCORE} (composite key) or 0 (none)"
+    "identifiability = 1 (simple key, or entity x period composite key such as id + year), "
+    f"{COMPOSITE_KEY_SCORE} (other composite key), {NEAR_KEY_SCORE} (near-unique composite "
+    "key) or 0 (none)"
 )
 
 
@@ -87,10 +91,28 @@ def compute_quality(
                 f"{1 - inferred.match_ratio:.1%} of values not matching its type"
             )
 
-    if any(k.kind == "simple" for k in candidate_keys):
+    by_name = {c.name: c for c in columns}
+    exact = [k for k in candidate_keys if k.uniqueness >= 1]
+    grain = next(
+        (k for k in exact if k.kind == "composite" and is_entity_period(k.columns, by_name)), None
+    )
+    if any(k.kind == "simple" for k in exact):
         identifiability, key_details = 1.0, "a single-column key exists"
-    elif candidate_keys:
+    elif grain is not None:
+        identifiability = 1.0
+        key_details = f"composite key {' + '.join(grain.columns)} (entity x period grain)"
+    elif exact:
         identifiability, key_details = COMPOSITE_KEY_SCORE, "only composite keys exist"
+    elif candidate_keys:
+        near = candidate_keys[0]
+        identifiability = NEAR_KEY_SCORE
+        key_details = (
+            f"near-unique composite key {' + '.join(near.columns)} ({near.uniqueness:.2%} of rows)"
+        )
+        issues.append(
+            f"{' + '.join(near.columns)} identifies {near.uniqueness:.2%} of the rows: "
+            "the conflicting rows will be quarantined"
+        )
     else:
         identifiability, key_details = 0.0, "no candidate key found"
         issues.append("no candidate primary key found")

@@ -14,7 +14,7 @@ import {
 import { Field, Input, PasswordInput } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { api, unwrap } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import type { Connection } from "@/lib/connections/queries";
 import { authSecret, type AuthKind } from "@/lib/connections/view";
 
@@ -109,7 +109,8 @@ function Editor({
     } catch (error) {
       toast.error({
         title: "Modification impossible",
-        description: error instanceof ApiError ? error.message : undefined,
+        description:
+          error instanceof ApiError ? frenchMessage(error.code, error.message) : undefined,
       });
     } finally {
       setSaving(false);
