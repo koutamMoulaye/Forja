@@ -1,68 +1,16 @@
 // Manual test campaign, case 1 (docs/manual-tests.md): MT-1, a project created from the
 // interface and its members added by the administrator; MT-2, the canvas content never
 // framed under the transparent top bar, nor under the open sidebar.
-import { expect, request, test, type Page } from "./fixtures";
+import { expect, test } from "./fixtures";
 import { E2E } from "./env.mjs";
-import { capture, credentials, expectShell, signIn } from "./helpers";
-
-const API = `http://127.0.0.1:${E2E.apiPort}`;
-
-/** The administrator with its final password, whatever the tests before it did. */
-async function adminAccount() {
-  const api = await request.newContext({ baseURL: API });
-  const first = await api.post("/auth/login", {
-    data: { email: E2E.admin.email, password: E2E.admin.newPassword },
-  });
-  if (!first.ok()) {
-    const login = await api.post("/auth/login", {
-      data: { email: E2E.admin.email, password: E2E.admin.initialPassword },
-    });
-    const token = (await login.json()).access_token as string;
-    await api.post("/auth/password", {
-      headers: { Authorization: `Bearer ${token}` },
-      data: { current_password: E2E.admin.initialPassword, new_password: E2E.admin.newPassword },
-    });
-  }
-  await api.dispose();
-  return { email: E2E.admin.email, password: E2E.admin.newPassword };
-}
-
-/**
- * Every compartment starts below the top bar, its tinted zone and its title; the first
- * one also starts right of the sidebar.
- */
-async function expectClear(page: Page, stage: string) {
-  await page.waitForTimeout(700); // the camera moves for 450 ms
-  const bar = (await page
-    .locator("header")
-    .filter({ has: page.getByTestId("project-selector") })
-    .boundingBox())!;
-  const sidebar = await page.getByRole("complementary", { name: "Barre latérale" }).boundingBox();
-  const right = sidebar ? sidebar.x + sidebar.width : 0;
-  for (const lane of ["sources", "cleaning", "star_schema", "serving"]) {
-    const zone = page.getByTestId(`lane-${lane}`);
-    const box = (await zone.boundingBox())!;
-    const title = (await zone.locator("h2").boundingBox())!;
-    expect
-      .soft(box.y, `${stage}: ${lane} under the top bar`)
-      .toBeGreaterThanOrEqual(bar.y + bar.height);
-    expect
-      .soft(title.y, `${stage}: title of ${lane} under the top bar`)
-      .toBeGreaterThanOrEqual(bar.y + bar.height);
-    if (lane === "sources") {
-      expect.soft(box.x, `${stage}: ${lane} under the sidebar`).toBeGreaterThanOrEqual(right);
-    }
-  }
-}
-
-async function captureThemes(page: Page, name: string) {
-  for (const theme of ["light", "dark"] as const) {
-    await page.emulateMedia({ colorScheme: theme });
-    await page.waitForTimeout(300);
-    await capture(page, `${name}-${theme}`);
-  }
-  await page.emulateMedia({ colorScheme: "light" });
-}
+import {
+  adminAccount,
+  captureThemes,
+  credentials,
+  expectClear,
+  expectShell,
+  signIn,
+} from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 
