@@ -2,7 +2,8 @@
 
 import { memo } from "react";
 import type { Node, NodeProps } from "@xyflow/react";
-import { CaretLineLeft, CaretLineRight } from "@phosphor-icons/react";
+import { CaretLineLeft, CaretLineRight, Sparkle } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusKind } from "@/components/ui/status-badge";
 import { cn } from "@/lib/cn";
 import type { Lane } from "@/lib/pipeline/model";
@@ -20,6 +21,8 @@ export type LaneNodeData = {
   level: ZoomLevel;
   /** Empty project: the later compartments wait, slightly faded. */
   waiting: boolean;
+  /** An empty compartment's next step (« Proposer un modèle »), when there is one. */
+  action?: { label: string; busy: boolean; onClick: () => void } | null;
   onToggle: (lane: Lane) => void;
 };
 
@@ -27,8 +30,20 @@ export type LaneNodeType = Node<LaneNodeData, "lane">;
 
 /** A compartment: tinted zone without border, title, state chips, foldable. */
 function LaneNodeView({ data }: NodeProps<LaneNodeType>) {
-  const { lane, title, subtitle, open, count, unit, summary, chips, level, waiting, onToggle } =
-    data;
+  const {
+    lane,
+    title,
+    subtitle,
+    open,
+    count,
+    unit,
+    summary,
+    chips,
+    level,
+    waiting,
+    action,
+    onToggle,
+  } = data;
   return (
     <section
       aria-label={`Compartiment ${title}`}
@@ -61,6 +76,21 @@ function LaneNodeView({ data }: NodeProps<LaneNodeType>) {
             </button>
           </div>
           <div className="px-[22px] pt-0.5 text-[15px] whitespace-nowrap text-tx3">{subtitle}</div>
+          {action && count === 0 ? (
+            <div className="px-[22px] pt-4">
+              <Button
+                variant="primary"
+                size="lg"
+                loading={action.busy}
+                onClick={action.onClick}
+                className="nodrag nopan"
+                data-testid={`lane-${lane}-action`}
+              >
+                <Sparkle size={17} />
+                {action.label}
+              </Button>
+            </div>
+          ) : null}
           <div
             aria-hidden={level !== "far"}
             className={cn(

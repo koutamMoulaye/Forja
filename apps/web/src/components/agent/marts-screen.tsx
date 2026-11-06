@@ -26,7 +26,7 @@ import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/compone
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Segmented } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { useMartPages } from "@/lib/agent/queries";
 import {
   MART_FILTERS,
@@ -77,7 +77,10 @@ function ExportMenu({ request }: { request: MartRequest }) {
     } catch (error) {
       toast.error({
         title: "Export impossible",
-        description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+        description:
+          error instanceof ApiError
+            ? frenchMessage(error.code, error.message)
+            : "Réessayez dans un instant.",
       });
     }
   };

@@ -7,7 +7,7 @@ import { transitionLayoutId } from "@/components/shell/shared-transition";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/cn";
 import { springs } from "@/lib/motion";
 
@@ -256,7 +256,7 @@ export function ScreenError({
       </div>
       <p className="m-0 text-ui text-tx2">
         {error instanceof ApiError && error.status !== 0
-          ? error.message
+          ? frenchMessage(error.code, error.message)
           : "L’API Forja ne répond pas. Vérifiez qu’elle est démarrée, puis réessayez."}
       </p>
       {onRetry ? (

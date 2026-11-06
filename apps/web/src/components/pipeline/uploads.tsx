@@ -25,7 +25,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toast } from "@/components/ui/toast";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/cn";
 import { GEOMETRY, type Layout } from "@/lib/pipeline/layout";
 import { sourceSlug, type GraphNode, type Lane, type ProjectGraph } from "@/lib/pipeline/model";
@@ -120,7 +120,8 @@ export function useUploads(
         } catch (error) {
           toast.error({
             title: `Échec du chargement de ${file.name}`,
-            description: error instanceof ApiError ? error.message : undefined,
+            description:
+              error instanceof ApiError ? frenchMessage(error.code, error.message) : undefined,
           });
         } finally {
           setQueue((q) => q.filter((name) => name !== file.name));

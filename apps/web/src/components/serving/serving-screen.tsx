@@ -31,7 +31,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Segmented } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { api, unwrap } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/cn";
 import { formatInteger, formatWhen, plural } from "@/lib/format";
 import {
@@ -84,7 +84,10 @@ export function ServingScreen() {
     onError: (error) =>
       toast.error({
         title: "Publication non modifiée",
-        description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+        description:
+          error instanceof ApiError
+            ? frenchMessage(error.code, error.message)
+            : "Réessayez dans un instant.",
       }),
   });
 
@@ -104,7 +107,10 @@ export function ServingScreen() {
     onError: (error) =>
       toast.error({
         title: "Publication non lancée",
-        description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+        description:
+          error instanceof ApiError
+            ? frenchMessage(error.code, error.message)
+            : "Réessayez dans un instant.",
       }),
   });
 
@@ -121,7 +127,10 @@ export function ServingScreen() {
     } catch (error) {
       toast.error({
         title: "Export impossible",
-        description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+        description:
+          error instanceof ApiError
+            ? frenchMessage(error.code, error.message)
+            : "Réessayez dans un instant.",
       });
     }
   };

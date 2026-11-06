@@ -35,3 +35,17 @@ describe("ApiError.from", () => {
     expect(ApiError.from(422, { detail: [] }, null).code).toBe("validation_error");
   });
 });
+
+describe("French messages (MT-19)", () => {
+  it("keeps a French message and translates an English one by pattern or code", async () => {
+    const { frenchMessage, runNotice } = await import("./errors");
+    expect(frenchMessage("conflict", "la version a changé")).toBe("la version a changé");
+    expect(
+      frenchMessage("build_failed", "no approved Gold plan in this project: propose one first"),
+    ).toMatch(/^Aucun modèle en étoile approuvé/);
+    expect(frenchMessage("warehouse_busy", "the warehouse is busy")).toMatch(/occupé/);
+    expect(frenchMessage("unheard_of", "Something broke")).toMatch(/^Une erreur est survenue/);
+    expect(runNotice({ result: { message: "Nettoyage terminé." } })).toBe("Nettoyage terminé.");
+    expect(runNotice({ result: null })).toBeNull();
+  });
+});

@@ -22,7 +22,7 @@ import { HatchGlyph } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Segmented } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/cn";
 import { formatDecimal, formatInteger, formatWhen, plural } from "@/lib/format";
 import { springs } from "@/lib/motion";
@@ -94,7 +94,10 @@ export function SourceDetail({ sourceId }: { sourceId: string }) {
     } catch (error) {
       toast.error({
         title: "Nouvelle version refusée",
-        description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+        description:
+          error instanceof ApiError
+            ? frenchMessage(error.code, error.message)
+            : "Réessayez dans un instant.",
       });
     } finally {
       setUploading(false);

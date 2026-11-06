@@ -16,7 +16,7 @@ import {
 import { Field, Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { api, unwrap } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { sessionKeys } from "@/lib/session/use-session";
 import type { Project } from "@/lib/session/views";
 
@@ -62,7 +62,10 @@ export function NewProjectDialog({
     onError: (error) =>
       toast.error({
         title: "Projet non créé",
-        description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+        description:
+          error instanceof ApiError
+            ? frenchMessage(error.code, error.message)
+            : "Réessayez dans un instant.",
       }),
   });
   const ready = name.trim().length > 0 && !create.isPending;

@@ -17,8 +17,9 @@ import { cubicBezier, useReducedMotion } from "motion/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useShell } from "@/components/shell/shell-context";
 import { toast } from "@/components/ui/toast";
+import { useStartRun } from "@/components/model/use-model";
 import { api, unwrap } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { fitViewport, type Layout } from "@/lib/pipeline/layout";
 import {
   LANES,
@@ -189,6 +190,10 @@ function Canvas({ projectId, graph, synthetic = false }: Props) {
   const params = useSearchParams();
   const flow = useReactFlow();
   const queryClient = useQueryClient();
+  const start = useStartRun(projectId);
+  const proposing = start.propose.isPending;
+  const propose = start.propose.mutate;
+  const role = shell.role;
   const reduce = useReducedMotion() ?? false;
   const container = useRef<HTMLDivElement>(null);
   const toolbar = useRef<HTMLDivElement>(null);
@@ -428,6 +433,25 @@ function Canvas({ projectId, graph, synthetic = false }: Props) {
           ].filter((chip) => chip !== null),
           level,
           waiting: graph.nodes.length === 0 && placed.lane !== "sources",
+          // Gold without a plan: the compartment says what comes next instead of nothing.
+          action:
+            placed.lane === "star_schema" &&
+            members.length === 0 &&
+            (byLane.get("cleaning")?.length ?? 0) > 0 &&
+            role !== "analyst"
+              ? {
+                  label: "Proposer un modèle",
+                  busy: proposing,
+                  onClick: () =>
+                    propose(true, {
+                      onSuccess: () =>
+                        toast.info({
+                          title: "Proposition lancée",
+                          description: "Le modèle en étoile apparaîtra ici, à vérifier",
+                        }),
+                    }),
+                }
+              : null,
           onToggle: (lane: Lane) =>
             setFolded((current) => {
               const next = { ...current, [lane]: !current[lane] };
@@ -471,7 +495,21 @@ function Canvas({ projectId, graph, synthetic = false }: Props) {
         };
       });
     return [...lanes, ...pipeline];
-  }, [shown, graph, level, line, filter, selected, entering, now, projectId, uploads]);
+  }, [
+    shown,
+    graph,
+    level,
+    line,
+    filter,
+    selected,
+    entering,
+    now,
+    projectId,
+    uploads,
+    proposing,
+    propose,
+    role,
+  ]);
 
   const edges = useMemo<CanvasEdgeType[]>(() => {
     const visible = new Set(graph.nodes.filter((n) => matchesFilter(n, filter)).map((n) => n.id));
@@ -520,7 +558,8 @@ function Canvas({ projectId, graph, synthetic = false }: Props) {
     onError: (error) =>
       toast.error({
         title: "Impossible de lancer le run",
-        description: error instanceof ApiError ? error.message : undefined,
+        description:
+          error instanceof ApiError ? frenchMessage(error.code, error.message) : undefined,
       }),
   });
   const announcement = useRunAnnouncements(graph);
