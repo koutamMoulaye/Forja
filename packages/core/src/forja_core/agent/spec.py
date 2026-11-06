@@ -79,6 +79,11 @@ class MartSpec(_Strict):
 
 class ClarificationOption(_Strict):
     label: str = Field(description="What the user reads")
+    detail: str = Field(
+        default="",
+        description="Where it comes from, in small print: « Musée · axe d'analyse », "
+        "« colonne annee »",
+    )
     ref: str = Field(
         description="What the term means if chosen: metric:<name>, attribute:<dim>.<attr>, "
         "value:<dim>.<attr>=<value>, or ignore"

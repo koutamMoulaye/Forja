@@ -46,6 +46,13 @@ _GRAIN_SQL = {
     TimeGrain.QUARTER: "cast(date_trunc('quarter', {date}) as date)",
     TimeGrain.YEAR: "year({date})",
 }
+_GRAIN_LABELS = {
+    TimeGrain.DAY: "Jour",
+    TimeGrain.WEEK: "Semaine",
+    TimeGrain.MONTH: "Mois",
+    TimeGrain.QUARTER: "Trimestre",
+    TimeGrain.YEAR: "Année",
+}
 _OPERATORS = {
     FilterOperator.EQ: "=",
     FilterOperator.NEQ: "<>",
@@ -159,13 +166,13 @@ def compile_spec(
             f"{_GRAIN_SQL[spec.time_grain].format(date=builder.time_sql())} as {_q(name)}"
         )
         axis_names.append(name)
-        time_label = layer.dimension(spec.time_dimension or "")
+        time_dim = layer.dimension(spec.time_dimension or "")
         columns.append(
             MartColumn(
                 name=name,
                 kind="axis",
-                label=spec.time_grain.value.capitalize()
-                + (f" ({time_label.label.lower()})" if time_label else ""),
+                label=_GRAIN_LABELS[spec.time_grain],
+                detail=time_dim.label if time_dim else "",
                 ref=f"time:{spec.time_dimension}:{spec.time_grain.value}",
             )
         )
@@ -176,13 +183,13 @@ def compile_spec(
         name = output_name(attribute.name, f"{dim.name}_{attribute.name}")
         axis_select.append(f"{builder.attribute_sql(ref)} as {_q(name)}")
         axis_names.append(name)
+        label = dim.label if attribute.name == dim.display_attribute else attribute.label
         columns.append(
             MartColumn(
                 name=name,
                 kind="axis",
-                label=f"{attribute.label} ({dim.label.lower()})"
-                if dim.kind != "time"
-                else attribute.label,
+                label=label,
+                detail=dim.label if label != dim.label else "",
                 ref=f"attribute:{ref}",
                 pii=attribute.pii.value if attribute.pii else None,
             )
@@ -259,9 +266,12 @@ def compile_spec(
             MartColumn(
                 name=output,
                 kind="metric",
-                label=metric.label + (f" ({metric.unit})" if metric.unit else ""),
+                label=metric.label,
+                detail=metric.description,
                 ref=f"metric:{metric.name}",
                 additivity=metric.additivity.value,
+                unit=metric.unit,
+                format=metric.format.value,
             )
         )
     for item in spec.filters:

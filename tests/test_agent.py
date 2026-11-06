@@ -234,7 +234,10 @@ def test_preview_controls(shop: tuple[AppState, Project]) -> None:
     iteration = request.latest
     assert iteration is not None and iteration.preview is not None
     preview = iteration.preview
-    assert iteration.summary == "Chiffre d'affaires et nombre de commandes par ville, sur 2024."
+    assert (
+        iteration.summary
+        == "Chiffre d'affaires et nombre de commandes par ville, en 2024 (date de commande)."
+    )
     assert preview.row_count == len(preview.rows) > 0
     reconciled = {c.details["metric"]: c for c in preview.controls if c.code == "reconciliation"}
     assert reconciled["montant"].status == "ok"  # mart total = fact total on the scope

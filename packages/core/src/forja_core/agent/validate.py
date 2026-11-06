@@ -11,20 +11,37 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import date
 from difflib import get_close_matches
 
 from forja_core.agent.parser import clarification
-from forja_core.agent.spec import Clarification, FilterOperator, MartFilter, MartSpec, OrderBy
-from forja_core.semantic.models import Attribute, SemanticDimension, SemanticLayer
+from forja_core.agent.spec import (
+    Clarification,
+    FilterOperator,
+    MartFilter,
+    MartSpec,
+    OrderBy,
+    Period,
+)
+from forja_core.semantic.models import Attribute, SemanticDimension, SemanticLayer, TimeGrain
 from forja_core.semantic.text import key, normalize
 
 ValueLookup = Callable[[SemanticDimension, Attribute], list[str]]
+DateRanges = Callable[[str], "tuple[date, date] | None"]
+_LEVELS = (TimeGrain.DAY, TimeGrain.WEEK, TimeGrain.MONTH, TimeGrain.QUARTER, TimeGrain.YEAR)
 
 _TEXT_OPERATORS = frozenset(
     {FilterOperator.EQ, FilterOperator.NEQ, FilterOperator.IN, FilterOperator.NOT_IN,
      FilterOperator.CONTAINS}
 )  # fmt: skip
 _LIST_OPERATORS = frozenset({FilterOperator.IN, FilterOperator.NOT_IN})
+_GRAIN_NAMES = {
+    TimeGrain.DAY: "jour",
+    TimeGrain.WEEK: "semaine",
+    TimeGrain.MONTH: "mois",
+    TimeGrain.QUARTER: "trimestre",
+    TimeGrain.YEAR: "année",
+}
 
 
 @dataclass
@@ -190,14 +207,77 @@ def _filter(
     return item.model_copy(update={"field": field_ref, "value": value})
 
 
-def validate_spec(spec: MartSpec, layer: SemanticLayer, lookup: ValueLookup) -> Validation:
+def validate_spec(
+    spec: MartSpec,
+    layer: SemanticLayer,
+    lookup: ValueLookup,
+    date_ranges: DateRanges | None = None,
+) -> Validation:
     try:
-        return _validate(spec, layer, lookup)
+        return _validate(spec, layer, lookup, date_ranges)
     except _StopError as stop:
         return stop.outcome
 
 
-def _validate(spec: MartSpec, layer: SemanticLayer, lookup: ValueLookup) -> Validation:
+def _overlaps(period: Period, covered: tuple[date, date] | None) -> bool:
+    if covered is None:
+        return False
+    start = period.start or covered[0]
+    end = period.end or covered[1]
+    return start <= covered[1] and end >= covered[0]
+
+
+def _main_date(
+    spec: MartSpec,
+    layer: SemanticLayer,
+    candidates: list[SemanticDimension],
+    date_ranges: DateRanges | None,
+) -> SemanticDimension:
+    """The date a period or a grain applies to when the request names none.
+
+    The fact's main date, chosen with the Gold model, unless the period has no data on
+    it while another date has: then the user says which date they mean. Without a main
+    date and with several dates, too.
+    """
+    primary = next((d for d in candidates if d.primary), None)
+    if primary is None:
+        default = layer.default_time_dimension
+        primary = next((d for d in candidates if d.name == default), None)
+        if primary is None and len(candidates) > 1:
+            raise _StopError(Validation(clarification=_which_date(layer, spec, candidates)))
+    chosen = primary or candidates[0]
+    if spec.period is None or date_ranges is None or len(candidates) < 2:
+        return chosen
+    if _overlaps(spec.period, date_ranges(chosen.name)):
+        return chosen
+    others = [
+        d for d in candidates if d is not chosen and _overlaps(spec.period, date_ranges(d.name))
+    ]
+    if others:
+        raise _StopError(Validation(clarification=_which_date(layer, spec, [chosen, *others])))
+    return chosen
+
+
+def _which_date(
+    layer: SemanticLayer, spec: MartSpec, dates: list[SemanticDimension]
+) -> Clarification:
+    term = spec.period.label if spec.period and spec.period.label else "période"
+    ask = clarification(
+        layer,
+        term,
+        [f"time:{d.name}" for d in dates],
+        f"« {term} » : selon quelle date du fait ?",
+    )
+    assert ask is not None
+    return ask
+
+
+def _validate(
+    spec: MartSpec,
+    layer: SemanticLayer,
+    lookup: ValueLookup,
+    date_ranges: DateRanges | None = None,
+) -> Validation:
     metrics: list[str] = []
     facts: set[str] = set()
     for name in spec.metrics:
@@ -220,22 +300,31 @@ def _validate(spec: MartSpec, layer: SemanticLayer, lookup: ValueLookup) -> Vali
     time_dimension = spec.time_dimension
     if spec.time_grain is not None or spec.period is not None or time_dimension is not None:
         candidates = [d for d in layer.time_dimensions() if d.fact == fact]
-        if time_dimension is None:
-            default = layer.default_time_dimension
-            chosen = next((d for d in candidates if d.name == default), None) or (
-                candidates[0] if candidates else None
+        if not candidates:
+            raise _StopError(
+                Validation(refusal="Ces mesures n'ont pas de date : pas d'axe temporel possible.")
             )
-            if chosen is None:
-                raise _StopError(
-                    Validation(
-                        refusal="Ces mesures n'ont pas de date : pas d'axe temporel possible."
-                    )
-                )
-            time_dimension = chosen.name
+        if time_dimension is None:
+            time_dimension = _main_date(spec, layer, candidates, date_ranges).name
         elif all(d.name != time_dimension for d in candidates):
             raise _unknown(
                 layer, "Date", time_dimension, {d.label: f"time:{d.name}" for d in candidates}
             )
+    notes: list[str] = []
+    time_grain = spec.time_grain
+    used = layer.dimension(time_dimension) if time_dimension else None
+    if (
+        time_grain is not None
+        and used is not None
+        and used.time_level is not None
+        and _LEVELS.index(time_grain) < _LEVELS.index(used.time_level)
+    ):
+        # A year column holds no month: the finest level it has is used, and said.
+        notes.append(
+            f"Découpage par {_GRAIN_NAMES[used.time_level]} : {used.label.lower()} ne "
+            f"donne pas de détail par {_GRAIN_NAMES[time_grain]}."
+        )
+        time_grain = used.time_level
 
     if (
         spec.period
@@ -246,11 +335,12 @@ def _validate(spec: MartSpec, layer: SemanticLayer, lookup: ValueLookup) -> Vali
         raise _StopError(Validation(refusal="La période demandée se termine avant de commencer."))
 
     filters = [_filter(layer, f, fact, metrics, lookup) for f in spec.filters]
-    axes, notes = _drop_fixed_axes(layer, axes, filters)
+    axes, dropped = _drop_fixed_axes(layer, axes, filters)
+    notes += dropped
 
     outputs = set(metrics) | {a.split(".")[-1] for a in axes} | set(axes)
-    if spec.time_grain:
-        outputs.add(spec.time_grain.value)
+    if time_grain:
+        outputs.add(time_grain.value)
     order_by: list[OrderBy] = []
     for item in spec.order_by:
         field_name = item.field
@@ -268,6 +358,7 @@ def _validate(spec: MartSpec, layer: SemanticLayer, lookup: ValueLookup) -> Vali
             "axes": axes,
             "filters": filters,
             "time_dimension": time_dimension,
+            "time_grain": time_grain,
             "order_by": order_by,
         }
     )

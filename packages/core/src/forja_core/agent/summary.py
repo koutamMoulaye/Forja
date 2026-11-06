@@ -71,6 +71,8 @@ def _period(spec: MartSpec) -> str | None:
         return None
     if period.label:
         label = period.label
+        if label.isdigit():
+            return f"en {label}"
         if label[:1].isdigit() or label.startswith(("T", "S")):
             return f"sur {label}"
         return f"en {label}"
@@ -114,17 +116,23 @@ def describe(spec: MartSpec, layer: SemanticLayer) -> list[SummaryPart]:
         axes.append(_term(f"par {label.lower()}", "axis", index))
     if axes:
         parts += [SummaryPart(text=" "), *_joined(axes)]
-    if spec.time_dimension and spec.time_dimension != layer.default_time_dimension:
-        time_dim = layer.dimension(spec.time_dimension)
-        if time_dim is not None:
-            parts.append(SummaryPart(text=f" (selon la {time_dim.label.lower()})"))
-    details: list[SummaryPart] = []
+    # The date a period or a grain reads is always said: « en 2023 (année de
+    # fréquentation) », never left to guess between two dates of the fact.
+    time_dim = layer.dimension(spec.time_dimension) if spec.time_dimension else None
+    time_text = f" ({_lower_first(time_dim.label)})" if time_dim is not None else ""
     period = _period(spec)
+    if time_text and not period and spec.time_grain is not None:
+        parts.append(SummaryPart(text=time_text))
+    details: list[SummaryPart] = []
     if period:
         details.append(_term(period, "period"))
+        if time_text:
+            details.append(SummaryPart(text=time_text))
     details += [_term(_filter(layer, f), "filter", i) for i, f in enumerate(spec.filters)]
     for detail in details:
-        parts += [SummaryPart(text=", "), detail]
+        if detail.term is not None or not detail.text.startswith(" ("):
+            parts.append(SummaryPart(text=", "))
+        parts.append(detail)
     if spec.limit:
         direction = (
             "premiers" if not spec.order_by or spec.order_by[0].direction == "desc" else "derniers"
