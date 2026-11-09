@@ -428,3 +428,52 @@ def test_dates_of_the_fixture() -> None:
     # The questions above read years of the fixture: keep them in step.
     assert attendance.FIRST_YEAR == 2013 and attendance.LAST_YEAR == 2023
     assert date(attendance.CONFLICT_YEAR, 1, 1) < date(attendance.LAST_YEAR, 12, 31)
+
+
+# --- P2: Gold proposal by a local model -----------------------------------------------
+
+
+def test_mt40_a_proposal_naming_the_silver_table_is_repaired(
+    case: tuple[AppState, Project, str],
+) -> None:
+    """qwen3.5:9b named the source by its Silver table (« stg_<source> »): two errors on
+    every attempt, and the proposal fell back to the heuristic. The reference is mapped to
+    the source name before validation."""
+    from forja_core.gold.heuristic import propose_heuristic
+    from forja_core.gold.service import normalize_sources
+    from forja_core.gold.validation import link_relations, validate_model
+
+    state, project, _ = case
+    ctx = state.gold.context(project.id)
+    model, _ = propose_heuristic(ctx)
+    [name] = list(ctx.sources)
+    table = ctx.sources[name].model
+    as_written = model.model_copy(
+        update={
+            "dimensions": [d.model_copy(update={"source": table}) for d in model.dimensions],
+            "facts": [f.model_copy(update={"source": table}) for f in model.facts],
+        }
+    )
+    broken = validate_model(link_relations(as_written, ctx), ctx)
+    assert [i.code for i in broken if i.severity == "error"] == ["unknown_source"] * 2
+    repaired = normalize_sources(as_written, ctx)
+    issues = validate_model(link_relations(repaired, ctx), ctx)
+    assert [i for i in issues if i.severity == "error"] == []
+    assert {d.source for d in repaired.dimensions} == {name}
+
+
+def test_mt40_a_sparse_main_date_is_corrected(case: tuple[AppState, Project, str]) -> None:
+    """The three valid proposals of qwen3.5:9b chose the date of appellation (filled for a
+    third of the rows, outside the grain) as the main date: Forja keeps the year."""
+    from forja_core.gold.heuristic import propose_heuristic
+    from forja_core.gold.service import _complete
+
+    state, project, _ = case
+    ctx = state.gold.context(project.id)
+    model, _ = propose_heuristic(ctx)
+    [fact] = model.facts
+    sparse = next(k.name for k in fact.date_keys if k.column == "dateappellation")
+    proposed = model.model_copy(
+        update={"facts": [fact.model_copy(update={"primary_date": sparse})]}
+    )
+    assert _complete(proposed, ctx).facts[0].primary_date == "annee_key"
