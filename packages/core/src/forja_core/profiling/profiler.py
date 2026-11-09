@@ -145,7 +145,7 @@ class Profiler:
         duplicates = self._duplicates(con, row_count)
         keys = self._candidate_keys(con, columns, row_count, duplicates)
         entities = self._entities(con, columns, row_count, keys, stats)
-        conflicts = self._key_conflicts(con, columns, keys)
+        conflicts = self._key_conflicts(con, columns, keys, row_count)
         compositions = self._compositions(con, columns)
         quality = compute_quality(columns, duplicates, keys, pii)
         report = ProfileReport(
@@ -433,6 +433,7 @@ class Profiler:
         con: duckdb.DuckDBPyConnection,
         columns: list[ColumnProfile],
         keys: list[CandidateKey],
+        row_count: int,
     ) -> list[KeyConflicts]:
         """For each near key, the distinct rows sharing a key value, split between
         near-identical (they only differ by blanks or placeholders) and divergent."""
@@ -444,7 +445,7 @@ class Profiler:
             if not c.is_unique
             and c.distinct_count > 1
             and is_identifier_name(c.name)
-            and c.distinct_count >= 0.95 * max(1, c.null_count + c.distinct_count)
+            and c.distinct_count >= 0.95 * max(1, row_count - c.null_count)
         ]
         found: list[KeyConflicts] = []
         names = [c.name for c in columns]
