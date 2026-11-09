@@ -528,6 +528,19 @@ function lowerFirst(text: string): string {
 }
 type SpecLike = NonNullable<MartIteration["spec"]>;
 
+const FEMININE = /(tion|sion|té|ée|ance|ence|ure|ade|ette|rge|ie|ité|ière|ise|eur)$/;
+const ALWAYS_SINGULAR = new Set(["prix", "poids", "mois", "temps", "cours", "pays"]);
+
+/** « les entrées payantes », « la fréquentation », « le chiffre d’affaires », « l’année »:
+ * a label with its definite article, guessed from its first word. */
+export function withArticle(label: string): string {
+  const text = lowerFirst(label.trim());
+  const first = text.split(/[\s']/)[0] ?? "";
+  if (first.endsWith("s") && !ALWAYS_SINGULAR.has(first)) return `les ${text}`;
+  if (/^[aeiouyéèêàâîôûh]/i.test(first)) return `l’${text}`;
+  return `${FEMININE.test(first) ? "la" : "le"} ${text}`;
+}
+
 /**
  * Adjustments offered under « Affiner » and in the field's placeholder: phrases the
  * parser understands, written from the project's semantic layer (its metrics, its time
@@ -545,7 +558,7 @@ export function refineSuggestions(
       (m) => !m.hidden && m.default && m.fact === fact && !spec.metrics.includes(m.name),
     ) ??
     layer?.metrics?.find((m) => !m.hidden && m.fact === fact && !spec.metrics.includes(m.name));
-  if (extra) out.push(`Ajoute ${lowerFirst(extra.label)}`);
+  if (extra) out.push(`Ajoute ${withArticle(extra.label)}`);
   const time = layer?.dimensions?.find(
     (d) => d.kind === "time" && (d.name === spec.time_dimension || !spec.time_dimension),
   );
@@ -565,7 +578,7 @@ export function refineSuggestions(
     const attribute = dim?.attributes?.find((a) => a.name === attrName);
     const label =
       dim && attrName === dim.display_attribute ? dim.label : (attribute?.label ?? attrName ?? "");
-    out.push(`Retire ${lowerFirst(label.replace(/_/g, " "))}`);
+    out.push(`Retire ${withArticle(label.replace(/_/g, " "))}`);
   }
   return out.slice(0, 3);
 }

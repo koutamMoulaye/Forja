@@ -31,6 +31,7 @@ import { HatchGlyph, Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toast } from "@/components/ui/toast";
 import { ApiError, frenchMessage } from "@/lib/api/errors";
+import { formatCell } from "@/lib/agent/chart";
 import { useAgentActions, useAgentRun, useMartRequest } from "@/lib/agent/queries";
 import { agentSteps } from "@/lib/agent/steps";
 import {
@@ -244,9 +245,20 @@ function Sample({ iteration, sqlVisible }: { iteration: MartIteration; sqlVisibl
   const [sql, setSql] = useState(false);
   const preview = iteration.preview!;
   const labels = new Map(preview.columns.map((c) => [c.name, c.label]));
+  const kinds = new Map(preview.columns.map((c) => [c.name, c]));
   const columns = preview.columns.map((c) => c.label);
+  // Measures with thousands separators; axes as they are (a year stays « 2023 »).
   const rows = preview.rows.map((row) =>
-    Object.fromEntries(Object.entries(row).map(([key, value]) => [labels.get(key) ?? key, value])),
+    Object.fromEntries(
+      Object.entries(row).map(([key, value]) => {
+        const column = kinds.get(key);
+        const shown =
+          column?.kind === "metric" && typeof value === "number"
+            ? formatCell(value, column)
+            : value;
+        return [labels.get(key) ?? key, shown];
+      }),
+    ),
   );
   const personal = (preview.pseudonymized ?? []).map((name) => labels.get(name) ?? name);
   return (
@@ -633,6 +645,7 @@ export function PreviewScreen({ martId }: { martId: string }) {
   const [refining, setRefining] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [chosen, setChosen] = useState<Destination | null>(null);
+  const [dismissed, setDismissed] = useState<number | null>(null);
   const base = `/projects/${shell.project.id}`;
 
   if (request.isPending) return <ScreenSkeleton aside />;
@@ -830,21 +843,36 @@ export function PreviewScreen({ martId }: { martId: string }) {
         </Banner>
       ) : latest &&
         latest !== iteration &&
+        data.status !== "published" &&
+        dismissed !== latest.version &&
         (latest.status === "refused" ||
           latest.status === "failed" ||
           latest.status === "answered") ? (
         <Banner
           tone="queue"
+          testId="last-message"
           icon={<WarningCircle size={20} />}
           title={
             latest.status === "answered"
               ? "Dernier message : une question sur les données"
-              : "Le dernier ajustement n’a pas abouti"
+              : "Votre dernier message n’a pas modifié ce data mart"
+          }
+          action={
+            <Button
+              variant="quiet"
+              size="md"
+              onClick={() => setDismissed(latest.version)}
+              data-testid="last-message-dismiss"
+            >
+              Masquer
+            </Button>
           }
         >
-          {latest.refusal ??
-            latest.answer ??
-            (latest.error === "annulée" ? "Annulé." : latest.error)}{" "}
+          {latest.status === "failed"
+            ? latest.error === "annulée"
+              ? "Le traitement a été annulé."
+              : "Forja n’a pas pu le traiter : reformulez-le, ou repartez de cet aperçu."
+            : (latest.refusal ?? latest.answer)}{" "}
           L’aperçu ci-dessous reste celui de la version {iteration.version}.
         </Banner>
       ) : null}

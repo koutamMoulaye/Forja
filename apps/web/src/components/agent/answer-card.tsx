@@ -15,10 +15,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
+  SERIES_COLORS,
   barShares,
+  formatCell,
   formatTick,
   formatValue,
-  lineGeometry,
+  seriesGeometry,
+  seriesOf,
   toCsv,
   type Insight,
 } from "@/lib/agent/chart";
@@ -55,78 +58,112 @@ function Line({ insight }: { insight: Insight }) {
   const titleId = useId();
   const width = 640;
   const height = 220;
-  const points = insight.points ?? [];
-  const geometry = lineGeometry(points, width, height);
+  const series = seriesOf(insight);
+  const geometries = seriesGeometry(series, width, height);
+  const axis = geometries[0]!;
   return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      className="h-auto w-full"
-      role="img"
-      aria-labelledby={titleId}
-      data-testid="answer-line"
-    >
-      <title id={titleId}>{insight.alt}</title>
-      {geometry.ticks.map((tick) => (
-        <g key={tick.value}>
-          <line
-            x1={56}
-            x2={width - 12}
-            y1={tick.y}
-            y2={tick.y}
-            className="stroke-edge"
-            strokeWidth={tick.value === 0 ? 1.2 : 0.6}
-            strokeDasharray={tick.value === 0 ? undefined : "3 4"}
-          />
-          <text
-            x={48}
-            y={tick.y + 4}
-            textAnchor="end"
-            className="fill-tx3 font-sans text-[11px] tabular-nums"
-          >
-            {formatTick(tick.value, insight.format)}
-          </text>
-        </g>
-      ))}
-      {geometry.labels.map((label) => (
-        <text
-          key={`${label.x}-${label.text}`}
-          x={label.x}
-          y={height - 8}
-          textAnchor="middle"
-          className="fill-tx3 font-sans text-[11px]"
+    <figure className="m-0 flex flex-col gap-2" data-testid="answer-line-figure">
+      {series.length > 1 ? (
+        <ul
+          className="m-0 flex list-none flex-wrap gap-x-4 gap-y-1 p-0"
+          data-testid="answer-legend"
         >
-          {label.text}
-        </text>
-      ))}
-      <path
-        d={geometry.path}
-        fill="none"
-        className="stroke-acc"
-        strokeWidth={2.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-      {geometry.dots.map((dot) =>
-        Number.isNaN(dot.y) ? null : (
-          <circle
-            key={`${dot.x}-${dot.label}`}
-            cx={dot.x}
-            cy={dot.y}
-            r={3.5}
-            className="fill-node stroke-acc"
-            strokeWidth={2}
+          {series.map((item, index) => (
+            <li key={item.metric} className="flex items-center gap-1.5 text-[13px] text-tx2">
+              <span
+                className={cn(
+                  "inline-block h-[3px] w-4 rounded-full",
+                  SERIES_COLORS[index % SERIES_COLORS.length]!.fill,
+                )}
+                aria-hidden
+              />
+              {item.label}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-auto w-full"
+        role="img"
+        aria-labelledby={titleId}
+        data-testid="answer-line"
+      >
+        <title id={titleId}>{insight.alt}</title>
+        {axis.ticks.map((tick) => (
+          <g key={tick.value}>
+            <line
+              x1={56}
+              x2={width - 12}
+              y1={tick.y}
+              y2={tick.y}
+              className="stroke-edge"
+              strokeWidth={tick.value === 0 ? 1.2 : 0.6}
+              strokeDasharray={tick.value === 0 ? undefined : "3 4"}
+            />
+            <text
+              x={48}
+              y={tick.y + 4}
+              textAnchor="end"
+              className="fill-tx3 font-sans text-[11px] tabular-nums"
+            >
+              {formatTick(tick.value, insight.format)}
+            </text>
+          </g>
+        ))}
+        {axis.labels.map((label) => (
+          <text
+            key={`${label.x}-${label.text}`}
+            x={label.x}
+            y={height - 8}
+            textAnchor="middle"
+            className="fill-tx3 font-sans text-[11px]"
           >
-            <title>{`${dot.label} : ${formatValue(dot.value, insight.format, insight.unit)}`}</title>
-          </circle>
-        ),
-      )}
-    </svg>
+            {label.text}
+          </text>
+        ))}
+        {geometries.map((geometry, index) => {
+          const item = series[index]!;
+          const color = SERIES_COLORS[index % SERIES_COLORS.length]!.stroke;
+          return (
+            <g key={item.metric} data-testid="answer-series">
+              <path
+                d={geometry.path}
+                fill="none"
+                className={color}
+                strokeWidth={2.5}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+              {geometry.dots.map((dot) =>
+                Number.isNaN(dot.y) ? null : (
+                  <circle
+                    key={`${dot.x}-${dot.label}`}
+                    cx={dot.x}
+                    cy={dot.y}
+                    r={3.5}
+                    className={cn("fill-node", color)}
+                    strokeWidth={2}
+                  >
+                    <title>{`${item.label}, ${dot.label} : ${formatValue(dot.value, item.format, item.unit)}`}</title>
+                  </circle>
+                ),
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </figure>
   );
 }
 
 function Bars({ insight }: { insight: Insight }) {
   const points = insight.points ?? [];
-  const shares = barShares(points);
+  // « Autres » groups the members beyond the first ten: its bar is drawn on the scale of
+  // the members, not of their sum.
+  const grouped = (insight.others ?? 0) > 0;
+  const shares = barShares(grouped ? points.slice(0, -1) : points);
+  if (grouped) shares.push(100);
   return (
     <figure className="m-0 flex flex-col gap-1.5" data-testid="answer-bars">
       <figcaption className="sr-only">{insight.alt}</figcaption>
@@ -137,12 +174,21 @@ function Bars({ insight }: { insight: Insight }) {
             className="grid grid-cols-[minmax(0,38%)_minmax(0,1fr)_auto] items-center gap-3 text-[13.5px]"
           >
             <span className="truncate text-tx2" title={point.label}>
-              {point.label}
+              {grouped && index === points.length - 1
+                ? `${point.label} (${plural(insight.others ?? 0, "autre", "autres")})`
+                : point.label}
             </span>
             <span className="h-[14px] overflow-hidden rounded-full bg-sunk" aria-hidden>
               <span
-                className={cn("block h-full rounded-full", index === 0 ? "bg-acc" : "bg-acc/55")}
-                style={{ width: `${shares[index]}%` }}
+                className={cn(
+                  "block h-full rounded-full",
+                  grouped && index === points.length - 1
+                    ? "bg-tx3/40"
+                    : index === 0
+                      ? "bg-acc"
+                      : "bg-acc/55",
+                )}
+                style={{ width: `${Math.min(100, shares[index] ?? 0)}%` }}
               />
             </span>
             <span className="text-right whitespace-nowrap text-tx tabular-nums">
@@ -210,11 +256,7 @@ function RowsTable({
                       column.pii && "font-mono text-[12.5px]",
                     )}
                   >
-                    {column.kind === "metric" && typeof value === "number"
-                      ? formatValue(value, column.format, column.unit)
-                      : value === null || value === undefined
-                        ? "—"
-                        : String(value)}
+                    {formatCell(value, column)}
                   </td>
                 );
               })}
@@ -222,6 +264,86 @@ function RowsTable({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/** Every member of a ranking grouped under « Autres » in the chart. */
+function Ranking({ insight }: { insight: Insight }) {
+  const [open, setOpen] = useState(false);
+  const ranking = insight.ranking ?? [];
+  if (!ranking.length) return null;
+  return (
+    <details
+      className="group rounded-xl"
+      open={open}
+      onToggle={(event) => setOpen((event.target as HTMLDetailsElement).open)}
+      data-testid="answer-ranking"
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-meta font-medium text-acc-tx">
+        <CaretDown size={14} className="transition-transform group-open:rotate-180" />
+        {open
+          ? "Masquer le classement complet"
+          : `Voir le classement complet (${plural(ranking.length, "ligne", "lignes")})`}
+      </summary>
+      <div className="max-h-[360px] overflow-auto pt-2.5">
+        <table className="w-full border-collapse rounded-xl bg-sunk text-[13.5px]">
+          <caption className="sr-only">{insight.alt}</caption>
+          <thead>
+            <tr>
+              <th scope="col" className="px-3 py-2 text-left font-semibold text-tx2">
+                Rang
+              </th>
+              <th scope="col" className="px-3 py-2 text-left font-semibold text-tx2">
+                {insight.axis_label}
+              </th>
+              <th scope="col" className="px-3 py-2 text-right font-semibold text-tx2">
+                {insight.metric_label}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {ranking.map((point, index) => (
+              <tr key={`${point.label}-${index}`} className="border-t border-edge/40">
+                <td className="px-3 py-1.5 text-tx3 tabular-nums">{index + 1}</td>
+                <td className="px-3 py-1.5">{point.label}</td>
+                <td className="px-3 py-1.5 text-right whitespace-nowrap tabular-nums">
+                  {formatValue(point.value, insight.format, insight.unit)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
+
+/** Why a preview cannot be published (an empty result, a failed control) and what to try. */
+function Blocking({ iteration }: { iteration: MartIteration }) {
+  const failed = (iteration.preview?.controls ?? []).filter((c) => c.status === "error");
+  if (!failed.length) return null;
+  return (
+    <div
+      className="flex flex-col gap-1.5 rounded-xl bg-err-bg px-4 py-3 text-[13.5px] text-err-fg"
+      role="status"
+      data-testid="answer-blocking"
+    >
+      {failed.map((control, index) => {
+        const suggestions = (control.details?.suggestions as string[] | undefined) ?? [];
+        return (
+          <div key={`${control.code}-${index}`} className="flex flex-col gap-1">
+            <p className="m-0 font-medium">{control.message}</p>
+            {suggestions.length ? (
+              <ul className="m-0 list-disc pl-5 text-tx2">
+                {suggestions.map((suggestion) => (
+                  <li key={suggestion}>{suggestion}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -280,9 +402,12 @@ export function AnswerCard({
           </p>
         </div>
 
+        <Blocking iteration={iteration} />
+
         {insight?.visual === "kpi" ? <Kpi insight={insight} /> : null}
         {insight?.visual === "line" ? <Line insight={insight} /> : null}
         {insight?.visual === "bars" ? <Bars insight={insight} /> : null}
+        {insight?.visual === "bars" ? <Ranking insight={insight} /> : null}
         {insight?.visual === "table" || !insight ? (
           <RowsTable iteration={iteration} limit={TABLE_ROWS} caption={caption} />
         ) : (

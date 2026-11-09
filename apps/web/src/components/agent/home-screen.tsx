@@ -155,7 +155,11 @@ export function HomeScreen() {
           <Composer
             hero
             label="Posez une question"
-            placeholder="Posez une question sur vos ventes, vos clients, vos produits"
+            placeholder={
+              overview.data?.suggestions?.[0]
+                ? `Posez une question, par exemple : ${overview.data.suggestions[0]}`
+                : "Posez une question sur vos données"
+            }
             onSubmit={send}
             busy={ask.isPending}
             testId="home-composer"
