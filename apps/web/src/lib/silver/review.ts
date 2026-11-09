@@ -159,7 +159,44 @@ export function ruleSummary(rule: ReviewRule, samples?: PlanSamples): string | n
 }
 
 export type ParamKind =
-  "type" | "date_format" | "invalid" | "normalization" | "treatment" | "exclude";
+  "type" | "date_format" | "invalid" | "normalization" | "treatment" | "exclude" | "resolution";
+
+/** What becomes of divergent rows sharing a key value (quarantine by default). */
+export const KEY_RESOLUTIONS = [
+  { value: "quarantine", label: "Mettre ces lignes en quarantaine" },
+  { value: "most_complete", label: "Garder la ligne la plus complète" },
+  { value: "last", label: "Garder la dernière ligne du fichier" },
+];
+
+export type KeyConflictLine = { label: string; detail: string; tone: "auto" | "choice" };
+
+/** The conflicts measured on a key before approval, as the key rule card shows them. */
+export function keyConflictLines(rule: ReviewRule): KeyConflictLine[] {
+  const conflicts = rule.conflicts;
+  if (!conflicts || !conflicts.keys) return [];
+  const lines: KeyConflictLine[] = [];
+  const keys = (n: number) => (n > 1 ? `${n} clés` : "1 clé");
+  const rows = (n: number) => (n > 1 ? `${n} lignes` : "1 ligne");
+  if (conflicts.near_identical_keys) {
+    lines.push({
+      label: `${keys(conflicts.near_identical_keys)} aux lignes quasi identiques (${rows(
+        conflicts.near_identical_rows ?? 0,
+      )})`,
+      detail: "Elles ne diffèrent que par des vides : la plus complète est gardée automatiquement.",
+      tone: "auto",
+    });
+  }
+  if (conflicts.divergent_keys) {
+    lines.push({
+      label: `${keys(conflicts.divergent_keys)} aux lignes divergentes (${rows(
+        conflicts.divergent_rows ?? 0,
+      )})`,
+      detail: "Leurs valeurs se contredisent : choisissez ci-dessous laquelle garder.",
+      tone: "choice",
+    });
+  }
+  return lines;
+}
 
 export type RuleParam = {
   kind: ParamKind;
@@ -266,6 +303,18 @@ export function ruleParams(rule: ReviewRule, plan: TransformationPlan): RulePara
         : [];
     case "format":
       return [exclude];
+    case "primary_key":
+      // Only when rows of the file disagree on a key: otherwise there is nothing to choose.
+      return rule.conflicts?.divergent_keys
+        ? [
+            {
+              kind: "resolution",
+              label: "Lignes divergentes",
+              value: rule.resolution ?? plan.primary_key?.resolution ?? "quarantine",
+              options: KEY_RESOLUTIONS,
+            },
+          ]
+        : [];
     default:
       return [];
   }
@@ -285,6 +334,11 @@ export function paramsPatch(
   }
   if (values.treatment) change.pii_treatment = values.treatment as ColumnPatch["pii_treatment"];
   if (values.exclude === "exclude") change.included = false;
+  if (rule.kind === "primary_key") {
+    return values.resolution
+      ? { key_resolution: values.resolution as PlanPatch["key_resolution"] }
+      : {};
+  }
   const columns =
     rule.kind === "normalize"
       ? Object.fromEntries(rule.columns.map((name) => [name, change]))

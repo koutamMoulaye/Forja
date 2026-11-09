@@ -389,6 +389,8 @@ export function PlanReviewScreen({ sourceId }: { sourceId: string }) {
               runId={run.data?.status === "succeeded" ? runId : null}
             />
           ) : null}
+          {/* Room for the floating bar: the last card is never under it. */}
+          <div aria-hidden className="h-20 flex-none" data-testid="action-bar-spacer" />
           <ActionBar
             review={data}
             approving={approve.isPending}
