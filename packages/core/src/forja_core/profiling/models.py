@@ -119,6 +119,42 @@ class CandidateKey(BaseModel):
     )
 
 
+class KeyConflicts(BaseModel):
+    """Distinct rows sharing a key value, measured before any rule is approved.
+
+    Near-identical rows only differ by blanks (or placeholders): the most complete one
+    holds everything the others say. Divergent rows disagree on a filled value: a person
+    decides which one to keep."""
+
+    columns: list[str]
+    keys: int = Field(description="Key values held by more than one distinct row")
+    rows: int = Field(description="Rows holding those key values")
+    near_identical_keys: int = 0
+    near_identical_rows: int = 0
+    divergent_keys: int = 0
+    divergent_rows: int = 0
+    by_period: dict[str, int] = Field(
+        default_factory=dict,
+        description="Keys in conflict by value of the period column of the key, if any "
+        "(« 2021 »: 2)",
+    )
+
+
+class Composition(BaseModel):
+    """A « total » column next to the columns it adds up (total = payant + gratuit): how
+    often, and by how much, the source disagrees with itself."""
+
+    total: str = Field(description="Source column holding the total")
+    parts: list[str] = Field(description="Source columns it is the sum of")
+    rows: int = Field(description="Rows where total and parts are all filled")
+    mismatched_rows: int = Field(description="Rows where the total differs from the sum")
+    gap: float = Field(description="Sum of total minus sum of the parts, over those rows")
+    by_period: dict[str, float] = Field(
+        default_factory=dict, description="Gap by value of a period column (« 2014 »: 9250)"
+    )
+    period_column: str | None = None
+
+
 class EntityAttributes(BaseModel):
     """Columns that repeat the same value for each value of a key: the attributes of an
     entity stored on every row of a denormalized file (a museum's city on each year)."""
@@ -170,6 +206,14 @@ class ProfileReport(BaseModel):
         "entity and period, say): candidates for a dimension",
     )
     duplicates: DuplicateStats
+    key_conflicts: list[KeyConflicts] = Field(
+        default_factory=list,
+        description="Near keys (unique but for a few rows): the rows in conflict, measured",
+    )
+    compositions: list[Composition] = Field(
+        default_factory=list,
+        description="Total columns and the columns they add up, with the gap measured",
+    )
     pii: list[PiiDetection]
     quality: QualityScore
     sampled: bool = Field(

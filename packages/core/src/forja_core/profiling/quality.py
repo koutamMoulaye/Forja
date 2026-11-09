@@ -111,7 +111,7 @@ def compute_quality(
         )
         issues.append(
             f"{' + '.join(near.columns)} identifies {near.uniqueness:.2%} of the rows: "
-            "the conflicting rows will be quarantined"
+            "the rows in conflict are measured and shown with the key rule before approval"
         )
     else:
         identifiability, key_details = 0.0, "no candidate key found"
