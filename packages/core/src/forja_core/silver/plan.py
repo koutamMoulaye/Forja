@@ -12,7 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from forja_core.profiling.models import ConfidenceLevel, InferredType, PiiType
+from forja_core.profiling.models import ConfidenceLevel, InferredType, KeyConflicts, PiiType
 
 DEFAULT_NULL_VALUES: tuple[str, ...] = ("n/a", "na", "null", "none", "nan", "-", "#n/a")
 
@@ -128,12 +128,31 @@ class ColumnPlan(BaseModel):
         return [r for r in self.rules if r.enabled]
 
 
+class KeyResolution(StrEnum):
+    """What becomes of rows of one batch sharing a key value and disagreeing on a filled
+    value. Rows that only differ by blanks always keep the most complete one."""
+
+    QUARANTINE = "quarantine"
+    MOST_COMPLETE = "most_complete"
+    LAST = "last"
+
+
 class PrimaryKeyPlan(BaseModel):
     columns: list[str] = Field(description="Source column names")
     quasi_unique: bool = Field(
         default=False, description="Not strictly unique at profiling: some rows will be rejected"
     )
     explanation: str = ""
+    conflicts: KeyConflicts | None = Field(
+        default=None,
+        description="Rows sharing a key value at profiling, shown before approval; None "
+        "when not measured (a key chosen by hand)",
+    )
+    resolution: KeyResolution = Field(
+        default=KeyResolution.QUARANTINE,
+        description="Divergent rows of one key: quarantined (default), the most complete "
+        "kept, or the last of the file kept",
+    )
 
 
 class DeduplicationPlan(BaseModel):
@@ -215,3 +234,6 @@ class PlanPatch(BaseModel):
         default=None, description="Source column names; an empty list removes the key"
     )
     deduplicate: bool | None = None
+    key_resolution: KeyResolution | None = Field(
+        default=None, description="What to do with divergent rows sharing a key value"
+    )

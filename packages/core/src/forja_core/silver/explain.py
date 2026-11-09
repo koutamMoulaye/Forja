@@ -10,6 +10,7 @@ from forja_core.profiling.models import ConfidenceLevel, PiiType
 from forja_core.profiling.types import ISO8601
 from forja_core.silver.plan import (
     ColumnPlan,
+    KeyResolution,
     Normalization,
     PiiTreatment,
     RuleKind,
@@ -212,6 +213,52 @@ def reject_reason(column: ColumnPlan, kind: RuleKind) -> str:
 
 
 DUPLICATE_KEY_REASON = "clé primaire en double dans le lot"
+NEAR_DUPLICATE_REASON = "doublon de clé quasi identique : la ligne la plus complète est gardée"
+LESS_COMPLETE_REASON = "doublon de clé : ligne moins complète écartée"
+EARLIER_REASON = "doublon de clé : ligne antérieure du fichier écartée"
+# Reasons of rows set aside by a key decision, not by a failed rule.
+KEY_DECISION_REASONS = (NEAR_DUPLICATE_REASON, LESS_COMPLETE_REASON, EARLIER_REASON)
+
+_RESOLUTIONS = {
+    KeyResolution.QUARANTINE: "toutes ses lignes vont en quarantaine",
+    KeyResolution.MOST_COMPLETE: "la ligne la plus complète est gardée, les autres sont écartées",
+    KeyResolution.LAST: "la dernière ligne du fichier est gardée, les autres sont écartées",
+}
+
+
+def key_conflicts_sentence(plan: TransformationPlan) -> str:
+    """What happens to rows of one batch sharing a key value, with the counts measured
+    at profiling when there are some."""
+    key = plan.primary_key
+    assert key is not None
+    divergent = _RESOLUTIONS[key.resolution]
+    conflicts = key.conflicts
+    if conflicts is None or not conflicts.keys:
+        return (
+            "Si deux lignes d'un même lot ont la même clé : quand elles ne diffèrent que par "
+            f"des vides, la plus complète est gardée ; sinon {divergent}."
+        )
+    parts = [
+        f"{_count(conflicts.keys, 'clé en conflit', 'clés en conflit')} au profiling "
+        f"({_count(conflicts.rows, 'ligne concernée', 'lignes concernées')})"
+    ]
+    if conflicts.near_identical_keys:
+        parts.append(
+            f"{_count(conflicts.near_identical_keys, 'clé', 'clés')} aux lignes quasi "
+            "identiques (elles ne diffèrent que par des vides) : la ligne la plus complète "
+            "est gardée automatiquement"
+        )
+    if conflicts.divergent_keys:
+        parts.append(
+            f"{_count(conflicts.divergent_keys, 'clé', 'clés')} aux lignes divergentes "
+            f"({_count(conflicts.divergent_rows, 'ligne', 'lignes')}) : {divergent}"
+        )
+    if conflicts.by_period:
+        periods = ", ".join(
+            f"{p} : {_count(n, 'clé', 'clés')}" for p, n in sorted(conflicts.by_period.items())
+        )
+        parts.append(f"par période, {periods}")
+    return " ; ".join(parts) + "."
 
 
 def column_description(column: ColumnPlan) -> str:
@@ -251,8 +298,7 @@ def refresh_explanations(plan: TransformationPlan) -> TransformationPlan:
         )
         plan_key = (
             f"Clé primaire retenue : {names}{quasi}. Une ligne plus récente de même clé "
-            "remplace l'ancienne ; deux lignes d'un même lot avec la même clé sont mises "
-            "en quarantaine."
+            "remplace l'ancienne. " + key_conflicts_sentence(plan)
         )
         plan.primary_key.explanation = plan_key
 
