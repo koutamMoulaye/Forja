@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import {
   BookOpenText,
+  CaretRight,
   EyeSlash,
   Function as FunctionIcon,
   Plus,
@@ -53,6 +54,7 @@ import {
 } from "@/lib/project/queries";
 import {
   ADDITIVITY,
+  additivityText,
   dimensionRows,
   findAttribute,
   findMetric,
@@ -209,6 +211,14 @@ export function SemanticScreen() {
               <span role="cell" className="flex min-w-0 flex-col gap-px">
                 <span className="flex items-center gap-1.5 text-[14.5px] font-semibold">
                   <span className="truncate">{row.label}</span>
+                  {row.technical ? (
+                    <span
+                      className="flex-none rounded-full bg-sunk px-2 py-px text-[11.5px] font-medium text-tx3"
+                      title="Visible des engineers seulement : les analysts et l’agent ne la voient pas."
+                    >
+                      technique
+                    </span>
+                  ) : null}
                   {row.hidden ? (
                     <EyeSlash size={15} className="flex-none text-tx3" aria-label="Masqué" />
                   ) : null}
@@ -252,9 +262,59 @@ export function SemanticScreen() {
           ) : null}
         </div>
       </Card>
+      {tab === "dimensions" ? <Hierarchies layer={data} /> : null}
       <SynonymQueue layer={data} proposals={proposals.data ?? []} loading={proposals.isPending} />
     </ScreenBody>
   );
+}
+
+/** Drill paths proposed from the columns (ville > département > région): the agent
+ * reads « par géographie » as the coarsest level. */
+function Hierarchies({ layer }: { layer: SemanticLayer }) {
+  const found = (layer.dimensions ?? [])
+    .filter((d) => d.kind !== "time" && !d.hidden)
+    .flatMap((d) => (d.hierarchies ?? []).map((h) => ({ dimension: d, hierarchy: h })));
+  if (!found.length) return null;
+  return (
+    <Card className="flex flex-col gap-3 px-5 py-[18px]" data-testid="semantic-hierarchies">
+      <div className="flex flex-col gap-0.5">
+        <h2 className="m-0 text-section font-semibold">Hiérarchies</h2>
+        <p className="m-0 text-ui text-tx3">
+          Proposées à partir des colonnes. Une question « par{" "}
+          {lowerLabel(found[0]!.hierarchy.label)} » lit le niveau le plus large ; « détaille par … »
+          descend d’un niveau.
+        </p>
+      </div>
+      <ul className="m-0 flex list-none flex-col gap-2 p-0">
+        {found.map(({ dimension, hierarchy }) => (
+          <li
+            key={`${dimension.name}-${hierarchy.name}`}
+            className="flex flex-wrap items-center gap-2 text-[14px]"
+          >
+            <span className="font-semibold">{hierarchy.label}</span>
+            <span className="text-tx3">· {dimension.label}</span>
+            <span className="flex flex-wrap items-center gap-1.5">
+              {hierarchy.levels.map((level, index) => {
+                const attribute = dimension.attributes?.find((a) => a.name === level);
+                return (
+                  <span key={level} className="flex items-center gap-1.5">
+                    {index ? <CaretRight size={12} className="text-tx3" aria-hidden /> : null}
+                    <span className="rounded-[7px] bg-sunk px-2 py-[3px] text-meta text-tx2">
+                      {attribute?.label ?? level}
+                    </span>
+                  </span>
+                );
+              })}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+function lowerLabel(text: string): string {
+  return `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
 }
 
 function ScreenBodySkeleton() {
@@ -536,8 +596,8 @@ function EditPanel({
                 ))}
               </div>
               <span className="text-meta leading-[1.45] text-tx3">
-                {ADDITIVITY[metric.additivity].description} Elle découle de la formule : pour la
-                changer, modifiez la mesure dans le modèle.
+                {additivityText(metric, layer)} Elle découle de la formule : pour la changer,
+                modifiez la mesure dans le modèle.
               </span>
             </div>
           </>
