@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from forja_core.catalog import Catalog
-from forja_core.profiling.models import ColumnProfile, EntityAttributes
+from forja_core.profiling.models import ColumnProfile, Composition, EntityAttributes
 from forja_core.relations.models import Relation, RelationStatus
 from forja_core.silver.plan import TransformationPlan
 from forja_core.silver.tables import SilverTable, TableLayer
@@ -42,6 +42,8 @@ class SilverSource:
     # Attributes repeated for each value of an identifier, in Silver names.
     entities: tuple[EntityAttributes, ...] = ()
     row_count: int = 0
+    # A total column and the columns it adds up, in Silver names, with the gap measured.
+    compositions: tuple[Composition, ...] = ()
 
     @property
     def model(self) -> str:
@@ -100,6 +102,22 @@ def _entities(plan: TransformationPlan, report: object) -> tuple[EntityAttribute
     return tuple(found)
 
 
+def _compositions(plan: TransformationPlan, report: object) -> tuple[Composition, ...]:
+    names = {c.source_column: c.target_column for c in plan.columns if c.included}
+    found: list[Composition] = []
+    for composition in getattr(report, "compositions", []) or []:
+        if composition.total in names and all(p in names for p in composition.parts):
+            found.append(
+                composition.model_copy(
+                    update={
+                        "total": names[composition.total],
+                        "parts": [names[p] for p in composition.parts],
+                    }
+                )
+            )
+    return tuple(found)
+
+
 def build_gold_context(catalog: Catalog, project_id: str) -> GoldContext:
     sources: dict[str, SilverSource] = {}
     reports = catalog.latest_profiles(project_id)
@@ -121,6 +139,7 @@ def build_gold_context(catalog: Catalog, project_id: str) -> GoldContext:
             },
             entities=_entities(plan, report),
             row_count=report.row_count if report else 0,
+            compositions=_compositions(plan, report),
         )
     return GoldContext(
         project_id=project_id,

@@ -132,6 +132,11 @@ DATE_ATTRIBUTES: dict[str, tuple[str, str]] = {
     "nom_jour": ("Jour de la semaine", "text"),
     "est_week_end": ("Week-end", "boolean"),
 }
+# Other names of a hierarchy: « par géographie » reads its coarsest level.
+HIERARCHY_SYNONYMS: dict[str, list[str]] = {
+    "geographie": ["géographie", "zone géographique", "territoire", "localisation"],
+    "catalogue": ["catalogue", "gamme de produits"],
+}
 # Hierarchies, from the coarsest level to the finest, matched on attribute tokens.
 HIERARCHIES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("geographie", "Géographie", ("pays", "region", "departement", "ville")),
@@ -210,12 +215,50 @@ def _of(word: str) -> str:
     return f"d'{word}" if word.startswith(_VOWELS) else f"de {word}"
 
 
+def of(word: str) -> str:
+    """« d'entrées », « de musées »: the French « de » before a noun."""
+    return _of(word)
+
+
+# Words around numbers in a name: ``moins_18_ans`` reads « moins de 18 ans ».
+_BOUNDS = {"moins": "moins de", "plus": "plus de", "sup": "plus de", "inf": "moins de"}
+_NUMBER_WORDS = frozenset({"ans", "an", "de", "et", "a", "mois", "jours", "h", "km", "m"})
+
+
+def _with_numbers(parts: list[str]) -> list[str]:
+    """Numbers kept and read: ``18 25 ans`` → « 18-25 ans », ``moins 18 ans`` →
+    « moins de 18 ans », ``plus de 65 ans`` → « plus de 65 ans »."""
+    out: list[str] = []
+    for index, part in enumerate(parts):
+        joined = index > 0 and parts[index - 1].isdigit() and out and out[-1][-1:].isdigit()
+        if part.isdigit() and joined:
+            out[-1] = f"{out[-1]}-{part}"
+            continue
+        if (
+            part in _BOUNDS
+            and index + 1 < len(parts)
+            and (parts[index + 1].isdigit() or parts[index + 1] == "de")
+        ):
+            out.append(_BOUNDS[part] if parts[index + 1].isdigit() else part)
+            continue
+        out.append(part)
+    return out
+
+
+def _has_number(parts: list[str]) -> bool:
+    return any(p.isdigit() for p in parts)
+
+
 def label(name: str) -> str:
     """``date_commande`` → « Date de commande », ``id_client`` → « Identifiant client »,
-    ``dateappellation`` → « Date d'appellation », ``nom_du_musee`` → « Nom du musée »."""
+    ``dateappellation`` → « Date d'appellation », ``nom_du_musee`` → « Nom du musée »,
+    ``_18_25_ans`` → « 18-25 ans », ``moins_18_ans`` → « Moins de 18 ans »."""
     parts = [t for t in name_words(name) if t]
     if not parts:
         return name
+    if _has_number(parts):
+        text = " ".join(_word(p) for p in _with_numbers(parts))
+        return text if text[:1].isdigit() else text[:1].upper() + text[1:]
     if len(parts) > 1 and parts[0] in _HEADS:
         rest = " ".join(_word(p) for p in parts[1:])
         text = f"{_HEADS[parts[0]]} {_of(rest)}"
@@ -263,13 +306,49 @@ def _feminine_plural(word: str) -> str:
     return word + "es"
 
 
+def qualifier(measure: str) -> str:
+    """What a measure adds to its count: « payantes », « 18-25 ans », « moins de 18 ans »."""
+    words = [w for w in name_words(measure) if w]
+    if _has_number(words):
+        return " ".join(_word(w) for w in _with_numbers(words))
+    return " ".join(_feminine_plural(_word(w)) for w in words)
+
+
 def qualified_count(unit: str, measure: str) -> str:
-    """« Entrées payantes » for the measure payant of a count of entrées."""
-    words = [w for w in name_words(measure) if not w.isdigit()]
-    if not words:
+    """« Entrées payantes » for the measure payant of a count of entrées, « Entrées
+    18-25 ans » for ``_18_25_ans``: the numbers of a name are kept."""
+    if not [w for w in name_words(measure) if w]:
         return label(measure)
-    qualifier = " ".join(_feminine_plural(_word(w)) for w in words)
-    return f"{unit[:1].upper()}{unit[1:]} {qualifier}"
+    return f"{unit[:1].upper()}{unit[1:]} {qualifier(measure)}"
+
+
+def qualified_synonyms(unit: str, measure: str, count_synonyms: list[str]) -> list[str]:
+    """Other names of a qualified count: « fréquentation payante », « visiteurs payants »,
+    « payantes », so that « fréquentation payante et gratuite » finds both measures."""
+    words = [w for w in name_words(measure) if w]
+    if not words or _has_number(words):
+        text = qualifier(measure)
+        return [text, f"{unit} {text}"] if words else []
+    masculine = " ".join(_word(w) for w in words)
+    feminine = " ".join(_feminine(_word(w)) for w in words)
+    found = [f"{unit} {qualifier(measure)}", masculine, feminine]
+    for synonym in count_synonyms:
+        head = synonym.split(" ")[0]
+        if " " in synonym or head in ("total", "totale"):
+            continue  # « nombre d'entrées », « total des entrées »: not qualified this way
+        singular_head = head.removesuffix("s")
+        feminine_head = singular_head.endswith(("tion", "ence", "ance", "ée", "ite", "té"))
+        found.append(f"{head} {feminine if feminine_head else masculine}")
+    return list(dict.fromkeys(found))
+
+
+def _feminine(word: str) -> str:
+    """payant → payante, gratuit → gratuite, individuel → individuelle, scolaire."""
+    if word.endswith(("e", "s", "x")):
+        return word
+    if word.endswith("el"):
+        return word + "le"
+    return word + "e"
 
 
 def plural(word: str) -> str:
