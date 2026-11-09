@@ -41,7 +41,18 @@ la… ») and tells what each is about, without a language model:
   axes, dates and years covered, examples the parser understands); the `answered`
   version creates no data mart;
 - **out of scope** (« la météo à Paris »): a polite refusal with what Forja can measure.
-  A value alone (« Paris ») is not enough without an LLM; with one, the model decides.
+  A clause naming only a value (« Paris ») is a request only when nothing else in it is
+  left unexplained (« et à Paris ? »); with an LLM, also when its other words are not
+  about an everyday subject outside any data (weather, time, news). « La météo actuelle
+  à Paris » is always out of scope.
+
+**New question or adjustment.** In a conversation that already holds a data mart, a
+self-contained sentence (a measure, and an axis, a period or a time grain; no leading
+« et », no « aussi », « seulement », « ajoute », « retire », no pronoun) is a **new
+question**: its version is of kind `question` and inherits no filter, period, sort or
+limit. Otherwise it adjusts the current data mart. Refusals written by the LLM that
+mention its inner workings (« couche sémantique fournie ») are replaced by the
+deterministic refusal.
 
 A mixed message is cut: the part about the data is handled, the rest set aside in one
 sentence added to the summary. An off-topic message never refines the data mart and
@@ -74,7 +85,16 @@ most**. Distinct values never leave the process.
 - **grain**: `par mois` (per month), `mensuel`, `par trimestre`...; `évolution`
   (trend) without a grain means per month;
 - **top N**: `top 5`, `les 3 meilleurs` (best 3), `les 10 premiers` (descending),
-  `les 5 pires` (worst 5, ascending), ordering `par <metric>`;
+  `les 5 pires` (worst 5, ascending), ordering `par <metric>`; « Top N des X les plus
+  Y »: X is the axis, sorted descending on Y, limit N;
+- **values**: recognized only when the request holds the **whole** value, stop words
+  included (« musées » is never the value « Musée de l'affiche »); a span naming a
+  measure, a dimension or an attribute is that element, never a value; quoted text
+  looks for the values containing it (one: a filter; several: a question);
+- **entity counts**: « nombre de musées », « combien de musées » read the generated
+  « Nombre de <entity> » metric (distinct keys, unknown member left out);
+- **compound measures**: « fréquentation payante et gratuite » = paying + free entries;
+- **hierarchies**: « par géographie », « par territoire » read the coarsest level;
 - **metrics**, **axes** (`par ville`, `par catégorie et segment`, `des produits`) and
   **filters** by value (`à Lyon`, `livrées`, `clients de Lyon et Paris` → `in`, `hors
   jardin` → `neq`, `segment Pro` → the unique prefix of a value of the named attribute).
@@ -84,7 +104,9 @@ linking words aside). A word naming several metrics (« ventes »: revenue or qu
 or a metric and an attribute (« prix »: average selling price or list price?) produces
 a Clarification at once. Otherwise the LLM is called; **without a configured LLM**,
 Forja asks about the unknown word (close options + « Ignorer », ignore) or refuses when
-nothing comes close. The answer says which path was taken: `path` = `parser`, `llm` or
+nothing comes close. An **unknown adjective after an entity** (« musées labellisés ») is
+asked before any LLM call, with the attributes that could hold it: a secondary date
+filled in (`not_null` filter), that date as the date of the breakdown, or ignore. The answer says which path was taken: `path` = `parser`, `llm` or
 `llm_cache`.
 
 ## 3. LLM
@@ -186,7 +208,17 @@ Checks (`ok`, `info`, `warning`, `error`):
 - **unknown member**: share of fact rows attached to the "unknown" member (-1) of a
   dimension used (`warning` when not zero);
 - **empty columns**: fully (`warning`) or partly (`info`);
-- **empty period**: `warning` with the period the data covers.
+- **empty result**: `error` (blocking) saying why (a period outside the data, a filter
+  too narrow) and what to try (`details.suggestions`); « Valider et publier » is
+  disabled;
+- **total and parts**: when the source has a total column that adds up others (total =
+  payant + gratuit, found at profiling), the preview measures the gap on its scope and
+  flags it (`warning`).
+
+The answer in the conversation draws one line per measure asked (legend), describes
+each series (start, end, high and low points, largest change) and their split; beyond
+15 members, the first 10 and an « Autres » bar with the full ranking to unfold. All of
+it is computed, never written by the LLM.
 
 ## 7. Life cycle
 
@@ -260,6 +292,11 @@ uv run python -m tests.agent_eval --provider anthropic     # full set, cloud mod
 
 With a real provider the cache is off: duration and tokens are measured for each
 question.
+
+`tests/agent_eval/museums.py` holds the real questions of manual case 1 bis, on the
+yearly attendance fixture, answered by the parser alone (`--museums`; checked in CI by
+`tests/test_agent_eval.py`). The French page lists them with the scores before and after
+the second batch of fixes.
 
 | Provider | Score | Without LLM | Average context |
 |---|---|---|---|

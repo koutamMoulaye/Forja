@@ -23,6 +23,9 @@ catalogue et éditable par un engineer.
 | `non_additive_dimensions` | semi-additives : les dimensions temporelles |
 | `unit`, `format` | `EUR`, `currency` |
 | `synonyms`, `hidden`, `default` | `["prix moyen", "prix unitaire moyen", …]` |
+| `entity` | comptage d'une entité : la dimension dont il compte les membres (`musee`) |
+| `parts` | un total et ses composantes dans la source (`total` = `payant` + `gratuit`) |
+| `technical` | visible des engineers seulement (le nombre de lignes du fait) |
 
 Règles de génération :
 
@@ -41,7 +44,19 @@ Règles de génération :
   le nombre de lignes du fait ;
 - libellés et synonymes français : un vocabulaire commun (`montant` → « Chiffre
   d'affaires », synonymes CA, ventes, recettes… ; `quantite` → « Quantité vendue ») et,
-  à défaut, un libellé dérivé du nom (`date_commande` → « Date de commande »).
+  à défaut, un libellé dérivé du nom (`date_commande` → « Date de commande ») ; les
+  chiffres d'un nom sont gardés (`_18_25_ans` → « 18-25 ans », `moins_18_ans` →
+  « moins de 18 ans ») ;
+- chaque dimension d'entité donne « Nombre de <entité> » (`nb_musees`, comptage distinct
+  de la clé du fait, membre inconnu exclu, synonymes « nombre de musées », « nb
+  musées ») ;
+- une mesure qualifiée d'un comptage (`payant` d'un comptage d'entrées) reçoit ses noms
+  composés : « Entrées payantes », « fréquentation payante », « visiteurs payants »,
+  « payantes » ;
+- les descriptions sont des phrases métier (« Nombre d'entrées payantes sur la
+  période. ») ; la formule reste dans `formula` ;
+- le nombre de lignes du fait est nommé par son grain (« Nombre d'enregistrements
+  musée-année ») et marqué `technical` : les analysts et l'agent ne le voient pas.
 
 ### Dimensions et attributs
 
@@ -61,7 +76,9 @@ par son nom (« par produit » → `produit.libelle`).
 
 Hiérarchies générées : calendrier `annee > trimestre > mois > date` pour chaque
 dimension temporelle, géographie (`pays > region > departement > ville`) et catalogue
-(`categorie > sous_categorie > libelle`) quand les attributs existent.
+(`categorie > sous_categorie > libelle`) quand les attributs existent. Elles sont
+listées dans l'onglet Dimensions ; l'agent lit « par géographie », « par territoire »
+comme le niveau le plus large.
 
 ### Références
 
