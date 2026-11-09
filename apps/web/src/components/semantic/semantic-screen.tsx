@@ -475,11 +475,12 @@ function EditPanel({
   const [term, setTerm] = useState("");
   const metric = tab === "metrics" ? findMetric(layer, row.key) : undefined;
   const attribute = tab === "dimensions" ? findAttribute(layer, row.key) : null;
+  const synonymsChanged = synonyms.join("\u0000") !== row.synonyms.join("\u0000");
   const changed =
     label !== row.label ||
     description !== row.description ||
     hidden !== row.hidden ||
-    synonyms.join("\u0000") !== row.synonyms.join("\u0000");
+    synonymsChanged;
 
   const save = useMutation({
     mutationFn: async () =>
@@ -487,14 +488,15 @@ function EditPanel({
         await api.PATCH("/projects/{project_id}/semantic-layer", {
           params: { path: { project_id: project.id } },
           body: {
+            // Only what was changed: an untouched field keeps following the generation
+            // (a better description or new synonyms after a regeneration).
             overrides: [
               {
                 target: row.target,
-                label: label.trim() || row.label,
-                description,
-                synonyms,
-                hidden,
-                add_synonyms: [],
+                ...(label.trim() && label.trim() !== row.label ? { label: label.trim() } : {}),
+                ...(description !== row.description ? { description } : {}),
+                ...(synonymsChanged ? { synonyms } : {}),
+                ...(hidden !== row.hidden ? { hidden } : {}),
               },
             ],
           },
