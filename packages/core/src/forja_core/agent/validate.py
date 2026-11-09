@@ -149,6 +149,21 @@ def _resolve_text(
     )
 
 
+def _contained(dim: SemanticDimension, attribute: Attribute, raw: str, lookup: ValueLookup) -> None:
+    """A « contains » filter must keep something: a word no value holds is not filtered
+    on silently (it would give an empty data mart), it is said."""
+    values = lookup(dim, attribute)
+    wanted = normalize(raw)
+    if not values or any(wanted in normalize(v) for v in values):
+        return
+    raise _StopError(
+        Validation(
+            refusal=f"Aucune valeur de {attribute.label.lower()} ne contient « {raw} » : "
+            "précisez ce que ce mot recouvre."
+        )
+    )
+
+
 def _filter(
     layer: SemanticLayer, item: MartFilter, fact: str, metrics: list[str], lookup: ValueLookup
 ) -> MartFilter:
@@ -177,7 +192,16 @@ def _filter(
                 "sur ses valeurs."
             )
         )
+    if item.operator is FilterOperator.NOT_NULL:
+        return item.model_copy(update={"field": field_ref, "value": True})
     values = item.value if isinstance(item.value, list) else [item.value]
+    if item.operator is FilterOperator.CONTAINS and attribute.data_type != "text":
+        raise _StopError(
+            Validation(
+                refusal=f"« {values[0]} » ne se cherche pas dans {attribute.label.lower()}, "
+                "qui n'est pas un texte."
+            )
+        )
     if item.operator in _LIST_OPERATORS and not isinstance(item.value, list):
         item = item.model_copy(update={"value": values})
     if attribute.data_type == "text":
@@ -190,6 +214,8 @@ def _filter(
             )
         if item.operator is not FilterOperator.CONTAINS:
             values = [_resolve_text(layer, dim, attribute, str(v), lookup) for v in values]
+        else:
+            _contained(dim, attribute, str(values[0]), lookup)
     elif attribute.data_type == "number":
         try:
             values = [

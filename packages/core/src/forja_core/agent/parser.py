@@ -28,6 +28,7 @@ from forja_core.agent.spec import (
 from forja_core.agent.vocabulary import Match, Vocabulary
 from forja_core.semantic.models import SemanticLayer, TimeGrain
 from forja_core.semantic.text import STOPWORDS, key, words
+from forja_core.utils import slugify
 
 AXIS_MARKERS = frozenset(
     {"par", "selon", "chaque", "fonction", "repartition", "reparti", "ventile", "ventilation",
@@ -83,6 +84,11 @@ class ParseOutcome:
     unknown: list[str] = field(default_factory=list)
     matched: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    qualifiers: list[tuple[str, str]] = field(
+        default_factory=list,
+        metadata={"doc": "Unknown words right after an entity (« musées labellisés »): "
+                  "(word, dimension name)"},
+    )  # fmt: skip
 
 
 @dataclass
@@ -260,7 +266,29 @@ def _label(layer: SemanticLayer, ref: str) -> tuple[str, str]:
     if kind == "dimension":
         named = layer.dimension(name)
         return (named.label, "Axe d'analyse") if named else (name, "")
+    if kind == "filled":
+        found = layer.attribute(name)
+        if found is None:
+            return name, ""
+        dim, attribute = found
+        label = dim.label if dim.kind == "time" else attribute.label
+        return f"Avec {filled_text(label)}", "Filtre : la valeur est connue"
     return name, ""
+
+
+def surface(question: str, lemma: str) -> str:
+    """The word as the user wrote it (« labellisés ») for a lemma (« labellise »)."""
+    for token in re.findall(r"[\w'\u2019-]+", question):
+        if lemma in words(token):
+            return str(token)
+    return lemma
+
+
+def filled_text(label: str) -> str:
+    """« une date d'appellation renseignée », « un code renseigné »."""
+    word = label[:1].lower() + label[1:]
+    feminine = word.split(" ")[0].endswith(("e", "té", "ion"))
+    return f"{'une' if feminine else 'un'} {word} renseigné{'e' if feminine else ''}"
 
 
 def clarification(
@@ -294,15 +322,134 @@ def _value_prefix(layer_values: dict[str, list[str]], attribute_ref: str, word: 
     return candidates[0] if len(candidates) == 1 else None
 
 
-def _default_name(spec: MartSpec, period: Period | None) -> str:
-    parts = [spec.metrics[0]]
+def _entity(layer: SemanticLayer, candidates: list[str]) -> str | None:
+    """The entity a match names (« musées »: the museum dimension, or its display
+    attribute), if it is one."""
+    for ref in candidates:
+        kind, _, name = ref.partition(":")
+        dim = layer.dimension(name.split(".")[0])
+        if dim is None or dim.kind != "standard":
+            continue
+        if kind == "dimension" or name.split(".")[1] == dim.display_attribute:
+            return dim.name
+    return None
+
+
+def business_name(spec: MartSpec, layer: SemanticLayer) -> str:
+    """The name of a data mart, from the business labels it shows:
+    ``frequentation_par_region_2023`` rather than ``total_par_region_2023``."""
+    named = [layer.metric(m) for m in spec.metrics[:2]]
+    parts = [" et ".join(m.label if m else n for m, n in zip(named, spec.metrics, strict=False))]
     if spec.time_grain:
-        parts.append(f"par_{spec.time_grain.value}")
-    for axis in spec.axes[:2]:
-        parts.append(f"par_{axis.split('.')[-1]}")
-    if period and period.label:
-        parts.append(period.label)
-    return "_".join(parts)
+        parts.append(f"par {_GRAIN_NAMES[spec.time_grain]}")
+    for ref in spec.axes[:2]:
+        found = layer.attribute(ref)
+        if found is None:
+            parts.append(f"par {ref.split('.')[-1]}")
+            continue
+        dim, attribute = found
+        label = dim.label if attribute.name == dim.display_attribute else attribute.label
+        parts.append(f"par {label}")
+    if spec.period and spec.period.label:
+        parts.append(spec.period.label)
+    name = MartSpec(metrics=spec.metrics, name=" ".join(parts)).name
+    full = slugify(" ".join(parts), default="mart", max_length=200)
+    if len(full) > len(name) and len(named) > 1:
+        # Too long with two measures: the first one names it, the rest is kept whole.
+        return business_name(spec.model_copy(update={"metrics": spec.metrics[:1]}), layer)
+    if len(full) > len(name):
+        name = name.rsplit("_", 1)[0]  # never cut in the middle of a word
+    return name
+
+
+_GRAIN_NAMES = {
+    TimeGrain.DAY: "jour",
+    TimeGrain.WEEK: "semaine",
+    TimeGrain.MONTH: "mois",
+    TimeGrain.QUARTER: "trimestre",
+    TimeGrain.YEAR: "annee",
+}
+
+
+def qualifier_clarification(
+    layer: SemanticLayer, word: str, dimension: str, grain: TimeGrain | None
+) -> Clarification | None:
+    """« musées labellisés »: an adjective the data does not name. What it may cover is
+    asked, with the attributes that could hold it: a secondary date of the entity's fact
+    being filled in, or read as the date of the count (« par année d'appellation »)."""
+    dim = layer.dimension(dimension)
+    if dim is None:
+        return None
+    dates = [d for d in layer.time_dimensions() if d.fact == dim.fact and not d.primary]
+    refs: list[str] = []
+    labels: dict[str, str] = {}
+    for date_dim in dates[:2]:
+        filled = f"filled:{date_dim.name}.{date_dim.display_attribute or 'date'}"
+        refs.append(filled)
+        refs.append(f"time:{date_dim.name}")
+        level = _GRAIN_NAMES.get(grain, "") if grain else ""
+        head = date_dim.label.split(" ", 1)
+        by = (
+            f"Par {'année' if level == 'annee' else level} {head[1]}"
+            if level and len(head) == 2 and head[0].lower() == "date"
+            else f"Selon la {date_dim.label[:1].lower()}{date_dim.label[1:]}"
+        )
+        labels[f"time:{date_dim.name}"] = by
+    if not refs:
+        return None
+    ask = clarification(
+        layer,
+        word,
+        [*refs[:3], "ignore"],
+        f"Que recouvre « {word} » ? Ce mot ne correspond à aucune donnée de "
+        f"{dim.label.lower()} ; voici ce qui pourrait le traduire :",
+    )
+    if ask is None:
+        return None
+    for option in ask.options:
+        if option.ref in labels:
+            option.label = labels[option.ref]
+            option.detail = "Compter selon cette date"
+        elif option.ref == "ignore":
+            option.label = f"Ignorer « {word} »"
+            option.detail = ""
+    return ask
+
+
+_QUOTED = re.compile(r"[«\"“]\s*([^»\"”]+?)\s*[»\"”]")
+
+
+def _quoted(
+    question: str, state: _State, values: dict[str, list[str]]
+) -> tuple[dict[str, MartFilter], tuple[str, list[str]] | None]:
+    """Text between quotes is a value: the values that hold it (« "affiche" » finds
+    « Musée de l'affiche »). One value: a filter; several: (term, value refs) to ask."""
+    filters: dict[str, MartFilter] = {}
+    for segment in _QUOTED.findall(question):
+        wanted = words(segment)
+        if not wanted:
+            continue
+        found: list[tuple[str, str]] = []
+        for ref, items in values.items():
+            for value in items:
+                tokens = words(value)
+                if any(
+                    tokens[i : i + len(wanted)] == wanted
+                    for i in range(len(tokens) - len(wanted) + 1)
+                ):
+                    found.append((ref, value))
+        if not found:
+            continue  # not a value: the words are read as the rest of the request
+        for i in range(len(state.words) - len(wanted) + 1):
+            if state.words[i : i + len(wanted)] == wanted:
+                state.use(*range(i, i + len(wanted)))
+                break
+        found = [(r, v) for r, v in found if words(v) == wanted] or found
+        if len(found) > 1:
+            return filters, (segment, [f"value:{r}={v}" for r, v in found[:4]])
+        ref, value = found[0]
+        filters[ref] = MartFilter(field=ref, value=value)
+    return filters, None
 
 
 def parse(
@@ -316,6 +463,12 @@ def parse(
     default_year: int,
 ) -> ParseOutcome:
     state = _State(words(question))
+    quoted, ambiguous = _quoted(question, state, values)
+    if ambiguous is not None:
+        term, refs = ambiguous
+        ask = clarification(layer, term, refs, f"Plusieurs valeurs contiennent « {term} » :")
+        if ask is not None:
+            return ParseOutcome(AgentAnswer(kind="clarification", clarification=ask), True)
     period = parse_period(state, today, default_year)
     limit, direction = parse_limit(state)
 
@@ -360,14 +513,26 @@ def parse(
 
     metrics: list[str] = []
     axes: list[str] = []
-    filters: dict[str, MartFilter] = {}
+    filters: dict[str, MartFilter] = dict(quoted)
     order_by: list[OrderBy] = []
     time_dimension: str | None = None
-    matched: list[str] = []
+    matched: list[str] = [f"attribute:{ref}" for ref in quoted]
     seen: list[Match] = []
+    entity_spans: dict[int, str] = {}  # last word of an entity named -> its dimension
 
     for index, match in enumerate(resolved):
         span = range(match.start, match.end + 1)
+        filled = [r for r in match.refs if r.startswith("filled:")]
+        if filled:
+            # « labellisés » answered as « avec une date d'appellation renseignée ».
+            field_ref = filled[0].partition(":")[2]
+            filters[field_ref] = MartFilter(
+                field=field_ref, operator=FilterOperator.NOT_NULL, value=True
+            )
+            state.use(*span)
+            matched.append(filled[0])
+            seen.append(match)
+            continue
         # 1. Metrics, ambiguous ones become a question.
         metric_refs = match.of_kind("metric")
         named_dims = {
@@ -402,6 +567,19 @@ def parse(
             if limit is not None and before == "par" and not order_by:
                 order_by.append(OrderBy(field=name, direction=direction))
                 state.use(match.start - 1)
+            # « les musées les plus visités », « les moins fréquentés »: sorted on it.
+            ranked = [
+                j for j in range(max(0, match.start - 2), match.start)
+                if state.words[j] in ("plus", "moins")
+            ]  # fmt: skip
+            if ranked and not order_by:
+                most = state.words[ranked[-1]] == "plus"
+                direction = "desc" if most else "asc"
+                order_by.append(OrderBy(field=name, direction=direction))
+                state.use(*ranked)
+            counted = layer.metric(name)
+            if counted is not None and counted.entity:
+                entity_spans[match.end] = counted.entity
             state.use(*span)
             matched += metric_refs
             seen.append(match)
@@ -469,6 +647,22 @@ def parse(
         candidates = match.of_kind("attribute") + match.of_kind("dimension")
         if not candidates:
             continue
+        entity = _entity(layer, candidates)
+        if entity is not None:
+            entity_spans[match.end] = entity
+            counted = next((m for m in layer.metrics if m.entity == entity), None)
+            asked = [
+                j for j in range(max(0, match.start - 3), match.start)
+                if state.words[j] == "combien"
+            ]  # fmt: skip
+            if counted is not None and asked:
+                # « combien de musées »: the number of museums, not an axis.
+                if counted.name not in metrics:
+                    metrics.append(counted.name)
+                state.use(*span, *asked)
+                matched.append(f"metric:{counted.name}")
+                seen.append(match)
+                continue
         nxt = resolved[index + 1] if index + 1 < len(resolved) else None
         marked = match.start > 0 and state.words[match.start - 1] in AXIS_MARKERS
         own = {c.partition(":")[2].split(".")[0] for c in candidates}
@@ -543,6 +737,12 @@ def parse(
         and token not in FILLERS
         and not token.isdigit()
     ]
+    # « musées labellisés »: an unknown word right after an entity qualifies it.
+    qualifiers = [
+        (token, entity_spans[position - 1])
+        for position, token in enumerate(state.words)
+        if token in unknown and state.free(position) and position - 1 in entity_spans
+    ]
     if not metrics and "vendu" in state.words:
         # « les plus vendus »: in value or in volume? Both metrics are called « ventes ».
         sold = [
@@ -556,7 +756,9 @@ def parse(
         if ask is not None:
             return ParseOutcome(AgentAnswer(kind="clarification", clarification=ask), True)
     if not metrics:
-        return ParseOutcome(None, False, unknown, matched, ["aucune métrique reconnue"])
+        return ParseOutcome(
+            None, False, unknown, matched, ["aucune métrique reconnue"], qualifiers=qualifiers
+        )
     if limit is not None and not order_by:
         order_by.append(OrderBy(field=metrics[0], direction=direction))
     spec = MartSpec(
@@ -569,11 +771,13 @@ def parse(
         order_by=order_by,
         limit=limit,
     )
-    spec = spec.model_copy(
-        update={"name": MartSpec(metrics=metrics, name=_default_name(spec, period)).name}
-    )
+    spec = spec.model_copy(update={"name": business_name(spec, layer)})
     return ParseOutcome(
-        AgentAnswer(kind="mart", mart=spec), confident=not unknown, unknown=unknown, matched=matched
+        AgentAnswer(kind="mart", mart=spec),
+        confident=not unknown,
+        unknown=unknown,
+        matched=matched,
+        qualifiers=qualifiers,
     )
 
 
