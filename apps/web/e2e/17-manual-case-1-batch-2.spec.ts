@@ -160,9 +160,16 @@ test("Q4 Top 10 then a new question in the same conversation (MT-20, MT-22)", as
   await settle(page, "batch2-q4-top-10");
 
   // Q6: a complete sentence in the same conversation is a new question.
+  const before = first.mart.iterations.length;
   await send(page, "Nombre de musées par région");
   await expect
-    .poll(async () => (await latestIteration(page)).latest.status, { timeout: 60_000 })
+    .poll(
+      async () => {
+        const { mart, latest } = await latestIteration(page);
+        return mart.iterations.length > before ? latest.status : "waiting";
+      },
+      { timeout: 60_000 },
+    )
     .toBe("previewed");
   const { latest } = await latestIteration(page);
   expect(latest.kind).toBe("question");
