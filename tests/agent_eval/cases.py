@@ -51,7 +51,15 @@ class ExpectedRefusal:
     pass
 
 
-Expected = ExpectedMart | ExpectedClarification | ExpectedRefusal
+@dataclass(frozen=True)
+class ExpectedAnswer:
+    """A question about the data, answered in the conversation without a data mart;
+    ``declined``: the rest of the message is set aside in the answer."""
+
+    declined: bool = False
+
+
+Expected = ExpectedMart | ExpectedClarification | ExpectedRefusal | ExpectedAnswer
 
 
 @dataclass(frozen=True)
@@ -62,6 +70,10 @@ class Case:
     expected: Expected
     mock: AgentAnswer | None = None
     subset: bool = field(default=False, metadata={"doc": "In the 5-question subset"})
+    previous: str | None = field(
+        default=None,
+        metadata={"doc": "Asked first in the same conversation; the case is then a follow-up"},
+    )
 
 
 def _mart(**kwargs: object) -> AgentAnswer:
