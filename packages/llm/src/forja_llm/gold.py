@@ -22,7 +22,7 @@ Design a star schema (Gold layer) for this project, as a GoldModel JSON document
 
 Rules:
 - Use only the Silver tables of the context; refer to a table by its source name
-  ("name" field) and to columns by their Silver names.
+  ("name" field, never the "stg_" table name) and to columns by their Silver names.
 - Use only the relations listed in the context: they are confirmed by a person.
 - A dimension's natural_key is the primary_key of its source; surrogate_key is a new
   column name such as <entity>_key. Use scd2 for entities whose attributes change over
