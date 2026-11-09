@@ -139,13 +139,30 @@ export function runSteps(run: Job): RunStep[] {
 
 export type RunFigure = { label: string; value: string; tone?: "prop" };
 
-/** Rows read, valid, rejected, duplicates and rows tied to an unknown member. */
+/** A finished cleaning run that found nothing new to process (incremental). */
+export function nothingNew(run: Job): boolean {
+  const m = run.metrics;
+  return (
+    run.status === "succeeded" &&
+    run.type === "build_silver" &&
+    m !== undefined &&
+    m !== null &&
+    !m.rows_read &&
+    !m.rows_valid &&
+    !m.rows_rejected
+  );
+}
+
+/** Rows read, valid, rejected, duplicates and, for runs that build the model, rows tied
+ * to an unknown member (a cleaning run builds no dimension: the figure would always be
+ * empty). */
 export function runFigures(run: Job): RunFigure[] {
   const m = run.metrics;
   const pending = isActive(run.status) && !m;
   const value = (n: number | undefined) => (pending || n === undefined ? "…" : formatInteger(n));
   const unknown = (m?.unknown_member_rows ?? []).reduce((sum, u) => sum + u.rows, 0);
-  return [
+  const cleaningOnly = run.type === "build_silver";
+  const figures: RunFigure[] = [
     { label: "Lignes lues", value: value(m?.rows_read) },
     { label: "Valides", value: value(m?.rows_valid) },
     {
@@ -158,12 +175,15 @@ export function runFigures(run: Job): RunFigure[] {
       value: value(m?.duplicates_removed),
       tone: m?.duplicates_removed ? "prop" : undefined,
     },
-    {
+  ];
+  if (!cleaningOnly) {
+    figures.push({
       label: "Membre inconnu",
       value: value(m ? unknown : undefined),
       tone: unknown ? "prop" : undefined,
-    },
-  ];
+    });
+  }
+  return figures;
 }
 
 export type TestRow = { name: string; outcome: "pass" | "warn" | "fail" | "wait"; detail: string };

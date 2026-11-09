@@ -3,7 +3,14 @@ import type { components } from "@/lib/api/schema";
 import { formatClock, formatRatio, formatWhen, matchesQuery, plural, shortValue } from "./format";
 import { NO_FILTER, auditQuery, personalDataMap } from "./governance/view";
 import { diffGold, issueTarget, originView, starLayout } from "./model/view";
-import { logLines, matchesRunFilter, runFigures, runSteps, runTests } from "./runs/view";
+import {
+  logLines,
+  matchesRunFilter,
+  nothingNew,
+  runFigures,
+  runSteps,
+  runTests,
+} from "./runs/view";
 import { synonymWarnings, metricRows } from "./semantic/view";
 import { connectSteps, lastPublication, servingTables } from "./serving/view";
 import {
@@ -289,13 +296,18 @@ describe("runs", () => {
     expect(runSteps(run)).toEqual([
       { name: "Nettoyage de commandes", state: "done", detail: "6\u202f188 lignes" },
     ]);
-    expect(runFigures(run).map((f) => f.value)).toEqual([
-      "6\u202f210",
-      "6\u202f188",
-      "19",
-      "3",
-      "372",
-    ]);
+    expect(runFigures(run).map((f) => f.value)).toEqual(["6\u202f210", "6\u202f188", "19", "3"]);
+    // A cleaning run builds no dimension: no « Membre inconnu » figure.
+    expect(runFigures({ ...run, type: "build_all" }).map((f) => f.label)).toContain(
+      "Membre inconnu",
+    );
+    expect(nothingNew(run)).toBe(false);
+    expect(
+      nothingNew({
+        ...run,
+        metrics: { ...run.metrics!, rows_read: 0, rows_valid: 0, rows_rejected: 0 },
+      }),
+    ).toBe(true);
     const tests = runTests(run);
     expect(tests.rows[0]).toEqual({
       name: "not_null_y",

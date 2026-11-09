@@ -38,6 +38,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Segmented } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { api, unwrap } from "@/lib/api/client";
+import { useStartRun } from "@/components/model/use-model";
 import { ApiError, frenchMessage, runNotice } from "@/lib/api/errors";
 import { cn } from "@/lib/cn";
 import { formatWhen, plural } from "@/lib/format";
@@ -56,6 +57,7 @@ import {
   RUN_STATUS,
   logLines,
   matchesRunFilter,
+  nothingNew,
   runCode,
   runDurationClock,
   runFigures,
@@ -265,6 +267,11 @@ const TEST_ICON = {
   wait: <CircleDashed size={17} className="flex-none text-tx3" />,
 } as const;
 
+function nextAction(run: Job): string | null {
+  const result = run.result as { next_action?: unknown } | null | undefined;
+  return typeof result?.next_action === "string" ? result.next_action : null;
+}
+
 function RunDetail({
   runId,
   names,
@@ -278,7 +285,8 @@ function RunDetail({
   onRelaunch: (run: Job) => void;
   relaunching: boolean;
 }) {
-  const { project } = useShell();
+  const { project, role } = useShell();
+  const start = useStartRun(project.id);
   const [logsOpen, setLogsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const cancel = useCancelRun(project.id);
@@ -389,6 +397,26 @@ function RunDetail({
             Run arrêté après le nettoyage
           </div>
           <p className="m-0 text-ui leading-normal text-tx2">{runNotice(run)}</p>
+          {nextAction(run) === "propose_gold_plan" && role !== "analyst" ? (
+            <Button
+              variant="secondary"
+              size="md"
+              className="self-start"
+              loading={start.propose.isPending}
+              onClick={() =>
+                start.propose.mutate(true, {
+                  onSuccess: () =>
+                    toast.info({
+                      title: "Proposition lancée",
+                      description: "Le modèle en étoile apparaîtra sur le pipeline, à vérifier",
+                    }),
+                })
+              }
+              data-testid="run-notice-propose"
+            >
+              Proposer un modèle
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
@@ -438,11 +466,25 @@ function RunDetail({
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-2" data-testid="run-figures">
-        {runFigures(run).map((figure) => (
-          <Figure key={figure.label} label={figure.label} value={figure.value} tone={figure.tone} />
-        ))}
-      </div>
+      {nothingNew(run) ? (
+        <p
+          className="m-0 rounded-[14px] bg-sunk p-3.5 text-ui text-tx2"
+          data-testid="run-nothing-new"
+        >
+          Aucune nouvelle ligne depuis le dernier nettoyage : les tables nettoyées sont déjà à jour.
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 gap-2" data-testid="run-figures">
+          {runFigures(run).map((figure) => (
+            <Figure
+              key={figure.label}
+              label={figure.label}
+              value={figure.value}
+              tone={figure.tone}
+            />
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline gap-2">
