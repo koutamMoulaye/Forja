@@ -6,8 +6,10 @@ import {
   CaretUpDown,
   Check,
   MagnifyingGlass,
+  Plus,
   SidebarSimple,
 } from "@phosphor-icons/react";
+import { NewProjectDialog } from "@/components/session/new-project-dialog";
 import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -22,6 +24,9 @@ import { UserMenu } from "./user-menu";
 function ProjectSelector() {
   const shell = useShell();
   const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  // Projects are created by the instance administrator only (POST /projects).
+  const admin = shell.me.user.is_admin;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -67,7 +72,25 @@ function ProjectSelector() {
             </button>
           );
         })}
+        {admin ? (
+          <>
+            <div role="separator" className="mx-2.5 my-1 h-px bg-hair" />
+            <button
+              type="button"
+              data-testid="new-project"
+              onClick={() => {
+                setOpen(false);
+                setCreating(true);
+              }}
+              className="flex min-h-[42px] items-center gap-2.5 rounded-md border-0 bg-transparent px-2.5 text-left text-[14px] font-medium text-tx transition-colors hover:bg-sunk"
+            >
+              <Plus size={16} className="flex-none text-tx2" />
+              Nouveau projet
+            </button>
+          </>
+        ) : null}
       </PopoverContent>
+      {admin ? <NewProjectDialog open={creating} onOpenChange={setCreating} /> : null}
     </Popover>
   );
 }

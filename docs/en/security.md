@@ -7,7 +7,7 @@
 
 | `FORJA_AUTH_MODE` | Use | Accounts |
 |---|---|---|
-| `local` (default) | A single workstation | One administrator created at first start. No invitation. |
+| `local` (default) | A single workstation | One administrator created at first start. No invitation; the administrator adds the accounts already there (the demo's, for instance) to projects. |
 | `multi` | A shared instance | The administrator creates projects and invites users by email, with one role per project. |
 
 **First start.** When the catalog holds no user, Forja creates the instance
@@ -163,7 +163,10 @@ Roles are then managed with `PUT` / `DELETE /projects/{id}/members/{user_id}`.
 | `analyst` | Business teams | Reading Gold (pseudonymized), the agent, their own data marts, synonym proposals |
 
 The instance administrator (created at first start) is `admin` of every project and the
-only one who can create a project (they become its `admin` member).
+only one who can create a project (they become its `admin` member): « Nouveau projet »
+(new project) in the project selector or on the projects page. Only they see the list of accounts
+(`GET /auth/users`), from which *Réglages › Membres › Ajouter un membre* (settings, members, add a member) adds an existing
+account as engineer or analyst, in both modes.
 
 ### Roles × actions
 
