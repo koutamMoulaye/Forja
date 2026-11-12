@@ -255,16 +255,32 @@ def _measure_metric(
             additivity, non_additive = Additivity.SEMI_ADDITIVE, list(time_dims)
     else:
         additivity = Additivity.NON_ADDITIVE
+    synonyms = list(labels.METRIC_SYNONYMS.get(measure.name, []))
+    technical = False
     if measure.expression.strip() == "1":
         fmt, unit = MetricFormat.INTEGER, "lignes"
-        # The source in the description only: the label stays readable.
-        label = "Nombre de lignes"
-        description = f"Nombre de lignes de {fact.name} (source {fact.source})."
+        # Named by the grain (« Nombre d'enregistrements musée-année ») and kept for
+        # engineers: a count of rows means little to an analyst.
+        grain = _grain_words(fact)
+        label = f"Nombre d'enregistrements {grain}" if grain else "Nombre de lignes"
+        description = (
+            f"Nombre de lignes du fait, une par {grain.replace('-', ' et par ')}."
+            if grain
+            else "Nombre de lignes du fait."
+        )
+        technical = True
     else:
         label = labels.METRIC_LABELS.get(measure.name) or labels.label(measure.name)
-        description = f"{aggregation.value}({measure.name}) sur {fact.name}"
+        description = _sentence(label, aggregation, fmt, unit)
         if process is not None and process.count_unit and unit == process.count_unit:
             label = labels.qualified_count(process.count_unit, measure.name)
+            description = (
+                f"Nombre {labels.of(process.count_unit)} {labels.qualifier(measure.name)} "
+                "sur la période."
+            )
+            synonyms += labels.qualified_synonyms(
+                process.count_unit, measure.name, list(process.count_synonyms)
+            )
     return Metric(
         name=measure.name,
         label=label,
@@ -277,8 +293,95 @@ def _measure_metric(
         non_additive_dimensions=non_additive,
         unit=unit,
         format=fmt,
-        synonyms=list(labels.METRIC_SYNONYMS.get(measure.name, [])),
+        synonyms=list(dict.fromkeys(synonyms)),
+        technical=technical,
     )
+
+
+def _sentence(
+    label: str, aggregation: MetricAggregation, fmt: MetricFormat, unit: str | None
+) -> str:
+    """What a metric measures, in a business sentence; the formula stays in ``formula``."""
+    text = label[:1].lower() + label[1:] if label[1:2] != label[1:2].upper() else label
+    match aggregation:
+        case MetricAggregation.SUM if fmt is MetricFormat.CURRENCY:
+            return f"{label} cumulé sur la période, en euros."
+        case MetricAggregation.SUM if unit:
+            return f"Nombre {labels.of(unit)} ({text}) sur la période."
+        case MetricAggregation.SUM:
+            return f"Somme {labels.of(text)} sur la période."
+        case MetricAggregation.COUNT:
+            return f"Nombre de valeurs renseignées de {text} sur la période."
+        case MetricAggregation.COUNT_DISTINCT:
+            return f"Nombre de valeurs distinctes de {text} sur la période."
+        case MetricAggregation.MIN:
+            return f"Plus petite valeur de {text} sur la période."
+        case MetricAggregation.MAX:
+            return f"Plus grande valeur de {text} sur la période."
+
+
+_LEVEL_WORDS = {"day": "jour", "month": "mois", "quarter": "trimestre", "year": "année"}
+
+
+def _grain_words(fact: Fact) -> str:
+    """« musée-année » for a fact with one row per museum and per year."""
+    entities = {
+        fk.column.lower(): fk.dimension.removeprefix("dim_").replace("_", " ")
+        for fk in fact.foreign_keys
+    }
+    dates = {k.column.lower(): k.grain for k in fact.date_keys}
+    words = []
+    for column in fact.grain:
+        lowered = column.lower()
+        if lowered in entities:
+            words.append(labels.entity_label(entities[lowered]).lower())
+        elif lowered in dates:
+            words.append(_LEVEL_WORDS.get(dates[lowered], "date"))
+        else:
+            words.append(labels.label(lowered).lower())
+    return "-".join(words)
+
+
+def _entity_counts(plan: GoldPlan, fact: Fact, taken: set[str]) -> list[Metric]:
+    """« Nombre de musées »: for each entity the fact refers to, the number of distinct
+    members present (the unknown member left out), with its business names."""
+    dims = {d.name: d for d in plan.dimensions}
+    counts: list[Metric] = []
+    for fk in fact.foreign_keys:
+        dim = dims.get(fk.dimension)
+        if dim is None or len([f for f in fact.foreign_keys if f.dimension == dim.name]) > 1:
+            continue  # two roles of one entity (buyer, seller): which one to count?
+        entity = dim.name.removeprefix("dim_") if dim.extracted else entity_name(dim.source)
+        nouns = labels.plural(labels.entity_label(entity).lower())
+        name = f"nb_{labels.plural(entity)}"
+        if name in taken:
+            continue
+        taken.add(name)
+        counts.append(
+            Metric(
+                name=name,
+                label=f"Nombre {labels.of(nouns)}",
+                description=f"Nombre {labels.of(nouns)} distincts présents sur la période.",
+                fact=fact.name,
+                aggregation=MetricAggregation.COUNT_DISTINCT,
+                column=fk.name,
+                formula=f"count_distinct({fk.name})",
+                additivity=Additivity.NON_ADDITIVE,
+                unit=nouns,
+                format=MetricFormat.INTEGER,
+                entity=entity,
+                synonyms=list(
+                    dict.fromkeys(
+                        [
+                            f"nombre {labels.of(nouns)}",
+                            f"nb {nouns}",
+                            f"nombre {labels.of(nouns)} distincts",
+                        ]
+                    )
+                ),
+            )
+        )
+    return counts
 
 
 def _ratio(
@@ -317,7 +420,12 @@ def _main_count(metrics: list[Metric], process: Process) -> Metric | None:
     return None
 
 
-def _fact_metrics(fact: Fact, time_dims: list[str], ctx: GoldContext | None = None) -> list[Metric]:
+def _fact_metrics(
+    fact: Fact,
+    time_dims: list[str],
+    ctx: GoldContext | None = None,
+    plan: GoldPlan | None = None,
+) -> list[Metric]:
     source = ctx.sources.get(fact.source) if ctx else None
     process = process_of(fact.source, source.columns if source else [])
     metrics = [
@@ -330,7 +438,10 @@ def _fact_metrics(fact: Fact, time_dims: list[str], ctx: GoldContext | None = No
     if main is not None:
         # « Fréquentation totale par région » : the business names of the main count.
         main.label = process.count_label or main.label  # type: ignore[union-attr]
-        main.synonyms = list(dict.fromkeys([*main.synonyms, *process.count_synonyms]))  # type: ignore[union-attr]
+        # « total » alone is a word of many questions (« nombre total de musées »): the
+        # main count keeps its business names, not its bare qualifier.
+        own = [s for s in main.synonyms if " " in s]
+        main.synonyms = list(dict.fromkeys([*own, *process.count_synonyms]))  # type: ignore[union-attr]
         main.default = True
     quantity = next((m for m in summed if labels.tokens(m.name) & QUANTITY_TOKENS), None)
     lines = next((m for m in summed if m.unit == "lignes"), None)
@@ -419,6 +530,14 @@ def _fact_metrics(fact: Fact, time_dims: list[str], ctx: GoldContext | None = No
     for metric in metrics:
         if metric is amount:
             metric.default = True
+    if source is not None:
+        for composition in source.compositions:
+            whole = by_name.get(composition.total)
+            parts = [by_name[p].name for p in composition.parts if p in by_name]
+            if whole is not None and len(parts) == len(composition.parts):
+                whole.parts = parts
+    if plan is not None:
+        metrics += _entity_counts(plan, fact, {m.name for m in metrics})
     return metrics
 
 
@@ -430,7 +549,7 @@ def generate_layer(
     dimensions: list[SemanticDimension] = []
     for fact in plan.facts:
         time_dims = _time_dimensions(fact)
-        metrics += _fact_metrics(fact, [t.name for t in time_dims], ctx)
+        metrics += _fact_metrics(fact, [t.name for t in time_dims], ctx, plan)
         dimensions += _standard_dimensions(plan, fact, ctx)
         degenerate = _degenerate(fact, ctx)
         if degenerate is not None and all(d.name != degenerate.name for d in dimensions):

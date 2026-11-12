@@ -15,9 +15,16 @@ from functools import cache
 
 from forja_core import duck
 from forja_core.profiling.types import ISO8601
-from forja_core.silver.explain import DUPLICATE_KEY_REASON, reject_reason
+from forja_core.silver.explain import (
+    DUPLICATE_KEY_REASON,
+    EARLIER_REASON,
+    LESS_COMPLETE_REASON,
+    NEAR_DUPLICATE_REASON,
+    reject_reason,
+)
 from forja_core.silver.plan import (
     ColumnPlan,
+    KeyResolution,
     Normalization,
     RuleKind,
     SilverType,
@@ -192,16 +199,58 @@ def _reject_checks(plan: TransformationPlan) -> list[tuple[str, str]]:
         for rule in column.enabled_rules():
             checks.append((_rule_condition(column, rule.kind), reject_reason(column, rule.kind)))
     keys = [ident(c.target_column) for c in plan.key_columns()]
-    if keys:
-        not_null = " and ".join(f"{k} is not null" for k in keys)
-        partition = ", ".join(["_batch_id", *keys])
+    if keys and plan.primary_key is not None:
+        # Rows of one batch sharing a key (see the « keyed » step): near-identical ones
+        # keep the most complete row; divergent ones follow the plan's resolution.
+        shared = " and ".join([*(f"{k} is not null" for k in keys), "_key_rows > 1"])
         checks.append(
-            (
-                f"{not_null} and count(*) over (partition by {partition}) > 1",
-                DUPLICATE_KEY_REASON,
-            )
+            (f"{shared} and _key_agree and _key_most_complete > 1", NEAR_DUPLICATE_REASON)
         )
+        divergent = f"{shared} and not _key_agree"
+        match plan.primary_key.resolution:
+            case KeyResolution.QUARANTINE:
+                checks.append((divergent, DUPLICATE_KEY_REASON))
+            case KeyResolution.MOST_COMPLETE:
+                checks.append((f"{divergent} and _key_most_complete > 1", LESS_COMPLETE_REASON))
+            case KeyResolution.LAST:
+                checks.append((f"{divergent} and _key_last > 1", EARLIER_REASON))
     return checks
+
+
+def _keyed_cte(plan: TransformationPlan) -> str | None:
+    """For each row, how many rows of its batch share its key, whether they agree on
+    every filled value (blanks aside), and its rank by completeness and by file order."""
+    keys = [ident(c.target_column) for c in plan.key_columns()]
+    if not keys:
+        return None
+    partition = ", ".join(["_batch_id", *keys])
+    others = [
+        ident(c.target_column)
+        for c in plan.included_columns()
+        if ident(c.target_column) not in keys
+    ]
+    filled = " + ".join(f"({c} is not null)::integer" for c in others) or "0"
+    agree = (
+        " and ".join(
+            f"coalesce(max(cast({c} as varchar)) over w = min(cast({c} as varchar)) over w, true)"
+            for c in others
+        )
+        or "true"
+    )
+    return _cte(
+        "keyed",
+        "-- Rows of one batch sharing a key: do they only differ by blanks?\n"
+        "select\n"
+        f"{INDENT}*,\n"
+        f"{INDENT}count(*) over w as _key_rows,\n"
+        f"{INDENT}{agree} as _key_agree,\n"
+        f"{INDENT}row_number() over (partition by {partition} order by {filled} desc, "
+        "_file_row) as _key_most_complete,\n"
+        f"{INDENT}row_number() over (partition by {partition} order by _file_row desc) "
+        "as _key_last\n"
+        "from typed\n"
+        f"window w as (partition by {partition})",
+    )
 
 
 def _reject_reason_sql(checks: list[tuple[str, str]]) -> str:
@@ -222,7 +271,8 @@ def render_checked(plan: TransformationPlan) -> str:
     ctes: list[str] = [
         _cte(
             "source",
-            "select *\n"
+            "-- _file_row: the order of the rows as read, for « keep the last of the file ».\n"
+            "select *, row_number() over () as _file_row\n"
             f"from {{{{ source('bronze', {sql_literal(plan.source_name)}) }}}}\n"
             f"{{{{ forja_unprocessed_rows({sql_literal(plan.model_name)}) }}}}",
         )
@@ -249,7 +299,7 @@ def render_checked(plan: TransformationPlan) -> str:
             "cleaned",
             "-- Text trimmed, blank values and null markers turned into NULL.\n"
             "select\n"
-            f"{_select_list([*cleaned, *TECHNICAL_SELECT], indent=1)}\n"
+            f"{_select_list([*cleaned, *TECHNICAL_SELECT, '_file_row'], indent=1)}\n"
             f"from {upstream}",
         )
     )
@@ -265,12 +315,15 @@ def render_checked(plan: TransformationPlan) -> str:
         )
     )
 
+    keyed = _keyed_cte(plan)
+    if keyed is not None:
+        ctes.append(keyed)
     ctes.append(
         _cte(
             "checked",
             "-- Every failed rule is listed; a row with a reason goes to the rejects table.\n"
             f"select\n{INDENT}*,\n{INDENT}{_reject_reason_sql(_reject_checks(plan))}\n"
-            "from typed",
+            f"from {'keyed' if keyed is not None else 'typed'}",
         )
     )
 

@@ -122,6 +122,8 @@ class _Builder:
         if item.operator in (FilterOperator.IN, FilterOperator.NOT_IN):
             keyword = "in" if item.operator is FilterOperator.IN else "not in"
             return f"{column} {keyword} ({', '.join(literal(v) for v in values)})"
+        if item.operator is FilterOperator.NOT_NULL:
+            return f"{column} is not null"
         if item.operator is FilterOperator.CONTAINS:
             return f"contains(lower(cast({column} as varchar)), lower({literal(str(values[0]))}))"
         return f"{column} {_OPERATORS[item.operator]} {literal(values[0])}"
@@ -137,6 +139,8 @@ def _aggregate(metric: Metric, column: str, last_key: str | None) -> str:
             return f"sum({target})"
         case MetricAggregation.COUNT:
             return f"count({target})"
+        case MetricAggregation.COUNT_DISTINCT if metric.entity:
+            return f"count(distinct nullif(cast({target} as varchar), {sql_literal(UNKNOWN_KEY)}))"
         case MetricAggregation.COUNT_DISTINCT:
             return f"count(distinct {target})"
         case MetricAggregation.MIN:

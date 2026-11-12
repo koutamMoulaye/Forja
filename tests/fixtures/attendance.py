@@ -9,7 +9,13 @@ It has the shape of an open-data export where each row is one entity for one yea
 - a secondary date (``dateappellation``, dd/mm/yyyy) filled for about a third of the
   entities only, and a closure year mostly empty, with one ``Inconnu``;
 - sentinel values (``Inconnu``, ``NC``, ``n.d.``) in a few cells;
-- counts of visitors (``payant``, ``gratuit``, ``total``...), never amounts of money.
+- counts of visitors (``payant``, ``gratuit``, ``total``...), never amounts of money;
+  ``total`` is ``payant + gratuit`` except on a few rows of ``GAP_YEAR``, where the
+  source disagrees with itself by ``GAP_PER_ROW`` entries;
+- one entity with a generic name (« Musée de l'affiche »): « musées » is never that one;
+- two keys in conflict in ``CONFLICT_YEAR``, appended at the end of the file: a copy
+  that only differs by blanks (``NEAR_IDENTICAL``) and one that disagrees on the counts
+  (``DIVERGENT``).
 
 The content is deterministic: the same seed gives the same file, so tests can check
 totals computed here against what Forja builds.
@@ -19,7 +25,7 @@ from __future__ import annotations
 
 import csv
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 FILE = "entrees_et_categories_de_public.csv"
@@ -53,6 +59,12 @@ GEOGRAPHY: dict[str, dict[str, list[tuple[str, str]]]] = {
         "Yvelines": [("VERSAILLES", "78646")],
     },
 }
+GENERIC_NAME = "Musée de l'affiche"
+GAP_YEAR = 2014
+GAP_PER_ROW = 250
+CONFLICT_YEAR = 2021
+NEAR_IDENTICAL = "M0004"
+DIVERGENT = "M0008"
 KINDS = ("musée municipal", "musée des beaux-arts", "muséum d'histoire naturelle",
          "musée archéologique", "musée de la marine", "écomusée")  # fmt: skip
 
@@ -98,7 +110,7 @@ def rows(seed: int = SEED) -> list[Row]:
     for index in range(1, ENTITY_COUNT + 1):
         region, department, city, insee = places[index % len(places)]
         entity = f"M{index:04d}"
-        name = f"{KINDS[index % len(KINDS)]} de {city.title()}"
+        name = GENERIC_NAME if index == 1 else f"{KINDS[index % len(KINDS)]} de {city.title()}"
         closed = "OUI" if index % 11 == 0 else "NON"
         # The secondary date: filled for one entity in three only.
         appellation = (
@@ -131,12 +143,38 @@ def rows(seed: int = SEED) -> list[Row]:
                     year=year,
                     paying=paying,
                     free=free,
-                    total=paying + free,
+                    total=paying + free + (GAP_PER_ROW if _gap(index, year) else 0),
                     individual=individual,
                     school=school,
                 )
             )
     return result
+
+
+def _gap(index: int, year: int) -> bool:
+    return year == GAP_YEAR and index % 10 == 0
+
+
+def gap_rows() -> int:
+    """Rows of GAP_YEAR whose total is not payant + gratuit."""
+    return sum(1 for row in rows() if _gap(int(row.entity[1:]), row.year))
+
+
+def conflicts(seed: int = SEED) -> list[Row]:
+    """The rows appended at the end of the file: two keys of CONFLICT_YEAR in conflict."""
+    by_key = {(r.entity, r.year): r for r in rows(seed)}
+    near = by_key[(NEAR_IDENTICAL, CONFLICT_YEAR)]
+    divergent = by_key[(DIVERGENT, CONFLICT_YEAR)]
+    return [
+        # Only blanks differ: the original row holds everything this one says.
+        replace(near, individual="", school=""),
+        # Filled values disagree: a person decides.
+        replace(
+            divergent,
+            paying=(divergent.paying or 0) + 100,
+            total=(divergent.total or 0) + 100,
+        ),
+    ]
 
 
 def write(directory: Path, seed: int = SEED) -> Path:
@@ -146,7 +184,7 @@ def write(directory: Path, seed: int = SEED) -> Path:
     with path.open("w", encoding="cp1252", newline="") as handle:
         writer = csv.writer(handle, delimiter=";")
         writer.writerow(HEADER)
-        for row in rows(seed):
+        for row in [*rows(seed), *conflicts(seed)]:
             writer.writerow(row.cells())
     return path
 

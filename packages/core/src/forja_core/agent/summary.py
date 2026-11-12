@@ -53,6 +53,10 @@ def _filter(layer: SemanticLayer, item: MartFilter) -> str:
     if found is None:
         return item.field
     dim, attribute = found
+    if item.operator is FilterOperator.NOT_NULL:
+        from forja_core.agent.parser import filled_text
+
+        return f"avec {filled_text(dim.label if dim.kind == 'time' else attribute.label)}"
     values = _values(item)
     joined = _join(values, "ou")
     if item.operator in (FilterOperator.NEQ, FilterOperator.NOT_IN):
@@ -63,6 +67,12 @@ def _filter(layer: SemanticLayer, item: MartFilter) -> str:
     if attribute.name == dim.display_attribute:
         return f"{plural} {joined}"
     return f"{plural} {attribute.label.lower()} {joined}"
+
+
+def filter_text(layer: SemanticLayer, item: MartFilter) -> str:
+    """A filter as the summary says it (« régions Bretagne », « avec une date
+    d'appellation renseignée »)."""
+    return _filter(layer, item)
 
 
 def _period(spec: MartSpec) -> str | None:

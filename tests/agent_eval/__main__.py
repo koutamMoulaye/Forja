@@ -15,7 +15,12 @@ from pathlib import Path
 from forja_core.config import Settings
 from forja_llm import LLMSettings, ProviderName, get_provider
 from tests.agent_eval.cases import CASES, subset
-from tests.agent_eval.run import MockAgentProvider, build_eval_shop, run_eval
+from tests.agent_eval.run import (
+    MockAgentProvider,
+    build_eval_museums,
+    build_eval_shop,
+    run_eval,
+)
 from tests.fixtures import ecommerce
 
 
@@ -24,6 +29,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--provider", default="mock", choices=["mock", *ProviderName])
     parser.add_argument("--model", default=None)
     parser.add_argument("--subset", action="store_true", help="the 5 representative questions")
+    parser.add_argument(
+        "--museums",
+        action="store_true",
+        help="the real questions of manual case 1 bis, on the yearly attendance file",
+    )
     parser.add_argument("--output", type=Path, default=None, help="write the report as JSON")
     args = parser.parse_args(argv)
 
@@ -45,8 +55,17 @@ def main(argv: list[str] | None = None) -> int:
     LLMSettings.model_config["env_file"] = None
     if not all((ecommerce.DIRECTORY / n).exists() for n in ecommerce.FILES):
         ecommerce.generate()
+    if args.museums:
+        from tests.agent_eval import museums
+
+        cases = museums.CASES
+        provider = MockAgentProvider(cases) if args.provider == "mock" else provider
     with tempfile.TemporaryDirectory(prefix="forja_eval_") as root:
-        state, project = build_eval_shop(Path(root), ecommerce.DIRECTORY)
+        state, project = (
+            build_eval_museums(Path(root))
+            if args.museums
+            else build_eval_shop(Path(root), ecommerce.DIRECTORY)
+        )
         try:
             report = run_eval(state, project, provider, cases, label=label, echo=True)
         finally:

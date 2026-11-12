@@ -34,6 +34,19 @@ export function formatValue(
   return unit && unit !== "lignes" ? `${text} ${unit}` : text;
 }
 
+/** A cell of a result table: measures with thousands separators (« 3 845 164 »), the
+ * unit left to the column header; axes as they are (a year stays « 2023 »). */
+export function formatCell(
+  value: unknown,
+  column: { kind?: string | null; format?: string | null },
+): string {
+  if (value === null || value === undefined) return "—";
+  if (column.kind === "metric" && typeof value === "number") {
+    return formatValue(value, column.format === "currency" ? "currency" : column.format);
+  }
+  return String(value);
+}
+
 /** Axis ticks: « 1,2 M », « 350 k ». */
 export function formatTick(value: number, format?: string | null): string {
   if (format === "currency") return `${compact.format(value)} €`;
@@ -65,15 +78,56 @@ export type LineGeometry = {
   labels: { x: number; text: string }[];
 };
 
-/** Points of a line chart in a ``width`` × ``height`` box with left and bottom margins. */
+export type InsightSeries = components["schemas"]["InsightSeries"];
+
+/** Stroke and fill classes of each series, in order: the accent first, then the run,
+ * validation and proposal tokens (all defined in both themes). */
+export const SERIES_COLORS = [
+  { stroke: "stroke-acc", fill: "bg-acc" },
+  { stroke: "stroke-run-fg", fill: "bg-run-fg" },
+  { stroke: "stroke-val-fg", fill: "bg-val-fg" },
+  { stroke: "stroke-prop-fg", fill: "bg-prop-fg" },
+] as const;
+
+/** The series of a line: several metrics asked are all drawn; an older answer has only
+ * ``points``. */
+export function seriesOf(insight: Insight): InsightSeries[] {
+  if (insight.series && insight.series.length) return insight.series;
+  return [
+    {
+      metric: insight.metric,
+      label: insight.metric_label,
+      unit: insight.unit ?? null,
+      format: insight.format ?? "decimal",
+      points: insight.points ?? [],
+    },
+  ];
+}
+
+/** Lines of several series on one scale (``lineGeometry`` per series, shared ticks). */
+export function seriesGeometry(series: InsightSeries[], width: number, height: number) {
+  const values = series
+    .flatMap((s) => s.points ?? [])
+    .map((p) => p.value)
+    .filter((v): v is number => v !== null);
+  const bounds = { min: Math.min(...values, 0), max: Math.max(...values, 0) };
+  return series.map((s) => lineGeometry(s.points ?? [], width, height, undefined, bounds));
+}
+
+/** Points of a line chart in a ``width`` × ``height`` box with left and bottom margins;
+ * ``bounds`` shares one scale between several series. */
 export function lineGeometry(
   points: InsightPoint[],
   width: number,
   height: number,
   margin = { left: 56, right: 12, top: 12, bottom: 28 },
+  bounds?: { min: number; max: number },
 ): LineGeometry {
   const known = points.map((p) => p.value).filter((v): v is number => v !== null);
-  const ticks = niceTicks(Math.min(...known, 0), Math.max(...known, 0));
+  const ticks = niceTicks(
+    bounds ? bounds.min : Math.min(...known, 0),
+    bounds ? bounds.max : Math.max(...known, 0),
+  );
   const low = ticks[0]!;
   const high = ticks[ticks.length - 1]!;
   const innerWidth = width - margin.left - margin.right;

@@ -2195,7 +2195,7 @@ export type components = {
             label: string;
             /**
              * Ref
-             * @description What the term means if chosen: metric:<name>, attribute:<dim>.<attr>, value:<dim>.<attr>=<value>, or ignore
+             * @description What the term means if chosen: metric:<name>, attribute:<dim>.<attr>, value:<dim>.<attr>=<value>, time:<date>, filled:<dim>.<attr> (the attribute is filled in), or ignore
              */
             ref: string;
         };
@@ -2361,6 +2361,47 @@ export type components = {
             null_pct: number;
             /** Row Count */
             row_count: number;
+        };
+        /**
+         * Composition
+         * @description A « total » column next to the columns it adds up (total = payant + gratuit): how
+         *     often, and by how much, the source disagrees with itself.
+         */
+        Composition: {
+            /**
+             * By Period
+             * @description Gap by value of a period column (« 2014 »: 9250)
+             */
+            by_period?: {
+                [key: string]: number;
+            };
+            /**
+             * Gap
+             * @description Sum of total minus sum of the parts, over those rows
+             */
+            gap: number;
+            /**
+             * Mismatched Rows
+             * @description Rows where the total differs from the sum
+             */
+            mismatched_rows: number;
+            /**
+             * Parts
+             * @description Source columns it is the sum of
+             */
+            parts: string[];
+            /** Period Column */
+            period_column?: string | null;
+            /**
+             * Rows
+             * @description Rows where total and parts are all filled
+             */
+            rows: number;
+            /**
+             * Total
+             * @description Source column holding the total
+             */
+            total: string;
         };
         /**
          * ConfidenceLevel
@@ -3015,7 +3056,7 @@ export type components = {
          * FilterOperator
          * @enum {string}
          */
-        FilterOperator: "eq" | "neq" | "in" | "not_in" | "gt" | "gte" | "lt" | "lte" | "contains";
+        FilterOperator: "eq" | "neq" | "in" | "not_in" | "gt" | "gte" | "lt" | "lte" | "contains" | "not_null";
         /** ForeignKey */
         ForeignKey: {
             /** Column */
@@ -3324,15 +3365,31 @@ export type components = {
             /** Metric Label */
             metric_label: string;
             /**
+             * Others
+             * @description Members grouped in the « Autres » bar
+             * @default 0
+             */
+            others: number;
+            /**
              * Points
-             * @description Chart data: bars sorted, line in time order
+             * @description Chart data: bars sorted (the first ones and « Autres » beyond MAX_BARS members), line in time order
              */
             points?: components["schemas"]["InsightPoint"][];
+            /**
+             * Ranking
+             * @description Bars grouped under « Autres »: every member, sorted, for the table
+             */
+            ranking?: components["schemas"]["InsightPoint"][];
             /**
              * Sentence
              * @description Computed from the result, in French
              */
             sentence: string;
+            /**
+             * Series
+             * @description Line: one series per metric, in time order
+             */
+            series?: components["schemas"]["InsightSeries"][];
             /**
              * Total
              * @description Total of an additive metric
@@ -3352,6 +3409,28 @@ export type components = {
             label: string;
             /** Value */
             value: number | null;
+        };
+        /**
+         * InsightSeries
+         * @description One metric of a line: several metrics asked are all drawn, with a legend.
+         */
+        InsightSeries: {
+            /**
+             * Format
+             * @default decimal
+             */
+            format: string;
+            /** Label */
+            label: string;
+            /**
+             * Metric
+             * @description Column of the metric
+             */
+            metric: string;
+            /** Points */
+            points?: components["schemas"]["InsightPoint"][];
+            /** Unit */
+            unit?: string | null;
         };
         /** Invitation */
         Invitation: {
@@ -3501,6 +3580,62 @@ export type components = {
          * @enum {string}
          */
         JobType: "profile" | "build_silver" | "build_gold" | "export" | "gold_proposal" | "mart_request" | "publish_mart" | "build_all" | "load" | "ingest";
+        /**
+         * KeyConflicts
+         * @description Distinct rows sharing a key value, measured before any rule is approved.
+         *
+         *     Near-identical rows only differ by blanks (or placeholders): the most complete one
+         *     holds everything the others say. Divergent rows disagree on a filled value: a person
+         *     decides which one to keep.
+         */
+        KeyConflicts: {
+            /**
+             * By Period
+             * @description Keys in conflict by value of the period column of the key, if any (« 2021 »: 2)
+             */
+            by_period?: {
+                [key: string]: number;
+            };
+            /** Columns */
+            columns: string[];
+            /**
+             * Divergent Keys
+             * @default 0
+             */
+            divergent_keys: number;
+            /**
+             * Divergent Rows
+             * @default 0
+             */
+            divergent_rows: number;
+            /**
+             * Keys
+             * @description Key values held by more than one distinct row
+             */
+            keys: number;
+            /**
+             * Near Identical Keys
+             * @default 0
+             */
+            near_identical_keys: number;
+            /**
+             * Near Identical Rows
+             * @default 0
+             */
+            near_identical_rows: number;
+            /**
+             * Rows
+             * @description Rows holding those key values
+             */
+            rows: number;
+        };
+        /**
+         * KeyResolution
+         * @description What becomes of rows of one batch sharing a key value and disagreeing on a filled
+         *     value. Rows that only differ by blanks always keep the most complete one.
+         * @enum {string}
+         */
+        KeyResolution: "quarantine" | "most_complete" | "last";
         /** LaneSummary */
         LaneSummary: {
             /**
@@ -4131,6 +4266,11 @@ export type components = {
              * @default
              */
             description: string;
+            /**
+             * Entity
+             * @description Count of an entity: the dimension whose members it counts (distinct keys of the fact, the unknown member left out)
+             */
+            entity?: string | null;
             /** Fact */
             fact: string;
             /** @default decimal */
@@ -4165,8 +4305,19 @@ export type components = {
              * @description Ratio: metric name
              */
             numerator?: string | null;
+            /**
+             * Parts
+             * @description Metrics this total is the sum of in the source (total = payant + gratuit): the preview measures the gap when the source disagrees with itself
+             */
+            parts?: string[];
             /** Synonyms */
             synonyms?: string[];
+            /**
+             * Technical
+             * @description Shown to engineers only (the number of fact rows): analysts and the agent do not see it
+             * @default false
+             */
+            technical: boolean;
             /** Unit */
             unit?: string | null;
         };
@@ -4460,6 +4611,8 @@ export type components = {
             };
             /** Deduplicate */
             deduplicate?: boolean | null;
+            /** @description What to do with divergent rows sharing a key value */
+            key_resolution?: components["schemas"]["KeyResolution"] | null;
             /**
              * Primary Key
              * @description Source column names; an empty list removes the key
@@ -4556,6 +4709,8 @@ export type components = {
              * @description Source column names
              */
             columns: string[];
+            /** @description Rows sharing a key value at profiling, shown before approval; None when not measured (a key chosen by hand) */
+            conflicts?: components["schemas"]["KeyConflicts"] | null;
             /**
              * Explanation
              * @default
@@ -4567,6 +4722,11 @@ export type components = {
              * @default false
              */
             quasi_unique: boolean;
+            /**
+             * @description Divergent rows of one key: quarantined (default), the most complete kept, or the last of the file kept
+             * @default quarantine
+             */
+            resolution: components["schemas"]["KeyResolution"];
         };
         /** ProfileReport */
         ProfileReport: {
@@ -4576,6 +4736,11 @@ export type components = {
             column_count: number;
             /** Columns */
             columns: components["schemas"]["ColumnProfile"][];
+            /**
+             * Compositions
+             * @description Total columns and the columns they add up, with the gap measured
+             */
+            compositions?: components["schemas"]["Composition"][];
             duplicates: components["schemas"]["DuplicateStats"];
             /**
              * Duration Ms
@@ -4587,6 +4752,11 @@ export type components = {
              * @description Attributes repeated for each value of an identifier (one row per entity and period, say): candidates for a dimension
              */
             entities?: components["schemas"]["EntityAttributes"][];
+            /**
+             * Key Conflicts
+             * @description Near keys (unique but for a few rows): the rows in conflict, measured
+             */
+            key_conflicts?: components["schemas"]["KeyConflicts"][];
             /** Pii */
             pii: components["schemas"]["PiiDetection"][];
             /**
@@ -4947,6 +5117,8 @@ export type components = {
              */
             columns: string[];
             confidence: components["schemas"]["ConfidenceLevel"];
+            /** @description Primary key: rows sharing a key value at profiling */
+            conflicts?: components["schemas"]["KeyConflicts"] | null;
             /** Decision */
             decision?: ("validated" | "rejected") | null;
             /** Explanation */
@@ -4963,6 +5135,8 @@ export type components = {
              * @default true
              */
             rejectable: boolean;
+            /** @description Primary key: what becomes of divergent rows of one key */
+            resolution?: components["schemas"]["KeyResolution"] | null;
             /** Title */
             title: string;
         };

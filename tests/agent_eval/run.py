@@ -24,6 +24,7 @@ from forja_llm.settings import LLMSettings
 from tests.agent_eval.cases import (
     TODAY,
     Case,
+    ExpectedAnswer,
     ExpectedClarification,
     ExpectedMart,
     ExpectedRefusal,
@@ -198,6 +199,13 @@ def score(case: Case, iteration: MartIteration) -> tuple[bool, str, str]:
     if iteration.status == "refused":
         outcome = f"refus : {iteration.refusal}"
         return isinstance(case.expected, ExpectedRefusal), outcome, ""
+    if iteration.status == "answered":
+        outcome = f"réponse : {(iteration.answer or '')[:80]}…"
+        if not isinstance(case.expected, ExpectedAnswer):
+            return False, outcome, "réponse au lieu d'un data mart"
+        if case.expected.declined and "Je laisse de côté" not in (iteration.answer or ""):
+            return False, outcome, "la partie hors périmètre n'est pas écartée"
+        return True, outcome, ""
     return False, f"{iteration.status} : {iteration.error}", "échec du traitement"
 
 
@@ -210,6 +218,29 @@ EVAL_USER = Principal(
 def build_eval_shop(root: Path, ecommerce_dir: Path) -> tuple[AppState, Project]:
     settings = shop_settings(root, agent_today=TODAY)
     return build_gold_shop(settings, ecommerce_dir)
+
+
+def build_eval_museums(root: Path) -> tuple[AppState, Project]:
+    """The yearly attendance file of case 1 bis, cleaned, modelled (heuristic, no LLM) and
+    built up to Gold: the project the museum questions are asked on."""
+    from forja_core.jobs.models import JobStatus, JobType, RunRequest
+    from forja_core.models import ProjectCreate
+    from tests.fixtures import attendance
+
+    state = AppState.build(shop_settings(root, agent_today=TODAY))
+    project = state.catalog.create_project(ProjectCreate(name="Cas 1 bis - Musées"))
+    path = attendance.write(root / "in")
+    state.ingestion.ingest_file(project.id, path, attendance.FILE)
+    for job_type in (JobType.BUILD_SILVER, None, JobType.BUILD_GOLD):
+        if job_type is None:
+            state.gold.propose(project.id, use_llm=False)
+            state.gold.approve(project.id)
+            continue
+        job = state.executor.create(project.id, RunRequest(type=job_type))
+        state.runner.submit(job.id)
+        assert state.catalog.get_job(job.id).status is JobStatus.SUCCEEDED
+    path.unlink()
+    return state, project
 
 
 def run_eval(
@@ -227,7 +258,13 @@ def run_eval(
     report = EvalReport(provider=label)
     for case in cases:
         started = time.perf_counter()
-        request, job = state.marts.create(project.id, EVAL_USER, case.question)
+        if case.previous is not None:
+            # A follow-up: the conversation holds a data mart, the message refines it.
+            first, job = state.marts.create(project.id, EVAL_USER, case.previous)
+            _wait(state, first, job.id)
+            request, job = state.marts.refine(first.id, EVAL_USER, case.question)
+        else:
+            request, job = state.marts.create(project.id, EVAL_USER, case.question)
         request = _wait(state, request, job.id)
         iteration = request.latest
         assert iteration is not None

@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { barShares, formatValue, lineGeometry, niceTicks, toCsv } from "./chart";
-import { refineSuggestions } from "./view";
+import {
+  barShares,
+  formatCell,
+  formatValue,
+  lineGeometry,
+  niceTicks,
+  seriesGeometry,
+  seriesOf,
+  toCsv,
+} from "./chart";
+import { refineSuggestions, withArticle } from "./view";
 
 const NNBSP = /[   ]/;
 
@@ -86,9 +95,48 @@ describe("refine suggestions from the project's semantic layer (MT-17)", () => {
       period: { label: "2023", start: "2023-01-01", end: "2023-12-31" },
     } as Parameters<typeof refineSuggestions>[0];
     expect(refineSuggestions(spec, layer)).toEqual([
-      "Ajoute entrées payantes",
+      "Ajoute les entrées payantes",
       "Seulement 2022",
       "Par année",
     ]);
+  });
+});
+
+describe("answers of the second manual batch (case 1 bis)", () => {
+  it("draws every metric asked on one scale, with a legend (lot 2, point 7)", () => {
+    const insight = {
+      sentence: "",
+      visual: "line",
+      metric: "payant",
+      metric_label: "Entrées payantes",
+      alt: "",
+      points: [],
+      series: [
+        { metric: "payant", label: "Entrées payantes", points: [{ label: "2013", value: 100 }] },
+        { metric: "gratuit", label: "Entrées gratuites", points: [{ label: "2013", value: 900 }] },
+      ],
+    } as unknown as Parameters<typeof seriesOf>[0];
+    const series = seriesOf(insight);
+    expect(series.map((s) => s.label)).toEqual(["Entrées payantes", "Entrées gratuites"]);
+    const [paid, free] = seriesGeometry(series, 640, 220);
+    // One scale: the smaller series is drawn lower than the larger one.
+    expect(paid!.dots[0]!.y).toBeGreaterThan(free!.dots[0]!.y);
+    expect(paid!.ticks).toEqual(free!.ticks);
+  });
+
+  it("formats measures with thousands separators, never a year (lot 2, point 10)", () => {
+    expect(formatCell(3845164, { kind: "metric", format: "integer" })).toMatch(
+      new RegExp(`^3${NNBSP.source}845${NNBSP.source}164$`),
+    );
+    expect(formatCell(2023, { kind: "axis" })).toBe("2023");
+    expect(formatCell(null, { kind: "metric" })).toBe("—");
+  });
+
+  it("writes adjustments with their article (lot 2, point 13)", () => {
+    expect(withArticle("Entrées payantes")).toBe("les entrées payantes");
+    expect(withArticle("Fréquentation")).toBe("la fréquentation");
+    expect(withArticle("Chiffre d'affaires")).toBe("le chiffre d'affaires");
+    expect(withArticle("Année de fréquentation")).toBe("l’année de fréquentation");
+    expect(withArticle("Prix moyen")).toBe("le prix moyen");
   });
 });

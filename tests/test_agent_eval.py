@@ -66,3 +66,26 @@ def test_llm_answers_are_cached(evaluated: tuple[EvalReport, AppState, Project])
     second = run_eval(state, project, provider, (case,), label="cache")
     assert first.results[0].path == "llm" and second.results[0].path == "llm_cache"
     assert provider.calls == 1
+
+
+# --- The real questions of case 1 bis, parser only ----------------------------------
+
+
+@pytest.fixture(scope="module")
+def museums(tmp_path_factory: pytest.TempPathFactory) -> Iterator[EvalReport]:
+    from tests.agent_eval import museums as museum_cases
+    from tests.agent_eval.run import build_eval_museums
+
+    state, project = build_eval_museums(tmp_path_factory.mktemp("eval_museums"))
+    try:
+        yield run_eval(state, project, None, museum_cases.CASES, label="parseur")
+    finally:
+        state.close()
+
+
+def test_museum_questions_pass_without_a_language_model(museums: EvalReport) -> None:
+    """Batch 2 of the manual tests: the questions asked on the museums file, with their
+    expected outcome (the clarification on « labellisés » included)."""
+    failures = [f"{r.id}: {r.outcome} — {r.reason}" for r in museums.results if not r.passed]
+    assert failures == [], "\n".join(failures)
+    assert all(r.path == "parser" for r in museums.results)

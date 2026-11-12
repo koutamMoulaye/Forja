@@ -130,7 +130,8 @@ def test_analyst_requests_a_data_mart(settings: Settings, ecommerce_dir: Path) -
             request = analyst.get(f"/mart-requests/{mart_id}").json()
             assert request["status"] == "published"
             name = request["published_name"]
-            assert name.startswith("mart_montant_par_mois_par_ville")
+            # Named by its business label (batch 2 of the manual tests, MT-31).
+            assert name.startswith("mart_chiffre_d_affaires_par_mois_par_ville")
             assert publication["metrics"]["exports"]
 
             # --- The analyst finds and exports their mart ------------------------------------

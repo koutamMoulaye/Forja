@@ -102,16 +102,17 @@ def complete_dates(fact: Fact, source: SilverSource | None, process: str) -> Fac
     if not fact.date_keys:
         return fact
     keys = [k.model_copy() for k in fact.date_keys]
-    names = {k.name for k in keys}
-    if fact.primary_date not in names:
 
-        def rank(key: DateKey) -> tuple[int, float]:
-            fill = source.fill_rate(key.column) if source and key.source == source.name else 1.0
-            return (0 if key.column in fact.grain else 1, -fill)
+    def rank(key: DateKey) -> tuple[int, int, float]:
+        fill = source.fill_rate(key.column) if source and key.source == source.name else 1.0
+        return (0 if key.column in fact.grain else 1, 0 if fill >= MAIN_DATE_MIN_FILL else 1, -fill)
 
-        primary = min(keys, key=rank).name
-    else:
-        primary = fact.primary_date
+    best = min(keys, key=rank)
+    chosen = next((k for k in keys if k.name == fact.primary_date), None)
+    # The main date is part of the grain and well filled: a proposal choosing a sparse
+    # secondary date (a date of appellation filled for a third of the rows) is corrected.
+    sound = chosen is not None and rank(chosen)[:2] <= rank(best)[:2]
+    primary = chosen.name if sound and chosen is not None else best.name
     for key in keys:
         if not key.role:
             words = role_words(key.column)

@@ -19,6 +19,7 @@ import { springs } from "@/lib/motion";
 import type { ReviewRule } from "@/lib/project/queries";
 import {
   CONFIDENCE,
+  keyConflictLines,
   type BeforeAfter,
   type Decision,
   type ParamKind,
@@ -94,6 +95,7 @@ export function RuleCard({
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState<Partial<Record<ParamKind, string>>>({});
   const [saving, setSaving] = useState(false);
+  const conflicts = keyConflictLines(rule);
   const proposed = decidable && !rule.decision;
   const rejected = rule.decision === "rejected";
   const changed = params.some((p) => values[p.kind] !== undefined && values[p.kind] !== p.value);
@@ -163,6 +165,24 @@ export function RuleCard({
       </div>
 
       <p className="m-0 text-[14px] leading-[1.55] text-pretty text-tx2">{rule.explanation}</p>
+
+      {conflicts.length ? (
+        <ul
+          className="m-0 flex list-none flex-col gap-1.5 rounded-lg bg-sunk p-3"
+          data-testid="key-conflicts"
+        >
+          {conflicts.map((line) => (
+            <li key={line.label} className="flex flex-col gap-0.5 text-[13.5px]">
+              <span
+                className={cn("font-semibold", line.tone === "choice" ? "text-prop-fg" : "text-tx")}
+              >
+                {line.label}
+              </span>
+              <span className="text-tx3">{line.detail}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       {examples.length ? (
         <div

@@ -253,8 +253,10 @@ def test_preview_controls(shop: tuple[AppState, Project]) -> None:
 
     empty = _ask(state, project, "Chiffre d'affaires par mois en 2030")
     assert empty.latest is not None and empty.latest.preview is not None
-    warning = next(c for c in empty.latest.preview.controls if c.code == "empty_period")
-    assert warning.status == "warning" and "2024" in warning.message
+    # No row: a blocking control that says why and what to try.
+    blocking = next(c for c in empty.latest.preview.controls if c.code == "empty_period")
+    assert blocking.status == "error" and "2024" in blocking.message
+    assert blocking.details["suggestions"] and "2024" in blocking.details["suggestions"][0]
 
 
 def test_preview_pseudonymizes_personal_data(shop: tuple[AppState, Project]) -> None:
@@ -309,7 +311,8 @@ def test_clarification_refinement_and_publication(shop: tuple[AppState, Project]
     )
     assert published.status is MartStatus.PUBLISHED
     name = published.published_name
-    assert name is not None and name.startswith("mart_montant_par_mois")
+    # Named by its business label, not by the column of the metric.
+    assert name is not None and name.startswith("mart_chiffre_d_affaires_par_mois")
     table = state.catalog.get_table(published.published_table_id or "")
     assert table.layer is TableLayer.MART and table.owner_id == ANALYST.id and table.publish
     assert table.row_count == 3  # January to March

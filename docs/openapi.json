@@ -852,7 +852,7 @@
             "type": "string"
           },
           "ref": {
-            "description": "What the term means if chosen: metric:<name>, attribute:<dim>.<attr>, value:<dim>.<attr>=<value>, or ignore",
+            "description": "What the term means if chosen: metric:<name>, attribute:<dim>.<attr>, value:<dim>.<attr>=<value>, time:<date>, filled:<dim>.<attr> (the attribute is filled in), or ignore",
             "title": "Ref",
             "type": "string"
           }
@@ -1354,6 +1354,67 @@
           "match_ratio"
         ],
         "title": "ColumnStats",
+        "type": "object"
+      },
+      "Composition": {
+        "description": "A « total » column next to the columns it adds up (total = payant + gratuit): how\noften, and by how much, the source disagrees with itself.",
+        "properties": {
+          "by_period": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Gap by value of a period column (« 2014 »: 9250)",
+            "title": "By Period",
+            "type": "object"
+          },
+          "gap": {
+            "description": "Sum of total minus sum of the parts, over those rows",
+            "title": "Gap",
+            "type": "number"
+          },
+          "mismatched_rows": {
+            "description": "Rows where the total differs from the sum",
+            "title": "Mismatched Rows",
+            "type": "integer"
+          },
+          "parts": {
+            "description": "Source columns it is the sum of",
+            "items": {
+              "type": "string"
+            },
+            "title": "Parts",
+            "type": "array"
+          },
+          "period_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Column"
+          },
+          "rows": {
+            "description": "Rows where total and parts are all filled",
+            "title": "Rows",
+            "type": "integer"
+          },
+          "total": {
+            "description": "Source column holding the total",
+            "title": "Total",
+            "type": "string"
+          }
+        },
+        "required": [
+          "total",
+          "parts",
+          "rows",
+          "mismatched_rows",
+          "gap"
+        ],
+        "title": "Composition",
         "type": "object"
       },
       "ConfidenceLevel": {
@@ -2753,7 +2814,8 @@
           "gte",
           "lt",
           "lte",
-          "contains"
+          "contains",
+          "not_null"
         ],
         "title": "FilterOperator",
         "type": "string"
@@ -3429,18 +3491,40 @@
             "title": "Metric Label",
             "type": "string"
           },
+          "others": {
+            "default": 0,
+            "description": "Members grouped in the « Autres » bar",
+            "title": "Others",
+            "type": "integer"
+          },
           "points": {
-            "description": "Chart data: bars sorted, line in time order",
+            "description": "Chart data: bars sorted (the first ones and « Autres » beyond MAX_BARS members), line in time order",
             "items": {
               "$ref": "#/components/schemas/InsightPoint"
             },
             "title": "Points",
             "type": "array"
           },
+          "ranking": {
+            "description": "Bars grouped under « Autres »: every member, sorted, for the table",
+            "items": {
+              "$ref": "#/components/schemas/InsightPoint"
+            },
+            "title": "Ranking",
+            "type": "array"
+          },
           "sentence": {
             "description": "Computed from the result, in French",
             "title": "Sentence",
             "type": "string"
+          },
+          "series": {
+            "description": "Line: one series per metric, in time order",
+            "items": {
+              "$ref": "#/components/schemas/InsightSeries"
+            },
+            "title": "Series",
+            "type": "array"
           },
           "total": {
             "anyOf": [
@@ -3509,6 +3593,49 @@
           "value"
         ],
         "title": "InsightPoint",
+        "type": "object"
+      },
+      "InsightSeries": {
+        "description": "One metric of a line: several metrics asked are all drawn, with a legend.",
+        "properties": {
+          "format": {
+            "default": "decimal",
+            "title": "Format",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "metric": {
+            "description": "Column of the metric",
+            "title": "Metric",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/InsightPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "metric",
+          "label"
+        ],
+        "title": "InsightSeries",
         "type": "object"
       },
       "Invitation": {
@@ -3902,6 +4029,73 @@
           "ingest"
         ],
         "title": "JobType",
+        "type": "string"
+      },
+      "KeyConflicts": {
+        "description": "Distinct rows sharing a key value, measured before any rule is approved.\n\nNear-identical rows only differ by blanks (or placeholders): the most complete one\nholds everything the others say. Divergent rows disagree on a filled value: a person\ndecides which one to keep.",
+        "properties": {
+          "by_period": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Keys in conflict by value of the period column of the key, if any (« 2021 »: 2)",
+            "title": "By Period",
+            "type": "object"
+          },
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "divergent_keys": {
+            "default": 0,
+            "title": "Divergent Keys",
+            "type": "integer"
+          },
+          "divergent_rows": {
+            "default": 0,
+            "title": "Divergent Rows",
+            "type": "integer"
+          },
+          "keys": {
+            "description": "Key values held by more than one distinct row",
+            "title": "Keys",
+            "type": "integer"
+          },
+          "near_identical_keys": {
+            "default": 0,
+            "title": "Near Identical Keys",
+            "type": "integer"
+          },
+          "near_identical_rows": {
+            "default": 0,
+            "title": "Near Identical Rows",
+            "type": "integer"
+          },
+          "rows": {
+            "description": "Rows holding those key values",
+            "title": "Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "columns",
+          "keys",
+          "rows"
+        ],
+        "title": "KeyConflicts",
+        "type": "object"
+      },
+      "KeyResolution": {
+        "description": "What becomes of rows of one batch sharing a key value and disagreeing on a filled\nvalue. Rows that only differ by blanks always keep the most complete one.",
+        "enum": [
+          "quarantine",
+          "most_complete",
+          "last"
+        ],
+        "title": "KeyResolution",
         "type": "string"
       },
       "LLMCheck": {
@@ -5456,6 +5650,18 @@
             "title": "Description",
             "type": "string"
           },
+          "entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Count of an entity: the dimension whose members it counts (distinct keys of the fact, the unknown member left out)",
+            "title": "Entity"
+          },
           "fact": {
             "title": "Fact",
             "type": "string"
@@ -5511,12 +5717,26 @@
             "description": "Ratio: metric name",
             "title": "Numerator"
           },
+          "parts": {
+            "description": "Metrics this total is the sum of in the source (total = payant + gratuit): the preview measures the gap when the source disagrees with itself",
+            "items": {
+              "type": "string"
+            },
+            "title": "Parts",
+            "type": "array"
+          },
           "synonyms": {
             "items": {
               "type": "string"
             },
             "title": "Synonyms",
             "type": "array"
+          },
+          "technical": {
+            "default": false,
+            "description": "Shown to engineers only (the number of fact rows): analysts and the agent do not see it",
+            "title": "Technical",
+            "type": "boolean"
           },
           "unit": {
             "anyOf": [
@@ -6204,6 +6424,17 @@
             ],
             "title": "Deduplicate"
           },
+          "key_resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KeyResolution"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What to do with divergent rows sharing a key value"
+          },
           "primary_key": {
             "anyOf": [
               {
@@ -6445,6 +6676,17 @@
             "title": "Columns",
             "type": "array"
           },
+          "conflicts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KeyConflicts"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Rows sharing a key value at profiling, shown before approval; None when not measured (a key chosen by hand)"
+          },
           "explanation": {
             "default": "",
             "title": "Explanation",
@@ -6455,6 +6697,11 @@
             "description": "Not strictly unique at profiling: some rows will be rejected",
             "title": "Quasi Unique",
             "type": "boolean"
+          },
+          "resolution": {
+            "$ref": "#/components/schemas/KeyResolution",
+            "default": "quarantine",
+            "description": "Divergent rows of one key: quarantined (default), the most complete kept, or the last of the file kept"
           }
         },
         "required": [
@@ -6483,6 +6730,14 @@
             "title": "Columns",
             "type": "array"
           },
+          "compositions": {
+            "description": "Total columns and the columns they add up, with the gap measured",
+            "items": {
+              "$ref": "#/components/schemas/Composition"
+            },
+            "title": "Compositions",
+            "type": "array"
+          },
           "duplicates": {
             "$ref": "#/components/schemas/DuplicateStats"
           },
@@ -6504,6 +6759,14 @@
               "$ref": "#/components/schemas/EntityAttributes"
             },
             "title": "Entities",
+            "type": "array"
+          },
+          "key_conflicts": {
+            "description": "Near keys (unique but for a few rows): the rows in conflict, measured",
+            "items": {
+              "$ref": "#/components/schemas/KeyConflicts"
+            },
+            "title": "Key Conflicts",
             "type": "array"
           },
           "pii": {
@@ -7353,6 +7616,17 @@
           "confidence": {
             "$ref": "#/components/schemas/ConfidenceLevel"
           },
+          "conflicts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KeyConflicts"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Primary key: rows sharing a key value at profiling"
+          },
           "decision": {
             "anyOf": [
               {
@@ -7385,6 +7659,17 @@
             "description": "False when the rule may only be edited (personal data)",
             "title": "Rejectable",
             "type": "boolean"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KeyResolution"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Primary key: what becomes of divergent rows of one key"
           },
           "title": {
             "title": "Title",

@@ -26,6 +26,7 @@ class FilterOperator(StrEnum):
     LT = "lt"
     LTE = "lte"
     CONTAINS = "contains"
+    NOT_NULL = "not_null"
 
 
 Scalar = str | int | float | bool
@@ -86,7 +87,8 @@ class ClarificationOption(_Strict):
     )
     ref: str = Field(
         description="What the term means if chosen: metric:<name>, attribute:<dim>.<attr>, "
-        "value:<dim>.<attr>=<value>, or ignore"
+        "value:<dim>.<attr>=<value>, time:<date>, filled:<dim>.<attr> (the attribute is "
+        "filled in), or ignore"
     )
 
 

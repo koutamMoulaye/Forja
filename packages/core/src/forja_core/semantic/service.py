@@ -77,9 +77,10 @@ def find_target(
 
 
 def visible(layer: SemanticLayer) -> SemanticLayer:
-    """The layer without hidden elements (what analysts and the agent see)."""
+    """The layer without hidden elements (what analysts and the agent see); technical
+    metrics such as the number of fact rows are for engineers only."""
     copy = layer.model_copy(deep=True)
-    copy.metrics = [m for m in copy.metrics if not m.hidden]
+    copy.metrics = [m for m in copy.metrics if not m.hidden and not m.technical]
     copy.dimensions = [d for d in copy.dimensions if not d.hidden]
     for dim in copy.dimensions:
         dim.attributes = [a for a in dim.attributes if not a.hidden]

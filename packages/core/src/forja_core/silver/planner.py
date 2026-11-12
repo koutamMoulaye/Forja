@@ -384,8 +384,18 @@ def build_plan(
         ),
     )
     plan.primary_key = choose_primary_key(profile, columns)
+    attach_conflicts(plan, profile)
     sync_key_rules(plan)
     return refresh_explanations(plan)
+
+
+def attach_conflicts(plan: TransformationPlan, profile: ProfileReport) -> None:
+    """The conflicts the profiler measured on the chosen key, shown before approval."""
+    if plan.primary_key is None:
+        return
+    plan.primary_key.conflicts = next(
+        (c for c in profile.key_conflicts if c.columns == plan.primary_key.columns), None
+    )
 
 
 def refresh_plan(
@@ -459,6 +469,7 @@ def refresh_plan(
         for name in previous.primary_key.columns
     ):
         fresh.primary_key = previous.primary_key.model_copy()
+        attach_conflicts(fresh, profile)
     fresh.warnings = warnings
     sync_key_rules(fresh)
     return refresh_explanations(fresh)
@@ -488,6 +499,7 @@ def plan_signature(plan: TransformationPlan) -> str:
     payload = {
         "columns": [column_signature(c) for c in plan.columns],
         "primary_key": plan.primary_key.columns if plan.primary_key else None,
+        "key_resolution": plan.primary_key.resolution.value if plan.primary_key else None,
         "deduplication": plan.deduplication.enabled,
     }
     return json.dumps(payload, sort_keys=True, ensure_ascii=False)
@@ -531,6 +543,7 @@ def apply_patch(
     updated.version = plan.version + 1
     updated.status = PlanStatus.DRAFT
     updated.updated_at = now
+    current_key = plan.primary_key
 
     for name, change in patch.columns.items():
         column = updated.column(name)
@@ -577,9 +590,16 @@ def apply_patch(
                         f"primary key column '{name}' is unknown or excluded",
                         details={"column": name},
                     )
-            updated.primary_key = PrimaryKeyPlan(columns=list(patch.primary_key))
+            same = current_key is not None and current_key.columns == list(patch.primary_key)
+            updated.primary_key = (
+                current_key.model_copy()
+                if same and current_key is not None
+                else PrimaryKeyPlan(columns=list(patch.primary_key))
+            )
     if patch.deduplicate is not None:
         updated.deduplication.enabled = patch.deduplicate
+    if patch.key_resolution is not None and updated.primary_key is not None:
+        updated.primary_key.resolution = patch.key_resolution
 
     validate_plan(updated)
     sync_key_rules(updated)

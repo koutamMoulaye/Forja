@@ -28,7 +28,9 @@ from forja_core.agent.intents import (
     SourceSummary,
     declined_sentence,
     describe_data,
+    is_new_question,
     out_of_scope_reason,
+    plain_refusal,
     read_message,
 )
 from forja_core.agent.interpreter import InterpretationError, InterpretRequest, MartInterpreter
@@ -48,10 +50,13 @@ from forja_core.agent.models import (
 )
 from forja_core.agent.parser import (
     ParseOutcome,
+    business_name,
     clarification,
     mentions_period,
     parse,
+    qualifier_clarification,
     refine,
+    surface,
 )
 from forja_core.agent.preselect import preselect
 from forja_core.agent.preview import build_preview
@@ -507,6 +512,23 @@ class MartService:
                 return RunMetrics()
             if declined or about is not None:
                 text = reading.data  # only the part about the data is interpreted
+        if base is not None and iteration.kind == "refinement" and iteration.proposed is None:
+            alone = parse(
+                text, layer, vocabulary, values=values,
+                bindings=request.bindings, today=today, default_year=default_year,
+            )  # fmt: skip
+            spec = alone.answer.mart if alone.answer and alone.answer.kind == "mart" else None
+            if spec is not None and is_new_question(
+                text,
+                metrics=len(spec.metrics),
+                framed=bool(spec.axes or spec.period or spec.time_grain),
+            ):
+                # A complete sentence is a new question: nothing of the previous data
+                # mart (filters, period, sort, limit) carries over.
+                base = None
+                iteration.kind = "question"
+                iteration.refines = False
+                log_line("new question in the conversation: nothing inherited")
         if base is not None:
             outcome = refine(
                 base, text, layer, vocabulary,
@@ -533,6 +555,10 @@ class MartService:
         iteration.path = AgentPath.PARSER
         if iteration.proposed is not None:
             answer = AgentAnswer(kind="mart", mart=iteration.proposed)
+        if answer is None:
+            # « musées labellisés »: an adjective nothing in the data names. The user says
+            # what it covers; no model guesses a value for it.
+            answer = _qualifier_question(layer, outcome, text)
         if answer is None and self.interpreter is not None:
             report("llm", f"interprétation par {self.interpreter.origin}", 30)
             try:
@@ -564,6 +590,10 @@ class MartService:
                 )
         if answer is not None and iteration.path is not AgentPath.PARSER:
             answer = _keep_local_findings(answer, outcome)
+            if answer.kind == "refusal":
+                answer = answer.model_copy(
+                    update={"refusal_reason": plain_refusal(answer.refusal_reason, layer)}
+                )
         if answer is None:
             answer = self._fallback(layer, outcome)
         report("validation", "validation et compilation", 70)
@@ -676,6 +706,9 @@ class MartService:
                     if option.ref == "ignore":
                         option.label = f"Ignorer « {word} »"
                 return AgentAnswer(kind="clarification", clarification=ask)
+            qualified = _qualifier_question(layer, outcome, "")
+            if qualified is not None:
+                return qualified
             if outcome.answer is None:
                 return AgentAnswer(
                     kind="refusal",
@@ -707,6 +740,7 @@ class MartService:
                 or (kind == "attribute" and layer.attribute(name))
                 or (kind == "value" and layer.attribute(name.partition("=")[0]))
                 or (kind in ("dimension", "time") and layer.dimension(name))
+                or (kind == "filled" and layer.attribute(name))
             ):
                 kept.append(option)
         if len(kept) < 2:
@@ -883,7 +917,9 @@ class MartService:
     def _mart_name(self, request: MartRequest, spec: MartSpec) -> str:
         if request.published_name:
             return request.published_name
-        base = f"mart_{spec.name}"[:60]
+        # Named by what it shows (« mart_frequentation_par_region_2023 »).
+        layer = visible(self.semantic.current(request.project_id))
+        base = f"mart_{business_name(spec, layer)}"[:60]
         taken = {
             r.published_name
             for r in self.catalog.list_mart_requests(request.project_id)
@@ -1112,6 +1148,19 @@ def _keep_local_findings(answer: AgentAnswer, outcome: ParseOutcome) -> AgentAns
     if not update:
         return answer
     return answer.model_copy(update={"mart": spec.model_copy(update=update)})
+
+
+def _qualifier_question(
+    layer: SemanticLayer, outcome: ParseOutcome, text: str
+) -> AgentAnswer | None:
+    """The question asked when every unknown word qualifies an entity of the request."""
+    if not outcome.qualifiers or len(outcome.qualifiers) != len(outcome.unknown):
+        return None
+    lemma, entity = outcome.qualifiers[0]
+    word = surface(text, lemma) if text else lemma
+    spec = outcome.answer.mart if outcome.answer is not None else None
+    ask = qualifier_clarification(layer, word, entity, spec.time_grain if spec else None)
+    return AgentAnswer(kind="clarification", clarification=ask) if ask is not None else None
 
 
 def _hints(outcome: ParseOutcome) -> list[str]:

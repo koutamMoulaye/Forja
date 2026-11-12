@@ -49,6 +49,36 @@ def _complete(model: GoldModel, ctx: GoldContext) -> GoldModel:
     return model.model_copy(update={"facts": facts})
 
 
+_SOURCE_FIELDS = frozenset({"source", "from_source"})
+
+
+def normalize_sources(model: GoldModel, ctx: GoldContext) -> GoldModel:
+    """A proposal naming a source by its Silver table (« stg_<source> ») or with another
+    case: the reference is mapped to the source name, as Forja would have written it. A
+    language model often reads the table name in the context; refusing the whole
+    proposal for that alone sent it back to the heuristic."""
+    aliases: dict[str, str] = {}
+    for name, source in ctx.sources.items():
+        for alias in (name, source.model, source.model.removeprefix("stg_")):
+            aliases.setdefault(alias.lower(), name)
+
+    def fix(value: object) -> object:
+        if isinstance(value, dict):
+            return {
+                k: (
+                    aliases.get(v.lower(), v)
+                    if k in _SOURCE_FIELDS and isinstance(v, str) and v not in ctx.sources
+                    else fix(v)
+                )
+                for k, v in value.items()
+            }
+        if isinstance(value, list):
+            return [fix(v) for v in value]
+        return value
+
+    return GoldModel.model_validate(fix(model.model_dump()))
+
+
 def _issue_lines(issues: list[ValidationIssue]) -> list[str]:
     return [f"[{i.code}] {i.message}" for i in issues if i.severity == "error"]
 
@@ -83,14 +113,20 @@ class GoldPlanService:
                     f"Proposition par LLM impossible ({exc.message}) : plan heuristique."
                 )
                 return None
-            issues = validate_model(link_relations(model, ctx), ctx)
+            # Validated as it would be saved: source names normalized, main dates and
+            # date roles completed as the heuristic does.
+            model = normalize_sources(model, ctx)
+            issues = validate_model(link_relations(_complete(model, ctx), ctx), ctx)
             feedback = _issue_lines(issues)
             if not feedback:
                 return Proposal(model, self.proposer.origin)
-            log.info("gold_llm_proposal_invalid", attempt=attempt, errors=len(feedback))
+            log.info(
+                "gold_llm_proposal_invalid", attempt=attempt, errors=len(feedback), issues=feedback
+            )
+        shown = " ; ".join(feedback[:3]) + (" ; …" if len(feedback) > 3 else "")
         warnings.append(
             "La proposition du LLM restait invalide après correction "
-            f"({len(feedback)} erreur(s)) : plan heuristique."
+            f"({len(feedback)} erreur(s) : {shown}) : plan heuristique."
         )
         return None
 

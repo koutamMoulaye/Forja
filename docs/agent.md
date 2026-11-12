@@ -40,8 +40,19 @@ Avant tout, `forja_core.agent.intents` découpe le message en propositions (ponc
   lignes, mesures et leurs unités, axes, dates et années couvertes, exemples que le
   parseur comprend) ; la version `answered` ne crée pas de data mart ;
 - **hors périmètre** (« la météo à Paris ») : refus poli avec ce que Forja sait mesurer.
-  Une valeur seule (« Paris ») ne suffit pas sans LLM ; avec un LLM, elle laisse le
-  modèle trancher.
+  Une clause qui ne nomme qu'une valeur (« Paris ») est une demande seulement si rien
+  d'autre n'y reste inexpliqué (« et à Paris ? ») ; avec un LLM, aussi quand ses autres
+  mots ne parlent pas d'un sujet courant extérieur aux données (météo, heure,
+  actualité…). « La météo actuelle à Paris » est toujours hors périmètre.
+
+**Nouvelle question ou ajustement.** Dans une conversation qui a déjà un data mart, une
+phrase autonome (une mesure, et un axe, une période ou un découpage ; sans « et » en tête,
+« aussi », « seulement », « ajoute », « retire », pronom) est une **nouvelle question** :
+la version est de type `question` et n'hérite d'aucun filtre, période, tri ni limite.
+Sinon c'est un ajustement du data mart courant.
+
+Les refus écrits par le LLM qui parlent de son fonctionnement (« couche sémantique
+fournie », « schéma ») sont remplacés par le refus déterministe.
 
 Un message mixte est découpé : la partie sur les données est traitée, le reste écarté en
 une phrase ajoutée au résumé. Un message hors sujet n'affine jamais le data mart et ne
@@ -56,6 +67,16 @@ La demande est normalisée (minuscules, sans accents, apostrophes et ponctuation
 lemmes simples : pluriels, participes « livrées » → « livré ») puis comparée aux
 expressions de l'index (plus longue correspondance d'abord, tolérance aux fautes de
 frappe sur les mots de 5 lettres et plus).
+
+Résolution des valeurs (lot 2 des tests manuels, MT-20) :
+
+- une **valeur** n'est reconnue que si la demande la contient **en entier**, mots vides
+  compris (« musées » n'est jamais la valeur « Musée de l'affiche ») ;
+- un empan qui nomme une **mesure, une dimension ou un attribut** est cet élément, jamais
+  une valeur ; à empan égal, une correspondance exacte l'emporte sur une approchée ;
+- un texte **entre guillemets** cherche les valeurs qui le contiennent : une seule donne
+  un filtre, plusieurs une question ;
+- dans le doute, une question avec options, jamais un filtre silencieux.
 
 Sont retenus : les éléments reconnus, les métriques de base (`default`), l'attribut
 d'affichage de chaque dimension, les dimensions temporelles et les granularités. Le
@@ -75,7 +96,15 @@ jamais le processus.
 - **granularité** : `par mois`, `mensuel`, `par trimestre`… ; `évolution` sans
   granularité = par mois ;
 - **top N** : `top 5`, `les 3 meilleurs`, `les 10 premiers` (tri décroissant), `les 5
-  pires` (croissant), tri `par <métrique>` ;
+  pires` (croissant), tri `par <métrique>` ; « Top N des X les plus Y » : X est l'axe, tri
+  décroissant sur Y, limite N (« les moins Y » : croissant) ;
+- **comptage d'entité** : « nombre de musées », « combien de musées » lisent la métrique
+  générée « Nombre de <entité> » (comptage distinct de la clé, membre inconnu exclu) ;
+- **mesures composées** : « fréquentation payante et gratuite » = entrées payantes +
+  entrées gratuites (noms composés générés pour chaque mesure qualifiée d'un comptage,
+  expression la plus longue d'abord) ;
+- **hiérarchies** : « par géographie », « par territoire » lisent le niveau le plus large
+  de la hiérarchie (région) ;
 - **métriques**, **axes** (`par ville`, `par catégorie et segment`, `des produits`) et
   **filtres** par valeur (`à Lyon`, `livrées`, `clients de Lyon et Paris` → `in`, `hors
   jardin` → `neq`, `segment Pro` → préfixe unique d'une valeur de l'attribut nommé).
@@ -85,7 +114,11 @@ liaison connus mis à part). Un mot qui désigne plusieurs métriques (« ventes
 d'affaires ou quantité ?) ou une métrique et un attribut (« prix » : prix moyen de
 vente ou prix catalogue ?) produit directement une Clarification. Sinon, le LLM est
 appelé ; **sans LLM configuré**, Forja pose une question sur le mot inconnu (options
-proches + « Ignorer ») ou refuse si rien n'en approche. La réponse indique le chemin
+proches + « Ignorer ») ou refuse si rien n'en approche. Un **adjectif inconnu qui suit
+une entité** (« musées labellisés ») est demandé avant tout appel au LLM, avec les
+attributs qui pourraient le traduire : une date secondaire renseignée (« Avec une date
+d'appellation renseignée », filtre `not_null`), cette date comme date du découpage
+(« Par année d'appellation »), ou « Ignorer ». La réponse indique le chemin
 utilisé : `path` = `parser`, `llm` ou `llm_cache`.
 
 ## 3. LLM
@@ -189,7 +222,12 @@ Contrôles (`ok`, `info`, `warning`, `error`) :
 - **membre inconnu** : part des lignes du fait rattachées au membre « inconnu » (-1)
   d'une dimension utilisée (`warning` si non nulle) ;
 - **colonnes vides** : entièrement (`warning`) ou partiellement (`info`) ;
-- **période vide** : `warning` avec la période couverte par les données ;
+- **résultat vide** : `error` (bloquant) qui dit pourquoi — période hors des données
+  couvertes (« les données couvrent de 2013 à 2023 »), filtre trop restrictif — et
+  propose quoi faire (`details.suggestions`) ; « Valider et publier » est désactivé ;
+- **total et composantes** : quand la source a une colonne total qui est la somme
+  d'autres colonnes (total = payant + gratuit, repéré au profilage), l'aperçu mesure
+  l'écart sur le périmètre (lignes, total, par année) et le signale en `warning` ;
 - **cohérence temporelle** : la réconciliation compare le data mart au fait *sur le même
   périmètre* et ne voit donc pas un périmètre lu sur la mauvaise date. `warning` si la date
   filtrée est remplie sur moins de 50 % des lignes du fait, ou si elle retient moins d'un
@@ -204,10 +242,13 @@ est ramené à l'année, et dit.
 
 **Réponse dans la conversation** (`preview.insight`). Quand l'aperçu est prêt, la
 conversation montre une phrase calculée du résultat (`agent/insight.py` : total, part du
-premier, trois premiers, évolution d'une courbe ; jamais écrite par le LLM, qui ne voit
-aucune valeur), un visuel choisi par la forme du résultat (tuile pour une valeur, courbe
-pour un axe de temps seul, barres horizontales triées jusqu'à 15 membres, tableau
-au-delà), les dix premières lignes dépliables et les actions : ouvrir l'aperçu, valider
+premier, trois premiers ; pour une courbe, évolution, point haut, point bas et plus
+forte variation d'un point au suivant, pour chaque mesure, et leur répartition ; jamais
+écrite par le LLM, qui ne voit aucune valeur), un visuel choisi par la forme du résultat
+(tuile pour une valeur, une courbe par mesure avec légende pour un axe de temps seul,
+barres horizontales triées jusqu'à 15 membres, au-delà les 10 premiers et une barre
+« Autres » avec le classement complet dépliable, tableau pour plusieurs axes), les dix
+premières lignes dépliables (mesures avec séparateurs de milliers) et les actions : ouvrir l'aperçu, valider
 et publier (Power BI, Superset, CSV, Parquet), exporter, affiner. Les valeurs
 personnelles y sont pseudonymisées selon le rôle, comme dans l'échantillon. Graphiques :
 décision D33.
@@ -319,6 +360,54 @@ Ce que chaque échec a appris :
 - **c03** (« rapporte le plus d'argent ») : une consigne trop prudente faisait demander
   « CA ou nombre de commandes ? ». La consigne ne demande plus qu'en cas de deux
   métriques également plausibles, et « argent » est un synonyme du chiffre d'affaires.
+
+### Proposition du modèle en étoile par un LLM local (cas 1 bis)
+
+Au retest du cas 1 bis, la proposition Gold de `qwen3.5:9b` (Ollama, CPU) était
+« invalide après correction, 5 erreurs » et Forja retombait sur l'heuristique. Rejeu sur
+la fixture de même forme (`tests/fixtures/attendance.py`), script de rejeu hors dépôt,
+cache désactivé, Snapdragon X Plus, CPU seul :
+
+| | Propositions valides | Essais | Erreurs |
+|---|---|---|---|
+| Avant (code de #5) | **0/1** | 2 sur 2 refusés | 2 à chaque essai, identiques : `[unknown_source]` — le modèle nommait la source par sa table Silver (`stg_entrees_et_categories_de_public`) au lieu de son nom de source |
+| Après | **3/3** | 3 valides au premier essai | aucune ; mais les 3 prenaient `dateappellation` (remplie pour un tiers des lignes, hors grain) comme date principale, corrigé par Forja |
+
+Le nombre d'erreurs diffère du constat (2 au lieu de 5) : le fichier réel a plus de
+colonnes ; le message d'erreur journalisé ne disait pas lesquelles. Ce qui a changé :
+
+- **consigne** : « nom de source, jamais le nom de table `stg_` » ;
+- **boucle de réparation** : avant validation, les références de source écrites avec le
+  nom de table ou une autre casse sont ramenées au nom de source ; la proposition est
+  validée telle qu'elle sera enregistrée (dates principales et rôles complétés comme le
+  fait l'heuristique) ; les erreurs sont journalisées (`gold_llm_proposal_invalid`,
+  champ `issues`) et les trois premières citées dans l'avertissement du plan ;
+- **schéma** : une date principale hors du grain ou remplie à moins de 50 % alors qu'une
+  autre date du grain l'est est remplacée par celle-ci (règle MT-3), quelle que soit la
+  proposition.
+
+Durées : 142 s pour une proposition à chaud ; les autres mesures (2 102 s et plus) ont
+été faussées par une mise en veille du poste pendant le rejeu et ne sont pas
+représentatives. Tests : `tests/test_manual_case_1_batch_2.py::test_mt40_*`.
+
+### Questions réelles du cas 1 bis (fixture « musées »)
+
+`tests/agent_eval/museums.py` : les questions posées lors du retest manuel, sur la
+fixture annuelle `tests/fixtures/attendance.py`, en mode parseur sans LLM
+(`uv run python -m tests.agent_eval --museums`, et `tests/test_agent_eval.py` en CI) :
+
+| Id | Question | Attendu |
+|---|---|---|
+| m01 | Fréquentation totale par région en 2023 | fréquentation par région, 2023 |
+| m02 | ce cas parle de quoi ? et donne-moi la météo actuelle à Paris | réponse sur les données, météo écartée, ni version ni question |
+| m03 | Évolution de la fréquentation payante et gratuite par année | entrées payantes et gratuites par année, sans la fréquentation totale |
+| m04 | Top 10 des musées les plus visités en 2023 | fréquentation par musée, 2023, 10 premiers, aucun filtre |
+| m05 | Nombre de musées labellisés par année | question sur « labellisés » (date d'appellation renseignée, par année d'appellation) |
+| m06 | Nombre de musées par région, après le top 10 de 2023 | nouvelle question : nombre de musées par région, sans période ni limite |
+| m07 | Combien de musées par région | nombre de musées par région |
+| m08 | Fréquentation par année, après « … par région en 2023 » | nouvelle question : fréquentation par année |
+
+Score : **1/8** (12 %) avant le lot 2 (code de #5 ; m05 et m07 partaient au LLM), **8/8** (100 %) après, toutes par le parseur.
 
 Limite : avec un modèle 9b sur CPU, le résultat d'une question peut changer quand la
 consigne change, même à température 0. Les garde-fous déterministes (questions du

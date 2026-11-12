@@ -164,7 +164,9 @@ function useArea(container: React.RefObject<HTMLDivElement | null>, inspector: b
   }, [container]);
   const sidebar = shell.tablet ? 0 : shell.sidebarOpen ? 240 : 64;
   const left = sidebar + 20;
-  const top = 72;
+  // Just under the 56 px top bar: « Ajuster » leaves no band of empty canvas above the
+  // compartments, their titles stay clear of the bar.
+  const top = 64;
   return {
     size,
     left,

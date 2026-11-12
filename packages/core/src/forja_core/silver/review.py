@@ -15,11 +15,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from forja_core.profiling.models import ConfidenceLevel, PiiType
+from forja_core.profiling.models import ConfidenceLevel, KeyConflicts, PiiType
 from forja_core.silver.explain import cast_sentence, format_label
 from forja_core.silver.plan import (
     ColumnPatch,
     ColumnPlan,
+    KeyResolution,
     Normalization,
     PiiTreatment,
     PlanPatch,
@@ -55,6 +56,12 @@ class ReviewRule(BaseModel):
     )
     affected: int | None = Field(
         default=None, description="Values or rows concerned at profiling, when known"
+    )
+    conflicts: KeyConflicts | None = Field(
+        default=None, description="Primary key: rows sharing a key value at profiling"
+    )
+    resolution: KeyResolution | None = Field(
+        default=None, description="Primary key: what becomes of divergent rows of one key"
     )
 
 
@@ -297,9 +304,12 @@ def review_rules(plan: TransformationPlan) -> list[ReviewRule]:
                 columns=list(plan.primary_key.columns),
                 confidence=(
                     ConfidenceLevel.MEDIUM
-                    if plan.primary_key.quasi_unique
+                    if plan.primary_key.quasi_unique or plan.primary_key.conflicts
                     else ConfidenceLevel.HIGH
                 ),
+                affected=plan.primary_key.conflicts.rows if plan.primary_key.conflicts else None,
+                conflicts=plan.primary_key.conflicts,
+                resolution=plan.primary_key.resolution,
             )
         )
 

@@ -320,7 +320,7 @@ describe("verification preview", () => {
       ],
     };
     expect(refineSuggestions(it.spec, layer)).toEqual([
-      "Ajoute nombre de commandes",
+      "Ajoute le nombre de commandes",
       "Par trimestre",
       "Seulement le T1 2025",
     ]);

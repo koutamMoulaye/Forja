@@ -18,9 +18,11 @@ from forja_core.profiling.grain import key_rank
 from forja_core.profiling.models import (
     CandidateKey,
     ColumnProfile,
+    Composition,
     DuplicateStats,
     EntityAttributes,
     InferredType,
+    KeyConflicts,
     PiiDetection,
     ProfileReport,
     TopValue,
@@ -37,6 +39,13 @@ from forja_core.profiling.types import (
     typed_expression,
 )
 from forja_core.utils import quote_ident, sql_literal, utcnow
+
+# Words naming a column that adds up others (total = payant + gratuit).
+_TOTALS = frozenset({"total", "totaux", "totale", "ensemble", "tot"})
+_MAX_PARTS = 8
+_MAX_COMBINATIONS = 84
+# The parts are those of the total when the sum matches on most rows.
+_COMPOSITION_MIN_SHARE = 0.9
 
 log = get_logger(__name__)
 
@@ -136,6 +145,8 @@ class Profiler:
         duplicates = self._duplicates(con, row_count)
         keys = self._candidate_keys(con, columns, row_count, duplicates)
         entities = self._entities(con, columns, row_count, keys, stats)
+        conflicts = self._key_conflicts(con, columns, keys, row_count)
+        compositions = self._compositions(con, columns)
         quality = compute_quality(columns, duplicates, keys, pii)
         report = ProfileReport(
             source_id=source_id,
@@ -147,6 +158,8 @@ class Profiler:
             candidate_keys=keys,
             entities=entities,
             duplicates=duplicates,
+            key_conflicts=conflicts,
+            compositions=compositions,
             pii=pii,
             quality=quality,
             sampled=sample_rows is not None,
@@ -414,6 +427,138 @@ class Profiler:
         ranked = sorted(exact, key=lambda k: key_rank(k.columns, by_name))
         ranked += sorted(near, key=lambda k: (key_rank(k.columns, by_name), -k.uniqueness))
         return keys + ranked[:_MAX_COMPOSITE_KEYS]
+
+    def _key_conflicts(
+        self,
+        con: duckdb.DuckDBPyConnection,
+        columns: list[ColumnProfile],
+        keys: list[CandidateKey],
+        row_count: int,
+    ) -> list[KeyConflicts]:
+        """For each near key, the distinct rows sharing a key value, split between
+        near-identical (they only differ by blanks or placeholders) and divergent."""
+        near = [k for k in keys if k.uniqueness < 1]
+        # An identifier unique but for a few repeated values is a near key too.
+        near += [
+            CandidateKey(columns=[c.name], kind="simple", uniqueness=0.99)
+            for c in columns
+            if not c.is_unique
+            and c.distinct_count > 1
+            and is_identifier_name(c.name)
+            and c.distinct_count >= 0.95 * max(1, row_count - c.null_count)
+        ]
+        found: list[KeyConflicts] = []
+        names = [c.name for c in columns]
+        markers = ", ".join(sql_literal(m) for m in sorted(SENTINEL_VALUES))
+
+        def cell(name: str) -> str:
+            text = f"nullif(trim(CAST({quote_ident(name)} AS VARCHAR)), '')"
+            blank = f"lower(replace({text}, ' ', '')) IN ({markers})"
+            return f"CASE WHEN {blank} THEN NULL ELSE {text} END"
+
+        for key in near[:2]:
+            others = [n for n in names if n not in key.columns]
+            group = ", ".join(quote_ident(c) for c in key.columns)
+            agree = " AND ".join(f"count(DISTINCT {cell(n)}) <= 1" for n in others) or "true"
+            period = next((c for c in key.columns if is_period_name(c)), None)
+            period_select = f", any_value({quote_ident(period)}) AS p" if period else ", NULL AS p"
+            not_null = " AND ".join(f"{quote_ident(c)} IS NOT NULL" for c in key.columns)
+            rows = con.execute(
+                f"SELECT count(*) AS n, {agree} AS same{period_select} "
+                f"FROM (SELECT DISTINCT {', '.join(quote_ident(n) for n in names)} FROM src) "
+                f"WHERE {not_null} GROUP BY {group} HAVING count(*) > 1"
+            ).fetchall()
+            if not rows:
+                continue
+            conflict = KeyConflicts(columns=list(key.columns), keys=len(rows), rows=0)
+            for n, same, value in rows:
+                conflict.rows += int(n)
+                if same:
+                    conflict.near_identical_keys += 1
+                    conflict.near_identical_rows += int(n)
+                else:
+                    conflict.divergent_keys += 1
+                    conflict.divergent_rows += int(n)
+                if value is not None:
+                    label = str(value)
+                    conflict.by_period[label] = conflict.by_period.get(label, 0) + 1
+            found.append(conflict)
+        return found
+
+    def _compositions(
+        self, con: duckdb.DuckDBPyConnection, columns: list[ColumnProfile]
+    ) -> list[Composition]:
+        """A column named total next to numeric columns: the smallest set of them it is
+        the sum of on most rows, and the gap where it is not."""
+        numeric = [
+            c
+            for c in columns
+            if c.inferred.inferred_type in (InferredType.INTEGER, InferredType.DECIMAL)
+            and not is_identifier_name(c.name)
+            and not is_period_name(c.name)
+        ]
+        totals = [c for c in numeric if set(c.name.lower().replace("-", "_").split("_")) & _TOTALS]
+        found: list[Composition] = []
+        # The period of the rows: the best-filled integer column named like a period.
+        periods = [
+            c
+            for c in columns
+            if is_period_name(c.name) and c.inferred.inferred_type is InferredType.INTEGER
+        ]
+        period = min(periods, key=lambda c: c.null_count).name if periods else None
+        for total in totals[:2]:
+            parts = [c for c in numeric if c is not total][:_MAX_PARTS]
+            candidates = [list(combo) for size in (2, 3) for combo in combinations(parts, size)][
+                :_MAX_COMBINATIONS
+            ]
+            if not candidates:
+                continue
+
+            def value(name: str) -> str:
+                text = f"replace(CAST({quote_ident(name)} AS VARCHAR), ',', '.')"
+                return f"TRY_CAST({text} AS DOUBLE)"
+
+            t = value(total.name)
+            shares = ", ".join(
+                f"avg(CASE WHEN abs({t} - ({' + '.join(value(p.name) for p in combo)})) < 0.5 "
+                "THEN 1.0 ELSE 0.0 END) FILTER (WHERE "
+                + " AND ".join(f"{value(n.name)} IS NOT NULL" for n in [total, *combo])
+                + ")"
+                for combo in candidates
+            )
+            row = con.execute(f"SELECT {shares} FROM src").fetchone() or ()
+            scored = [
+                (float(share), combo)
+                for share, combo in zip(row, candidates, strict=True)
+                if share is not None and float(share) >= _COMPOSITION_MIN_SHARE
+            ]
+            if not scored:
+                continue
+            best = max(scored, key=lambda item: (item[0], -len(item[1])))[1]
+            summed = " + ".join(value(p.name) for p in best)
+            filled = " AND ".join(f"{value(n.name)} IS NOT NULL" for n in [total, *best])
+            group = f", {quote_ident(period)} AS p" if period else ", NULL AS p"
+            rows = con.execute(
+                f"SELECT count(*), count(*) FILTER (WHERE abs({t} - ({summed})) >= 0.5), "
+                f"sum({t} - ({summed})){group} FROM src WHERE {filled}"
+                + (f" GROUP BY {quote_ident(period)}" if period else "")
+            ).fetchall()
+            composition = Composition(
+                total=total.name,
+                parts=[p.name for p in best],
+                rows=0,
+                mismatched_rows=0,
+                gap=0.0,
+                period_column=period,
+            )
+            for count, mismatched, gap, label in rows:
+                composition.rows += int(count)
+                composition.mismatched_rows += int(mismatched or 0)
+                composition.gap += float(gap or 0)
+                if label is not None and gap:
+                    composition.by_period[str(label)] = float(gap)
+            found.append(composition)
+        return found
 
     def _entities(
         self,

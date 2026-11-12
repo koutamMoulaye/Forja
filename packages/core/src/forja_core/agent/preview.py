@@ -23,7 +23,7 @@ from typing import Any
 import duckdb
 
 from forja_core.agent.compile import CompiledMart
-from forja_core.agent.insight import MAX_POINTS, build_insight
+from forja_core.agent.insight import MAX_POINTS, MINUS, NARROW_SPACE, build_insight
 from forja_core.agent.models import Control, MartPreview
 from forja_core.agent.spec import MartSpec
 from forja_core.gold.plan import UNKNOWN_KEY
@@ -89,29 +89,9 @@ def build_preview(
     controls += _unknown_members(con, compiled, layer)
     controls += _time_coherence(con, compiled, spec, layer)
     controls += _empty_columns(con, compiled)
+    controls += _composition(con, compiled, spec, layer)
     if int(row_count) == 0:
-        if spec.period is not None:
-            covered = (
-                f" Les données couvrent du {data_range[0]:%d/%m/%Y} au {data_range[1]:%d/%m/%Y}."
-                if data_range
-                else ""
-            )
-            controls.append(
-                Control(
-                    code="empty_period",
-                    status="warning",
-                    message=f"Aucune donnée sur la période demandée ({spec.period.label or ''})."
-                    + covered,
-                    details={
-                        "data_start": data_range[0].isoformat() if data_range else None,
-                        "data_end": data_range[1].isoformat() if data_range else None,
-                    },
-                )
-            )
-        else:
-            controls.append(
-                Control(code="empty", status="warning", message="Le data mart est vide.")
-            )
+        controls.append(_empty(spec, layer, data_range))
     return MartPreview(
         row_count=int(row_count),
         columns=compiled.columns,
@@ -121,6 +101,58 @@ def build_preview(
         ],
         controls=controls,
         insight=insight,
+    )
+
+
+def _covered(data_range: tuple[date, date]) -> str:
+    start, end = data_range
+    if (start.month, start.day, end.month, end.day) == (1, 1, 12, 31):
+        return f"de {start.year} à {end.year}" if start.year != end.year else f"en {start.year}"
+    return f"du {start:%d/%m/%Y} au {end:%d/%m/%Y}"
+
+
+def _empty(spec: MartSpec, layer: SemanticLayer, data_range: tuple[date, date] | None) -> Control:
+    """No row: a blocking control that says why and what to try. An empty data mart is
+    never published as an answer."""
+    from forja_core.agent.summary import filter_text
+
+    reasons: list[str] = []
+    suggestions: list[str] = []
+    outside = (
+        spec.period is not None
+        and data_range is not None
+        and (
+            (spec.period.start is not None and spec.period.start > data_range[1])
+            or (spec.period.end is not None and spec.period.end < data_range[0])
+        )
+    )
+    if spec.period is not None:
+        label = spec.period.label or "la période demandée"
+        if outside and data_range is not None:
+            reasons.append(f"les données couvrent {_covered(data_range)}, pas {label}")
+            suggestions.append(f"Choisir une période {_covered(data_range)}")
+        else:
+            reasons.append(f"la période {label} ne garde aucune ligne avec ces filtres")
+            suggestions.append("Élargir la période")
+    for item in spec.filters:
+        text = filter_text(layer, item)
+        reasons.append(f"le filtre « {text} » est peut-être trop restrictif")
+        suggestions.append(f"Retirer le filtre « {text} »")
+    if not reasons:
+        reasons.append("le fait ne contient aucune ligne pour ces mesures")
+        suggestions.append("Relancer le chargement des données")
+    message = (
+        "Aucune ligne : " + "; ".join(reasons) + ". Ce data mart ne peut pas être publié vide."
+    )
+    return Control(
+        code="empty_period" if spec.period is not None and outside else "empty",
+        status="error",
+        message=message,
+        details={
+            "suggestions": suggestions,
+            "data_start": data_range[0].isoformat() if data_range else None,
+            "data_end": data_range[1].isoformat() if data_range else None,
+        },
     )
 
 
@@ -316,6 +348,77 @@ def _time_coherence(
             )
         )
     return controls
+
+
+def _composition(
+    con: duckdb.DuckDBPyConnection, compiled: CompiledMart, spec: MartSpec, layer: SemanticLayer
+) -> list[Control]:
+    """A total read next to its parts (or instead of them): whether the source agrees
+    with itself on this scope (total = payant + gratuit), and by how much it does not."""
+    asked = set(spec.metrics)
+    controls: list[Control] = []
+    for total in layer.metrics:
+        if not total.parts or total.fact != compiled.fact or total.column is None:
+            continue
+        if total.name not in asked and not asked & set(total.parts):
+            continue
+        parts = [m for m in (layer.metric(p) for p in total.parts) if m is not None]
+        columns = [m.column for m in parts if m.column is not None]
+        if len(columns) != len(total.parts):
+            continue
+        summed = " + ".join(f"coalesce(f.{quote_ident(c)}, 0)" for c in columns)
+        filled = " and ".join(f"f.{quote_ident(c)} is not null" for c in [total.column, *columns])
+        gap_sql = f"f.{quote_ident(total.column)} - ({summed})"
+        time_dim = layer.dimension(layer.default_time_dimension or "")
+        by_year: list[tuple[Any, Any]] = []
+        if time_dim is not None and time_dim.fact == compiled.fact and time_dim.fact_key:
+            by_year = con.execute(
+                f"select year(d.date), sum({gap_sql}) from ({compiled.base_sql}) as f "
+                f"left join dim_date as d on d.date_key = f.{quote_ident(time_dim.fact_key)} "
+                f"where {filled} group by 1 having sum({gap_sql}) <> 0 order by 1"
+            ).fetchall()
+        [(rows, gap)] = con.execute(
+            f"select count(*) filter (where {gap_sql} <> 0), sum({gap_sql}) "
+            f"from ({compiled.base_sql}) as f where {filled}"
+        ).fetchall()
+        names = " + ".join(p.label.lower() for p in parts if p)
+        if not rows:
+            controls.append(
+                Control(
+                    code="composition",
+                    status="ok",
+                    message=f"{total.label} = {names} sur toutes les lignes du périmètre.",
+                    details={"metric": total.name, "parts": total.parts},
+                )
+            )
+            continue
+        unit = f" {total.unit}" if total.unit and total.unit != "lignes" else ""
+        years = ", ".join(
+            f"{int(year)} : {_signed(float(value))}{unit}" for year, value in by_year if year
+        )
+        controls.append(
+            Control(
+                code="composition",
+                status="warning",
+                message=f"Dans les données sources, {total.label.lower()} ≠ {names} sur "
+                f"{rows} ligne(s) du périmètre : écart de {_signed(float(gap or 0))}{unit}"
+                + (f" ({years})" if years else "")
+                + ". Les totaux de ces mesures ne se recoupent donc pas exactement.",
+                details={
+                    "metric": total.name,
+                    "parts": total.parts,
+                    "rows": int(rows),
+                    "gap": float(gap or 0),
+                    "by_year": {str(int(y)): float(v) for y, v in by_year if y},
+                },
+            )
+        )
+    return controls
+
+
+def _signed(value: float) -> str:
+    text = f"{abs(value):,.0f}".replace(",", NARROW_SPACE)
+    return f"{'+' if value >= 0 else MINUS}{text}"
 
 
 def _empty_columns(con: duckdb.DuckDBPyConnection, compiled: CompiledMart) -> list[Control]:

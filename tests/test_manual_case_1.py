@@ -101,7 +101,11 @@ def test_mt13_unconvertible_values_quarantine_keys_only(
     assert year.rule(RuleKind.CASTABLE).enabled is True  # type: ignore[union-attr]
     assert "mises à vide" in individual.rules[0].explanation
     with duckdb.connect(str(state.generator.warehouse_path(project.id)), read_only=True) as con:
-        [(rejected,)] = con.execute(f"select count(*) from {plan.model_name}__rejects").fetchall()
+        # Rows set aside by the key (batch 2, MT-38) are not unconvertible values.
+        [(rejected,)] = con.execute(
+            f"select count(*) from {plan.model_name}__rejects "
+            "where _reject_reason not like 'clé primaire%' and _reject_reason not like 'doublon%'"
+        ).fetchall()
         [(kept,)] = con.execute(
             f"select count(*) from {plan.model_name} where individuel is null"
         ).fetchall()
@@ -116,7 +120,10 @@ def test_mt8_grain_is_entity_by_year(case: tuple[AppState, Project, str]) -> Non
     assert plan.primary_key.columns == ["IDMuseofile", "annee"]  # not two measures
     report = state.catalog.latest_profiles(project.id)[source_id]
     identifiability = next(c for c in report.quality.components if c.name == "identifiability")
-    assert identifiability.score == 1.0 and "entity x period" in identifiability.details
+    # Two keys of the file are in conflict (batch 2, MT-38): the key stays entity x year,
+    # near-unique, its conflicts shown before approval.
+    assert "IDMuseofile + annee" in identifiability.details
+    assert identifiability.score >= 0.5
 
 
 # --- Gold -----------------------------------------------------------------------------
@@ -205,7 +212,9 @@ def test_mt10_readable_labels(case: tuple[AppState, Project, str]) -> None:
     labels = {a.name: a.label for a in museum.attributes}
     assert labels["region"] == "Région" and labels["nom_du_musee"] == "Nom du musée"
     assert labels["dateappellation"] == "Date d'appellation"
-    assert layer.metric("nb_lignes").label == "Nombre de lignes"  # type: ignore[union-attr]
+    # Named by the grain and kept for engineers (batch 2, MT-33).
+    rows = layer.metric("nb_lignes")
+    assert rows is not None and rows.label == "Nombre d'enregistrements musée-année"
     request = _ask(state, project, "Fréquentation par région en 2023")
     preview = request.latest.preview  # type: ignore[union-attr]
     assert preview is not None
@@ -367,8 +376,11 @@ def test_mt18_answer_sentence_and_visual(case: tuple[AppState, Project, str]) ->
     assert [p.label for p in line.points][:2] == ["2013", "2014"]
     assert "de " in line.sentence and "soit" in line.sentence
 
-    table = _ask(state, project, "Fréquentation par musée").latest.preview.insight  # type: ignore[union-attr]
-    assert table is not None and table.visual == "table"  # more than 15 members
+    # More than 15 members: the first ten and « Autres » (batch 2, MT-27).
+    grouped = _ask(state, project, "Fréquentation par musée").latest.preview.insight  # type: ignore[union-attr]
+    assert grouped is not None and grouped.visual == "bars" and grouped.others > 0
+    table = _ask(state, project, "Fréquentation par région et par département").latest
+    assert table.preview.insight.visual == "table"  # type: ignore[union-attr]  # two axes
 
 
 def test_mt19_full_run_stops_cleanly_without_a_star_schema(

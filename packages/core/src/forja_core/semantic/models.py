@@ -73,6 +73,21 @@ class Metric(BaseModel):
     synonyms: list[str] = Field(default_factory=list)
     hidden: bool = False
     default: bool = Field(default=False, description="Always offered to the agent")
+    entity: str | None = Field(
+        default=None,
+        description="Count of an entity: the dimension whose members it counts (distinct "
+        "keys of the fact, the unknown member left out)",
+    )
+    parts: list[str] = Field(
+        default_factory=list,
+        description="Metrics this total is the sum of in the source (total = payant + "
+        "gratuit): the preview measures the gap when the source disagrees with itself",
+    )
+    technical: bool = Field(
+        default=False,
+        description="Shown to engineers only (the number of fact rows): analysts and the "
+        "agent do not see it",
+    )
 
 
 class Attribute(BaseModel):

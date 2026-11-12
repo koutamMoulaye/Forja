@@ -44,6 +44,13 @@ _ADJUST = frozenset(
     {"ajoute", "ajouter", "rajoute", "rajouter", "retire", "retirer", "enleve", "enlever",
      "supprime", "supprimer", "seulement", "uniquement", "remplace", "remplacer"}
 )  # fmt: skip
+# Everyday subjects no project data holds (unless its own vocabulary names them, which
+# is checked first): a clause about them is out of scope even when it names a value.
+_OFF_TOPIC = frozenset(
+    {"meteo", "pluie", "neige", "temperature", "climat", "heure", "actualite", "news",
+     "blague", "poeme", "horoscope", "recette", "traduire", "traduis", "traduction",
+     "actuelle", "actuel", "previsions", "prevision"}
+)  # fmt: skip
 # Words that do not make a request in scope on their own.
 _NEUTRAL = frozenset(
     {"bonjour", "salut", "merci", "stp", "svp", "please", "ok", "oui", "non", "hello"}
@@ -71,7 +78,15 @@ class Reading:
 
     @property
     def declined(self) -> list[str]:
-        return [c.text for c in self.of("out_of_scope")]
+        return [_without_link(c.text) for c in self.of("out_of_scope")]
+
+
+_LINK = re.compile(r"^(?:et|mais|puis|aussi|ensuite)\s+", re.IGNORECASE)
+
+
+def _without_link(text: str) -> str:
+    """« et donne-moi la météo » → « donne-moi la météo »: the clause as quoted back."""
+    return _LINK.sub("", text.strip()).strip()
 
 
 def _about(text: str) -> bool:
@@ -83,13 +98,27 @@ def _in_scope(
     text: str, vocabulary: Vocabulary, has_period: Callable[[str], bool], *, values: bool
 ) -> bool:
     """Whether the clause names something of the data: a metric, an axis, a date, a
-    period. A value alone (« Paris ») only when ``values``: with a language model to
-    read the rest; without one, it may be the city of a weather forecast."""
+    period. A value alone (« Paris ») when nothing else is left unexplained (« et à
+    Paris ? »); with a language model (``values``) to read the rest, also when the other
+    words are not about an everyday subject outside any data (« la météo actuelle à
+    Paris » is never a request, with or without a model)."""
     tokens = words(text)
-    for match in vocabulary.match(tokens):
-        if values or any(not ref.startswith("value:") for ref in match.refs):
-            return True
-    return has_period(text)
+    matches = vocabulary.match(tokens)
+    if any(not ref.startswith("value:") for match in matches for ref in match.refs):
+        return True
+    if has_period(text):
+        return True
+    covered = {i for match in matches for i in range(match.start, match.end + 1)}
+    leftover = [
+        t
+        for i, t in enumerate(tokens)
+        if i not in covered and t not in STOPWORDS and t not in _NEUTRAL and not t.isdigit()
+    ]
+    if not matches:
+        return False
+    if values:
+        return not (set(leftover) & _OFF_TOPIC)
+    return not leftover
 
 
 def _meaningful(text: str) -> bool:
@@ -127,6 +156,34 @@ def read_message(
     if not reading.clauses:
         reading.clauses.append(Clause(text, "data"))
     return reading
+
+
+# Words of a follow-up: « et par mois ? », « ajoute les entrées payantes », « la même
+# chose en 2022 », « seulement la Bretagne ».
+_FOLLOW_UP_START = frozenset({"et", "puis", "mais", "plutot", "maintenant", "ensuite"})
+_FOLLOW_UP = frozenset(
+    {"aussi", "seulement", "uniquement", "egalement", "ajoute", "ajouter", "rajoute",
+     "rajouter", "retire", "retirer", "enleve", "enlever", "supprime", "supprimer", "remplace",
+     "remplacer", "plutot", "idem", "pareil", "meme", "cela", "celui", "celle", "ceux",
+     "celles", "garde", "garder", "limite", "limiter", "affine", "precise"}
+)  # fmt: skip
+
+
+def is_new_question(text: str, *, metrics: int, framed: bool) -> bool:
+    """Whether a message sent in a conversation is a new question rather than an
+    adjustment of the current data mart: a complete sentence (a measure, and an axis, a
+    period or a time grain) with no follow-up word (« et », « aussi », « seulement »,
+    « ajoute », « retire », a pronoun). A new question inherits nothing: no filter, no
+    period, no sort, no limit of the previous one.
+
+    ``metrics``: measures the message names itself; ``framed``: whether it names an axis,
+    a period or a time grain."""
+    tokens = words(text)
+    if not tokens or tokens[0] in _FOLLOW_UP_START:
+        return False
+    if set(tokens) & _FOLLOW_UP:
+        return False
+    return metrics > 0 and framed
 
 
 def _content(text: str) -> list[str]:
@@ -169,7 +226,7 @@ def describe_data(
         lines.append(f"{intro} repose sur {noun} {files}.")
     else:
         lines.append(f"{intro} n'a pas encore de source.")
-    metrics = [m for m in layer.metrics if not m.hidden]
+    metrics = [m for m in layer.metrics if not m.hidden and not m.technical]
     if metrics:
         shown = ", ".join(
             m.label + (f" (en {m.unit})" if m.unit and m.unit not in ("lignes",) else "")
@@ -183,7 +240,16 @@ def describe_data(
             names = [
                 _lower_first(a.label) for a in dim.attributes if not a.hidden and a.pii is None
             ]
-            described.append(f"{dim.label} ({', '.join(names[:6])})" if names else dim.label)
+            text = f"{dim.label} ({', '.join(names[:6])})" if names else dim.label
+            for hierarchy in dim.hierarchies:
+                levels = [
+                    _lower_first(a.label)
+                    for level in hierarchy.levels
+                    if (a := dim.attribute(level)) is not None
+                ]
+                if len(levels) > 1:
+                    text += f", {hierarchy.label.lower()} {' > '.join(levels)}"
+            described.append(text)
         lines.append(f"Par : {' ; '.join(described)}.")
     times = []
     for dim in layer.time_dimensions():
@@ -217,6 +283,21 @@ def declined_sentence(parts: list[str]) -> str:
 
 def out_of_scope_reason(parts: list[str], layer: SemanticLayer) -> str:
     quoted = ", ".join(f"« {p} »" for p in parts) or "Cette demande"
-    metrics = [m.label.lower() for m in layer.metrics if not m.hidden][:3]
+    metrics = [m.label.lower() for m in layer.metrics if not m.hidden and not m.technical][:3]
     can = f" Je peux répondre sur {', '.join(metrics)}." if metrics else ""
     return f"{quoted} sort du périmètre des données de ce projet.{can}"
+
+
+# Words of the model's own vocabulary that an analyst should never read in a refusal.
+_JARGON = (
+    "couche semantique", "semantic layer", "schema", "metrique", "dimension fournie",
+    "fournie", "contexte fourni", "spec", "json", "selection", "preselection",
+)  # fmt: skip
+
+
+def plain_refusal(reason: str | None, layer: SemanticLayer) -> str:
+    """A refusal written by the language model, kept only when it reads plainly; one
+    mentioning the inner workings (« la couche sémantique fournie ») is rewritten."""
+    if reason and not any(j in normalize(reason) for j in _JARGON):
+        return reason
+    return out_of_scope_reason([], layer)

@@ -13,7 +13,7 @@ export const ADDITIVITY: Record<
 > = {
   additive: {
     label: "Additive",
-    description: "Se somme sur toutes les dimensions : mois, villes, produits.",
+    description: "Se somme sur toutes les dimensions.",
   },
   semi_additive: {
     label: "Semi-additive",
@@ -25,6 +25,65 @@ export const ADDITIVITY: Record<
     description: "Ne se somme jamais : recalculée à partir de ses composantes à chaque niveau.",
   },
 };
+
+const LEVELS: Record<string, string> = {
+  jour: "jours",
+  semaine: "semaines",
+  mois: "mois",
+  trimestre: "trimestres",
+  annee: "années",
+};
+
+function lower(text: string): string {
+  return text.charAt(1) && text.charAt(1) === text.charAt(1).toUpperCase()
+    ? text
+    : `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+}
+
+function pluralLabel(text: string): string {
+  const word = lower(text);
+  return /[sxz]$/.test(word) ? word : `${word}s`;
+}
+
+/** What the additivity of a metric means here, with the project's own dimensions
+ * (« se somme sur les années, les musées et les régions »), never a generic example. */
+export function additivityText(metric: SemanticMetric, layer: SemanticLayer): string {
+  const dims = (layer.dimensions ?? []).filter((d) => d.fact === metric.fact && !d.hidden);
+  const time = dims.filter((d) => d.kind === "time");
+  const others = dims.filter((d) => d.kind !== "time");
+  const levels = [
+    ...new Set(time.map((d) => LEVELS[d.time_level ?? "jour"] ?? "dates").filter(Boolean)),
+  ];
+  const attributes = others.flatMap((d) =>
+    (d.attributes ?? [])
+      .filter((a) => !a.hidden && !a.pii && (a.filterable || a.name === d.display_attribute))
+      .slice(0, 3)
+      .map((a) => (a.name === d.display_attribute ? pluralLabel(d.label) : pluralLabel(a.label))),
+  );
+  const join = (items: string[]) =>
+    items.length > 1 ? `${items.slice(0, -1).join(", ")} et ${items[items.length - 1]}` : items[0];
+  if (metric.additivity === "additive") {
+    const all = [...levels, ...attributes].slice(0, 5);
+    return all.length
+      ? `Se somme sur toutes les dimensions de ce projet : ${join(all)}.`
+      : ADDITIVITY.additive.description;
+  }
+  if (metric.additivity === "semi_additive") {
+    return attributes.length
+      ? `Se somme sur ${join(attributes.slice(0, 4))}, pas dans le temps${
+          levels.length ? ` (${join(levels)})` : ""
+        } : on lit la dernière valeur connue.`
+      : ADDITIVITY.semi_additive.description;
+  }
+  if (metric.entity) {
+    const entity = others.find((d) => d.name === metric.entity);
+    const noun = entity ? lower(entity.label) : "membre";
+    return `Ne se somme pas : un ${noun} présent sur plusieurs ${
+      levels[0] ?? "périodes"
+    } ou dans plusieurs groupes ne compte qu’une fois à chaque niveau.`;
+  }
+  return ADDITIVITY.non_additive.description;
+}
 
 const FORMATS: Record<string, string> = {
   currency: "Monétaire",
@@ -58,6 +117,8 @@ export type SemanticRow = {
   marts: number;
   hidden: boolean;
   description: string;
+  /** Engineers only (the number of fact rows). */
+  technical?: boolean;
 };
 
 /** Specs of the data marts that are not drafts, to count where an element is used. */
@@ -77,6 +138,7 @@ export function metricRows(layer: SemanticLayer, marts: MartRequest[]): Semantic
     id: metric.name,
     formula: metric.formula,
     kind: ADDITIVITY[metric.additivity].label,
+    technical: metric.technical ?? false,
     synonyms: metric.synonyms ?? [],
     marts: used.filter((spec) => spec.metrics.includes(metric.name)).length,
     hidden: metric.hidden ?? false,

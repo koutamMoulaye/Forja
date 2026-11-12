@@ -63,7 +63,8 @@ def _check_dimension(issues: _Issues, dim: Dimension, ctx: GoldContext, taken: s
     if source is None:
         issues.error(
             "unknown_source",
-            f"{dim.name} : la source « {dim.source} » n'a pas de table Silver construite",
+            f"{dim.name} : la source « {dim.source} » n'a pas de table Silver construite "
+            f"(sources : {', '.join(sorted(ctx.sources))})",
             location,
         )
         return
@@ -127,7 +128,8 @@ def _fact_tables(fact: Fact, ctx: GoldContext, issues: _Issues) -> dict[str, set
     if base is None:
         issues.error(
             "unknown_source",
-            f"{fact.name} : la source « {fact.source} » n'a pas de table Silver construite",
+            f"{fact.name} : la source « {fact.source} » n'a pas de table Silver construite "
+            f"(sources : {', '.join(sorted(ctx.sources))})",
             location,
         )
         return None
