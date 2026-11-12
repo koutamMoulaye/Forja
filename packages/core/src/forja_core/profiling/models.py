@@ -63,6 +63,12 @@ class TypeInference(BaseModel):
     max_decimals: int | None = Field(
         default=None, description="Most fractional digits seen in a decimal column"
     )
+    sentinels: list[str] = Field(
+        default_factory=list,
+        description="Placeholders written instead of a value (Inconnu, NC, N/A), as written; "
+        "left out of the type inference",
+    )
+    sentinel_count: int = Field(default=0, description="Rows holding one of the placeholders")
 
 
 class TopValue(BaseModel):
@@ -104,6 +110,26 @@ class ColumnProfile(BaseModel):
 class CandidateKey(BaseModel):
     columns: list[str]
     kind: Literal["simple", "composite"]
+    uniqueness: float = Field(
+        default=1.0,
+        ge=0,
+        le=1,
+        description="Distinct combinations / distinct rows; below 1 for a near-unique key "
+        "whose few conflicting rows will be quarantined",
+    )
+
+
+class EntityAttributes(BaseModel):
+    """Columns that repeat the same value for each value of a key: the attributes of an
+    entity stored on every row of a denormalized file (a museum's city on each year)."""
+
+    key: str = Field(description="Source column identifying the entity")
+    entities: int = Field(description="Distinct values of the key")
+    attributes: list[str] = Field(description="Columns with one value per key, in source order")
+    conflicts: dict[str, int] = Field(
+        default_factory=dict,
+        description="Keys holding more than one value, by attribute (a few are tolerated)",
+    )
 
 
 class DuplicateStats(BaseModel):
@@ -138,6 +164,11 @@ class ProfileReport(BaseModel):
     column_count: int
     columns: list[ColumnProfile]
     candidate_keys: list[CandidateKey]
+    entities: list[EntityAttributes] = Field(
+        default_factory=list,
+        description="Attributes repeated for each value of an identifier (one row per "
+        "entity and period, say): candidates for a dimension",
+    )
     duplicates: DuplicateStats
     pii: list[PiiDetection]
     quality: QualityScore

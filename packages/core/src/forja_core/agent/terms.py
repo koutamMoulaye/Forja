@@ -49,16 +49,20 @@ def _metric_choices(spec: MartSpec, layer: SemanticLayer, index: int) -> list[Ch
     return choices
 
 
-def _grain_choices(spec: MartSpec) -> list[Choice]:
+_LEVELS = (TimeGrain.DAY, TimeGrain.WEEK, TimeGrain.MONTH, TimeGrain.QUARTER, TimeGrain.YEAR)
+
+
+def _level(spec: MartSpec, layer: SemanticLayer) -> TimeGrain:
+    """The finest level of the date the spec reads (a year column: the year)."""
+    dim = layer.dimension(spec.time_dimension) if spec.time_dimension else None
+    return dim.time_level if dim is not None and dim.time_level else TimeGrain.DAY
+
+
+def _grain_choices(spec: MartSpec, layer: SemanticLayer) -> list[Choice]:
+    finest = _LEVELS.index(_level(spec, layer))
     choices: list[Choice] = [
         (f"par {_GRAINS[grain]}", spec.model_copy(update={"time_grain": grain}))
-        for grain in (
-            TimeGrain.DAY,
-            TimeGrain.WEEK,
-            TimeGrain.MONTH,
-            TimeGrain.QUARTER,
-            TimeGrain.YEAR,
-        )
+        for grain in _LEVELS[finest:]
     ]
     choices.append(("sans découpage dans le temps", spec.model_copy(update={"time_grain": None})))
     return choices
@@ -88,13 +92,19 @@ def _axis_choices(spec: MartSpec, layer: SemanticLayer, index: int) -> list[Choi
     return choices
 
 
-def _period_choices(spec: MartSpec, data_range: tuple[date, date] | None) -> list[Choice]:
+def _period_choices(
+    spec: MartSpec, layer: SemanticLayer, data_range: tuple[date, date] | None
+) -> list[Choice]:
     choices: list[Choice] = []
+    yearly = _level(spec, layer) is TimeGrain.YEAR
     if data_range is not None:
-        for year in range(data_range[0].year, data_range[1].year + 1):
+        # The most recent years first: they are the ones asked about.
+        for year in range(data_range[1].year, data_range[0].year - 1, -1):
             period = Period(start=date(year, 1, 1), end=date(year, 12, 31), label=str(year))
-            choices.append((f"sur {year}", spec.model_copy(update={"period": period})))
+            choices.append((f"en {year}", spec.model_copy(update={"period": period})))
             for quarter in range(1, 5):
+                if yearly:
+                    break  # a year column holds no quarter
                 start = date(year, 3 * quarter - 2, 1)
                 if start > data_range[1] or date(year, 3 * quarter, 28) < data_range[0]:
                     continue
@@ -178,11 +188,11 @@ def choices(
         case "metric":
             found = _metric_choices(spec, layer, term.index)
         case "grain":
-            found = _grain_choices(spec)
+            found = _grain_choices(spec, layer)
         case "axis":
             found = _axis_choices(spec, layer, term.index)
         case "period":
-            found = _period_choices(spec, data_range)
+            found = _period_choices(spec, layer, data_range)
         case "filter":
             found = _filter_choices(spec, layer, term.index, values)
         case "limit":

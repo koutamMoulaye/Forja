@@ -29,7 +29,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Segmented } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { api, unwrap } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/cn";
 import { formatDecimal, formatInteger, formatWhen, plural } from "@/lib/format";
 import { springs } from "@/lib/motion";
@@ -136,7 +136,10 @@ export function PlanReviewScreen({ sourceId }: { sourceId: string }) {
       if (moved(error)) return;
       toast.error({
         title: "Décision non enregistrée",
-        description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+        description:
+          error instanceof ApiError
+            ? frenchMessage(error.code, error.message)
+            : "Réessayez dans un instant.",
       });
     },
     onSuccess: (data) => {
@@ -162,7 +165,10 @@ export function PlanReviewScreen({ sourceId }: { sourceId: string }) {
       if (moved(error)) throw error;
       toast.error({
         title: "Modification refusée",
-        description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+        description:
+          error instanceof ApiError
+            ? frenchMessage(error.code, error.message)
+            : "Réessayez dans un instant.",
       });
       throw error;
     }
@@ -186,7 +192,10 @@ export function PlanReviewScreen({ sourceId }: { sourceId: string }) {
       if (moved(error)) return;
       toast.error({
         title: "Approbation refusée",
-        description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+        description:
+          error instanceof ApiError
+            ? frenchMessage(error.code, error.message)
+            : "Réessayez dans un instant.",
       });
     },
   });
@@ -211,7 +220,10 @@ export function PlanReviewScreen({ sourceId }: { sourceId: string }) {
     onError: (error) =>
       toast.error({
         title: "Nettoyage non lancé",
-        description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+        description:
+          error instanceof ApiError
+            ? frenchMessage(error.code, error.message)
+            : "Réessayez dans un instant.",
       }),
   });
 

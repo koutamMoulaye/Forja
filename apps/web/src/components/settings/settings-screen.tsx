@@ -45,7 +45,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Segmented } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { api, unwrap } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { ConnectorHosts } from "./connector-hosts";
 import { cn } from "@/lib/cn";
 import { invitationLink } from "@/lib/auth/invitation";
@@ -69,7 +69,10 @@ function failure(title: string) {
   return (error: unknown) =>
     toast.error({
       title,
-      description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+      description:
+        error instanceof ApiError
+          ? frenchMessage(error.code, error.message)
+          : "Réessayez dans un instant.",
     });
 }
 

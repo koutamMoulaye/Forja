@@ -28,6 +28,25 @@ Chaque étape coûteuse est un **run** (`mart_request`, `publish_mart`) : `POST`
 (`progress.step` : `preselection`, `llm`, `validation`, `preview`, `dbt`, `serving`), le
 run s'annule par `POST /runs/{id}/cancel` (l'appel en cours au modèle est interrompu).
 
+## 0. Intention du message
+
+Avant tout, `forja_core.agent.intents` découpe le message en propositions (ponctuation,
+« et la… ») et dit de quoi chacune parle, sans modèle de langage :
+
+- **demande de données** : elle nomme une métrique, un axe, une date, une période, ou un
+  verbe d'ajustement (« ajoute », « retire », « seulement ») ; elle va au parseur ;
+- **question sur les données** (« ce cas parle de quoi ? », « quelles données as-tu ? ») :
+  réponse déterministe écrite depuis la couche sémantique et les sources (fichiers,
+  lignes, mesures et leurs unités, axes, dates et années couvertes, exemples que le
+  parseur comprend) ; la version `answered` ne crée pas de data mart ;
+- **hors périmètre** (« la météo à Paris ») : refus poli avec ce que Forja sait mesurer.
+  Une valeur seule (« Paris ») ne suffit pas sans LLM ; avec un LLM, elle laisse le
+  modèle trancher.
+
+Un message mixte est découpé : la partie sur les données est traitée, le reste écarté en
+une phrase ajoutée au résumé. Un message hors sujet n'affine jamais le data mart et ne
+bloque jamais la version prête : la demande reste « aperçu prêt ».
+
 ## 1. Présélection locale
 
 `forja_core.agent.vocabulary` indexe les libellés, synonymes et noms des métriques,
@@ -170,7 +189,28 @@ Contrôles (`ok`, `info`, `warning`, `error`) :
 - **membre inconnu** : part des lignes du fait rattachées au membre « inconnu » (-1)
   d'une dimension utilisée (`warning` si non nulle) ;
 - **colonnes vides** : entièrement (`warning`) ou partiellement (`info`) ;
-- **période vide** : `warning` avec la période couverte par les données.
+- **période vide** : `warning` avec la période couverte par les données ;
+- **cohérence temporelle** : la réconciliation compare le data mart au fait *sur le même
+  périmètre* et ne voit donc pas un périmètre lu sur la mauvaise date. `warning` si la date
+  filtrée est remplie sur moins de 50 % des lignes du fait, ou si elle retient moins d'un
+  cinquième des lignes que la date la mieux remplie donne sur la même période.
+
+**Date lue.** Une période ou un découpage portent sur la **date principale** du fait,
+choisie avec le modèle Gold (dans le grain, la plus remplie). Si la période n'a pas de
+données sur elle mais en a sur une autre date du fait, l'agent demande laquelle. Le
+résumé nomme toujours la date lue : « Fréquentation par région, en 2023 (année de
+fréquentation). » Une date annuelle n'offre ni mois ni trimestre : un découpage plus fin
+est ramené à l'année, et dit.
+
+**Réponse dans la conversation** (`preview.insight`). Quand l'aperçu est prêt, la
+conversation montre une phrase calculée du résultat (`agent/insight.py` : total, part du
+premier, trois premiers, évolution d'une courbe ; jamais écrite par le LLM, qui ne voit
+aucune valeur), un visuel choisi par la forme du résultat (tuile pour une valeur, courbe
+pour un axe de temps seul, barres horizontales triées jusqu'à 15 membres, tableau
+au-delà), les dix premières lignes dépliables et les actions : ouvrir l'aperçu, valider
+et publier (Power BI, Superset, CSV, Parquet), exporter, affiner. Les valeurs
+personnelles y sont pseudonymisées selon le rôle, comme dans l'échantillon. Graphiques :
+décision D33.
 
 ## 7. Cycle de vie
 

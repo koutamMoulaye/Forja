@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toast } from "@/components/ui/toast";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import {
   removeSchedule,
   saveSchedule,
@@ -77,7 +77,10 @@ export function ConnectionsScreen() {
   const [open, setOpen] = useState<string | null>(null);
 
   const failure = (title: string) => (error: unknown) =>
-    toast.error({ title, description: error instanceof ApiError ? error.message : undefined });
+    toast.error({
+      title,
+      description: error instanceof ApiError ? frenchMessage(error.code, error.message) : undefined,
+    });
 
   const list = connections.data ?? [];
   const subtitle = connections.data
@@ -452,7 +455,8 @@ function ScheduleEditor({
     } catch (error) {
       toast.error({
         title: "Planification impossible",
-        description: error instanceof ApiError ? error.message : undefined,
+        description:
+          error instanceof ApiError ? frenchMessage(error.code, error.message) : undefined,
       });
     } finally {
       setSaving(false);

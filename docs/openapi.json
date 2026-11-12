@@ -698,6 +698,14 @@
             ],
             "title": "Kind",
             "type": "string"
+          },
+          "uniqueness": {
+            "default": 1.0,
+            "description": "Distinct combinations / distinct rows; below 1 for a near-unique key whose few conflicting rows will be quarantined",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Uniqueness",
+            "type": "number"
           }
         },
         "required": [
@@ -832,6 +840,12 @@
       "ClarificationOption": {
         "additionalProperties": false,
         "properties": {
+          "detail": {
+            "default": "",
+            "description": "Where it comes from, in small print: « Musée · axe d'analyse », « colonne annee »",
+            "title": "Detail",
+            "type": "string"
+          },
           "label": {
             "description": "What the user reads",
             "title": "Label",
@@ -1048,6 +1062,14 @@
               "$ref": "#/components/schemas/ValidityRule"
             },
             "title": "Rules",
+            "type": "array"
+          },
+          "sentinels": {
+            "description": "Placeholders found at profiling (inconnu, nc...), treated as empty while they are among the null values",
+            "items": {
+              "type": "string"
+            },
+            "title": "Sentinels",
             "type": "array"
           },
           "source_column": {
@@ -2076,9 +2098,27 @@
             "title": "Explanation",
             "type": "string"
           },
+          "grain": {
+            "default": "day",
+            "description": "day: a date or timestamp column; year, quarter, month: an integer column (2023, 20231, 202301) linked to the first day of its period",
+            "enum": [
+              "day",
+              "month",
+              "quarter",
+              "year"
+            ],
+            "title": "Grain",
+            "type": "string"
+          },
           "name": {
             "description": "Column of the fact holding the dim_date key (YYYYMMDD)",
             "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "default": "",
+            "description": "Business name of this date for the fact, in French (« fréquentation », « appellation »)",
+            "title": "Role",
             "type": "string"
           },
           "source": {
@@ -2248,6 +2288,24 @@
             "default": "",
             "title": "Explanation",
             "type": "string"
+          },
+          "extracted": {
+            "default": false,
+            "description": "Entity taken out of a denormalized source (its attributes repeated on every row): one row per natural key, the latest row giving the attributes; the natural key is then a part of the source key, not the whole of it",
+            "title": "Extracted",
+            "type": "boolean"
+          },
+          "latest_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Extracted dimension: column ordering the rows of a key, the latest wins",
+            "title": "Latest By"
           },
           "name": {
             "description": "dim_<entity>",
@@ -2438,6 +2496,44 @@
         "title": "EndpointSelection",
         "type": "object"
       },
+      "EntityAttributes": {
+        "description": "Columns that repeat the same value for each value of a key: the attributes of an\nentity stored on every row of a denormalized file (a museum's city on each year).",
+        "properties": {
+          "attributes": {
+            "description": "Columns with one value per key, in source order",
+            "items": {
+              "type": "string"
+            },
+            "title": "Attributes",
+            "type": "array"
+          },
+          "conflicts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Keys holding more than one value, by attribute (a few are tolerated)",
+            "title": "Conflicts",
+            "type": "object"
+          },
+          "entities": {
+            "description": "Distinct values of the key",
+            "title": "Entities",
+            "type": "integer"
+          },
+          "key": {
+            "description": "Source column identifying the entity",
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "entities",
+          "attributes"
+        ],
+        "title": "EntityAttributes",
+        "type": "object"
+      },
       "ExportFormat": {
         "enum": [
           "parquet",
@@ -2534,6 +2630,18 @@
             "description": "fct_<process>",
             "title": "Name",
             "type": "string"
+          },
+          "primary_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Name of the main date key: the one a period (« en 2023 ») filters on, the most filled and the closest to the grain",
+            "title": "Primary Date"
           },
           "source": {
             "description": "Silver source at the grain of the fact",
@@ -3275,6 +3383,133 @@
         ],
         "title": "IngestMode",
         "type": "string"
+      },
+      "Insight": {
+        "description": "The answer in the conversation: a sentence and the data of its visual.",
+        "properties": {
+          "alt": {
+            "description": "Text alternative of the visual",
+            "title": "Alt",
+            "type": "string"
+          },
+          "axis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Column of the axis shown, if any",
+            "title": "Axis"
+          },
+          "axis_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Axis Label"
+          },
+          "format": {
+            "default": "decimal",
+            "title": "Format",
+            "type": "string"
+          },
+          "metric": {
+            "description": "Column of the metric shown",
+            "title": "Metric",
+            "type": "string"
+          },
+          "metric_label": {
+            "title": "Metric Label",
+            "type": "string"
+          },
+          "points": {
+            "description": "Chart data: bars sorted, line in time order",
+            "items": {
+              "$ref": "#/components/schemas/InsightPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "sentence": {
+            "description": "Computed from the result, in French",
+            "title": "Sentence",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Total of an additive metric",
+            "title": "Total"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "visual": {
+            "enum": [
+              "kpi",
+              "line",
+              "bars",
+              "table"
+            ],
+            "title": "Visual",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sentence",
+          "visual",
+          "metric",
+          "metric_label",
+          "alt"
+        ],
+        "title": "Insight",
+        "type": "object"
+      },
+      "InsightPoint": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "InsightPoint",
+        "type": "object"
       },
       "Invitation": {
         "properties": {
@@ -4152,6 +4387,24 @@
             ],
             "title": "Additivity"
           },
+          "detail": {
+            "default": "",
+            "description": "Where it comes from (dimension, date), for tooltips",
+            "title": "Detail",
+            "type": "string"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Metric: currency, integer, decimal or percent",
+            "title": "Format"
+          },
           "kind": {
             "enum": [
               "axis",
@@ -4161,6 +4414,7 @@
             "type": "string"
           },
           "label": {
+            "description": "Business name, as read: « Région », « Fréquentation »",
             "title": "Label",
             "type": "string"
           },
@@ -4183,6 +4437,18 @@
           "ref": {
             "title": "Ref",
             "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Metric: unit of its values (EUR, entrées...), none for a number",
+            "title": "Unit"
           }
         },
         "required": [
@@ -4252,6 +4518,18 @@
       },
       "MartIteration": {
         "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A question about the data answered from the semantic layer and the sources (« ce cas parle de quoi ? »), without a data mart",
+            "title": "Answer"
+          },
           "clarification": {
             "anyOf": [
               {
@@ -4430,6 +4708,7 @@
               "clarification",
               "refused",
               "previewed",
+              "answered",
               "failed"
             ],
             "title": "Status",
@@ -4483,6 +4762,17 @@
             },
             "title": "Controls",
             "type": "array"
+          },
+          "insight": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Insight"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The answer shown in the conversation: a sentence computed from the result and the data of its visual (personal values pseudonymized)"
           },
           "pseudonymized": {
             "items": {
@@ -6208,6 +6498,14 @@
             "description": "Time spent profiling",
             "title": "Duration Ms"
           },
+          "entities": {
+            "description": "Attributes repeated for each value of an identifier (one row per entity and period, say): candidates for a dimension",
+            "items": {
+              "$ref": "#/components/schemas/EntityAttributes"
+            },
+            "title": "Entities",
+            "type": "array"
+          },
           "pii": {
             "items": {
               "$ref": "#/components/schemas/PiiDetection"
@@ -7112,7 +7410,8 @@
           "format",
           "exclude",
           "deduplicate",
-          "primary_key"
+          "primary_key",
+          "sentinel"
         ],
         "title": "ReviewRuleKind",
         "type": "string"
@@ -7835,6 +8134,18 @@
             "title": "Attributes",
             "type": "array"
           },
+          "column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Time dimension: the fact column it reads, shown in details only",
+            "title": "Column"
+          },
           "description": {
             "default": "",
             "title": "Description",
@@ -7903,6 +8214,12 @@
             "title": "Name",
             "type": "string"
           },
+          "primary": {
+            "default": false,
+            "description": "Time dimension: the main date of its fact, the one a period filters on",
+            "title": "Primary",
+            "type": "boolean"
+          },
           "synonyms": {
             "items": {
               "type": "string"
@@ -7926,6 +8243,17 @@
             ],
             "description": "Key column of the dimension",
             "title": "Table Key"
+          },
+          "time_level": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimeGrain"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Time dimension: the finest level it holds (annee for a year column)"
           }
         },
         "required": [
@@ -9304,6 +9632,20 @@
           "physical_type": {
             "title": "Physical Type",
             "type": "string"
+          },
+          "sentinel_count": {
+            "default": 0,
+            "description": "Rows holding one of the placeholders",
+            "title": "Sentinel Count",
+            "type": "integer"
+          },
+          "sentinels": {
+            "description": "Placeholders written instead of a value (Inconnu, NC, N/A), as written; left out of the type inference",
+            "items": {
+              "type": "string"
+            },
+            "title": "Sentinels",
+            "type": "array"
           }
         },
         "required": [

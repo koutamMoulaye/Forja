@@ -95,7 +95,7 @@ test("canvas screenshot and the journey of the README", { tag: "@media" }, async
   await home.keyboard.press("Enter");
   await expect(home).toHaveURL(/\/ask\/[^/]+$/);
   await film.roll(home, 6, 150);
-  await expect(home.getByTestId("ready-card")).toBeVisible({ timeout: 60_000 });
+  await expect(home.getByTestId("answer-card")).toBeVisible({ timeout: 60_000 });
   await home.waitForTimeout(400);
   await film.shot(home, 2000);
   await home.getByRole("link", { name: "Ouvrir l’aperçu" }).click();

@@ -39,6 +39,7 @@ class ReviewRuleKind(StrEnum):
     EXCLUDE = "exclude"
     DEDUPLICATE = "deduplicate"
     PRIMARY_KEY = "primary_key"
+    SENTINEL = "sentinel"
 
 
 class ReviewRule(BaseModel):
@@ -221,6 +222,24 @@ def review_rules(plan: TransformationPlan) -> list[ReviewRule]:
         )
 
     for column in included:
+        placeholders = [v for v in column.sentinels if v in column.cast.null_values]
+        if column.from_text and placeholders:
+            shown = ", ".join(f"« {v} »" for v in placeholders)
+            rules.append(
+                ReviewRule(
+                    id=f"sentinel:{column.source_column}",
+                    kind=ReviewRuleKind.SENTINEL,
+                    title=f"Traiter comme vide : {shown}",
+                    explanation=(
+                        f"{shown} remplace une valeur absente dans {column.target_column} : "
+                        "la cellule devient vide au lieu d'être lue comme une donnée."
+                    ),
+                    columns=[column.source_column],
+                    confidence=ConfidenceLevel.HIGH,
+                )
+            )
+
+    for column in included:
         if column.pii_type is not None:
             rules.append(_pii_rule(column))
         for validity in column.rules:
@@ -329,6 +348,12 @@ def rejection_patch(plan: TransformationPlan) -> PlanPatch | None:
                 patch.deduplicate = False
             case ReviewRuleKind.PRIMARY_KEY:
                 patch.primary_key = []
+            case ReviewRuleKind.SENTINEL:
+                current = plan.column(rule.columns[0])
+                assert current is not None
+                column(rule.columns[0]).null_values = [
+                    v for v in current.cast.null_values if v not in current.sentinels
+                ]
             case ReviewRuleKind.PII:  # pragma: no cover - refused when recorded
                 pass
     return patch

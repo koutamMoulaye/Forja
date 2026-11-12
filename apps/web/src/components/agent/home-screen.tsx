@@ -8,7 +8,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toast } from "@/components/ui/toast";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { useAgentActions, useAgentOverview, useConversations } from "@/lib/agent/queries";
 import {
   businessDescription,
@@ -116,7 +116,10 @@ export function HomeScreen() {
       onError: (error) =>
         toast.error({
           title: "Question non envoyée",
-          description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+          description:
+            error instanceof ApiError
+              ? frenchMessage(error.code, error.message)
+              : "Réessayez dans un instant.",
         }),
     });
 

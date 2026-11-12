@@ -14,19 +14,23 @@ from forja_core.config import Settings
 from forja_core.errors import ProfilingError
 from forja_core.logging import get_logger
 from forja_core.models import TECHNICAL_COLUMNS
+from forja_core.profiling.grain import key_rank
 from forja_core.profiling.models import (
     CandidateKey,
     ColumnProfile,
     DuplicateStats,
+    EntityAttributes,
     InferredType,
     PiiDetection,
     ProfileReport,
     TopValue,
     TypeInference,
 )
+from forja_core.profiling.naming import is_identifier_name, is_period_name
 from forja_core.profiling.pii import detect_pii
 from forja_core.profiling.quality import compute_quality
 from forja_core.profiling.types import (
+    SENTINEL_VALUES,
     ValueCounts,
     infer_text_type,
     inferred_from_physical,
@@ -42,6 +46,15 @@ _KEY_ELIGIBLE = frozenset(
     {InferredType.INTEGER, InferredType.STRING, InferredType.DATE, InferredType.DATETIME}
 )
 _MAX_COMPOSITE_KEYS = 10
+# A near key: an identifier with at most 5 % blanks, unique with its partner on 99 % of
+# the rows.
+QUASI_KEY_MAX_NULLS = 0.05
+QUASI_KEY_MIN_UNIQUENESS = 0.99
+# An entity key repeats (each value on several rows: at most half as many values as
+# rows); an attribute may disagree on 2 % of the entities (typing noise in exports).
+ENTITY_MAX_SHARE = 0.5
+ENTITY_MAX_CONFLICTS = 0.02
+ENTITY_MAX_KEYS = 3
 
 
 def _pct(part: int, total: int) -> float:
@@ -122,6 +135,7 @@ class Profiler:
 
         duplicates = self._duplicates(con, row_count)
         keys = self._candidate_keys(con, columns, row_count, duplicates)
+        entities = self._entities(con, columns, row_count, keys, stats)
         quality = compute_quality(columns, duplicates, keys, pii)
         report = ProfileReport(
             source_id=source_id,
@@ -131,6 +145,7 @@ class Profiler:
             column_count=len(columns),
             columns=columns,
             candidate_keys=keys,
+            entities=entities,
             duplicates=duplicates,
             pii=pii,
             quality=quality,
@@ -199,6 +214,19 @@ class Profiler:
                     f"GROUP BY 1 ORDER BY c DESC, v LIMIT {self.settings.profiling_sample_size}"
                 ).fetchall()
             ]
+            if len(values) >= self.settings.profiling_sample_size:
+                # Many distinct values: a rare placeholder may be past the limit.
+                seen = {v for v, _ in values}
+                markers = ", ".join(sql_literal(m) for m in sorted(SENTINEL_VALUES))
+                values += [
+                    (str(v), int(c))
+                    for v, c in con.execute(
+                        f"SELECT {value_sql} AS v, count(*) AS c FROM {stats} "
+                        f"WHERE NOT {null_cond} AND lower(replace({value_sql}, ' ', '')) "
+                        f"IN ({markers}) GROUP BY 1"
+                    ).fetchall()
+                    if str(v) not in seen
+                ]
             inference = infer_text_type(values, self.settings.profiling_type_threshold, name=name)
         else:
             inference = TypeInference(
@@ -329,6 +357,7 @@ class Profiler:
         distinct_rows = row_count - duplicates.duplicate_rows
         if distinct_rows < 2:
             return []
+        by_name = {c.name: c for c in columns}
         eligible = [
             c for c in columns if c.null_count == 0 and c.inferred.inferred_type in _KEY_ELIGIBLE
         ]
@@ -344,10 +373,21 @@ class Profiler:
             key=lambda c: c.distinct_count,
             reverse=True,
         )[: self.settings.profiling_max_key_columns]
+        # An identifier with a few blanks still makes an entity x period grain with a
+        # period column (one row per entity and year): it is tried as a near key.
+        nearly = [
+            c
+            for c in columns
+            if 0 < c.null_count <= QUASI_KEY_MAX_NULLS * row_count
+            and c.inferred.inferred_type in _KEY_ELIGIBLE
+            and is_identifier_name(c.name)
+            and c not in pool
+        ]
+        pool += nearly
         pairs = [
             (a, b)
             for a, b in combinations(pool, 2)
-            if a.distinct_count * b.distinct_count >= distinct_rows
+            if a.distinct_count * b.distinct_count >= distinct_rows * QUASI_KEY_MIN_UNIQUENESS
         ]
         if not pairs:
             return keys
@@ -355,9 +395,90 @@ class Profiler:
             f"count(DISTINCT row({quote_ident(a.name)}, {quote_ident(b.name)}))" for a, b in pairs
         )
         row = con.execute(f"SELECT {expressions} FROM src").fetchone() or ()
-        composite = [
-            CandidateKey(columns=[a.name, b.name], kind="composite")
-            for (a, b), distinct in zip(pairs, row, strict=True)
-            if int(distinct) == distinct_rows
-        ]
-        return keys + composite[:_MAX_COMPOSITE_KEYS]
+        exact: list[CandidateKey] = []
+        near: list[CandidateKey] = []
+        for (a, b), distinct in zip(pairs, row, strict=True):
+            share = int(distinct) / distinct_rows
+            if int(distinct) == distinct_rows and not a.null_count and not b.null_count:
+                exact.append(CandidateKey(columns=[a.name, b.name], kind="composite"))
+            elif share >= QUASI_KEY_MIN_UNIQUENESS and (
+                is_identifier_name(a.name) or is_identifier_name(b.name)
+            ):
+                near.append(
+                    CandidateKey(
+                        columns=[a.name, b.name],
+                        kind="composite",
+                        uniqueness=round(min(share, 0.9999), 4),
+                    )
+                )
+        ranked = sorted(exact, key=lambda k: key_rank(k.columns, by_name))
+        ranked += sorted(near, key=lambda k: (key_rank(k.columns, by_name), -k.uniqueness))
+        return keys + ranked[:_MAX_COMPOSITE_KEYS]
+
+    def _entities(
+        self,
+        con: duckdb.DuckDBPyConnection,
+        columns: list[ColumnProfile],
+        row_count: int,
+        keys: list[CandidateKey],
+        stats: str,
+    ) -> list[EntityAttributes]:
+        """For each repeated identifier, the columns holding one value per identifier.
+
+        Placeholders (« Inconnu ») and blanks are not values: a closure year empty for
+        the early years and filled afterwards still depends on the entity.
+        """
+        if row_count < 2:
+            return []
+        in_keys = {name for k in keys if k.kind == "composite" for name in k.columns}
+        determinants = [
+            c
+            for c in columns
+            if 1 < c.distinct_count <= row_count * ENTITY_MAX_SHARE
+            and c.null_count <= QUASI_KEY_MAX_NULLS * row_count
+            and c.inferred.inferred_type in _KEY_ELIGIBLE
+            and (is_identifier_name(c.name) or c.name in in_keys)
+            and not is_period_name(c.name)
+            and c.inferred.inferred_type not in _TEMPORAL
+        ][:ENTITY_MAX_KEYS]
+        markers = ", ".join(sql_literal(m) for m in sorted(SENTINEL_VALUES))
+        found: list[EntityAttributes] = []
+        for key in determinants:
+            others = [c for c in columns if c.name != key.name and c.distinct_count > 0]
+            if not others:
+                continue
+            values = []
+            for other in others:
+                ident = quote_ident(other.name)
+                text = f"nullif(trim(CAST({ident} AS VARCHAR)), '')"
+                values.append(
+                    f"count(DISTINCT CASE WHEN lower(replace({text}, ' ', '')) IN ({markers}) "
+                    f"THEN NULL ELSE {text} END) AS {quote_ident('n_' + other.name)}"
+                )
+            conflicts = ", ".join(
+                f"count(*) FILTER (WHERE {quote_ident('n_' + o.name)} > 1)" for o in others
+            )
+            row = con.execute(
+                f"SELECT count(*), {conflicts} FROM (SELECT {', '.join(values)} FROM {stats} "
+                f"WHERE {quote_ident(key.name)} IS NOT NULL GROUP BY {quote_ident(key.name)})"
+            ).fetchone()
+            if not row or not row[0]:
+                continue
+            entities = int(row[0])
+            attributes: list[str] = []
+            tolerated: dict[str, int] = {}
+            for other, count in zip(others, row[1:], strict=True):
+                if int(count) <= entities * ENTITY_MAX_CONFLICTS and other.distinct_count > 1:
+                    attributes.append(other.name)
+                    if count:
+                        tolerated[other.name] = int(count)
+            if attributes:
+                found.append(
+                    EntityAttributes(
+                        key=key.name,
+                        entities=entities,
+                        attributes=attributes,
+                        conflicts=tolerated,
+                    )
+                )
+        return found

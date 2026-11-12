@@ -8,8 +8,10 @@ from dataclasses import dataclass
 from forja_core.catalog import Catalog
 from forja_core.errors import GoldProposalError, PlanStateError, PlanValidationError
 from forja_core.gold.context import GoldContext, build_gold_context
+from forja_core.gold.dates import complete_dates
 from forja_core.gold.explain import refresh_explanations
 from forja_core.gold.heuristic import propose_heuristic
+from forja_core.gold.naming import process_label
 from forja_core.gold.plan import GoldModel, GoldPlan, GoldPlanPatch, ValidationIssue
 from forja_core.gold.validation import link_relations, validate_model
 from forja_core.jobs.scope import report
@@ -35,6 +37,16 @@ class GoldProposer:
 
     def propose(self, ctx: GoldContext, feedback: list[str]) -> GoldModel:
         raise NotImplementedError
+
+
+def _complete(model: GoldModel, ctx: GoldContext) -> GoldModel:
+    """Main dates and date roles a proposal left out, decided as the heuristic does."""
+    facts = []
+    for fact in model.facts:
+        source = ctx.sources.get(fact.source)
+        process = process_label(fact.source, source.columns if source else [])
+        facts.append(complete_dates(fact, source, process))
+    return model.model_copy(update={"facts": facts})
 
 
 def _issue_lines(issues: list[ValidationIssue]) -> list[str]:
@@ -113,7 +125,7 @@ class GoldPlanService:
     ) -> GoldPlan:
         previous = self.catalog.latest_gold_plan(project_id)
         now = utcnow()
-        linked = link_relations(model, ctx)
+        linked = link_relations(_complete(model, ctx), ctx)
         plan = GoldPlan(
             **linked.model_dump(),
             id=uuid.uuid4().hex,

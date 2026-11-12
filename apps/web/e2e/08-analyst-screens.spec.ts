@@ -88,7 +88,7 @@ test("home: greeting, freshness, suggestions the agent answers at once", async (
   // A suggestion goes straight to a preview: the parser understands it alone.
   await chips.first().click();
   await expect(page).toHaveURL(/\/ask\/[^/]+$/);
-  await expect(page.getByTestId("ready-card")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("answer-card")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("preparation-meta")).toContainText("Réponse immédiate");
   await expect(page.getByTestId("recent-conversations")).toBeVisible();
 });
@@ -100,7 +100,7 @@ test("an engineer's simple question: preview, CSV destination, approved by anoth
   const projectId = await asEngineer(page);
   await page.goto(`/projects/${projectId}/home`);
   await ask(page, "Quantité vendue par catégorie");
-  await expect(page.getByTestId("ready-card")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("answer-card")).toBeVisible({ timeout: 30_000 });
   await openPreview(page);
   await page.getByRole("radio", { name: /Fichier CSV/ }).click();
   await page.getByRole("button", { name: "Valider et publier" }).click();
@@ -148,7 +148,7 @@ test("ambiguous question: options with counts, a term corrected, a refinement, a
   await expect(page.getByTestId("synonym-offer")).toBeVisible();
   await page.getByRole("button", { name: "Proposer ce synonyme" }).click();
   await expect(page.getByTestId("synonym-offer")).toHaveCount(0);
-  await expect(page.getByTestId("ready-card")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("answer-card")).toBeVisible({ timeout: 30_000 });
   await captureThemes(page, "agent-ready");
   await openPreview(page);
   await captureThemes(page, "preview");
@@ -208,7 +208,7 @@ test("an engineer rejects with a reason; the analyst reads it", async ({ page, b
   test.setTimeout(120_000);
   await asAnalyst(page);
   await ask(page, "Panier moyen par segment");
-  await expect(page.getByTestId("ready-card")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("answer-card")).toBeVisible({ timeout: 30_000 });
   await openPreview(page);
   await page.getByRole("button", { name: "Valider et publier" }).click();
   await expect(page.getByTestId("awaiting-approval")).toBeVisible();
@@ -239,7 +239,7 @@ test("out of scope: a clean refusal, with what Forja can measure", async ({ page
   await expect(refusal).toContainText(/Chiffre d.affaires/);
   await captureThemes(page, "agent-refusal");
   await refusal.getByTestId("suggestions").getByRole("button").first().click();
-  await expect(page.getByTestId("ready-card")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("answer-card")).toBeVisible({ timeout: 30_000 });
 });
 
 test("a long job: progress, leaving the screen, a notice at the end", async ({ page }) => {
@@ -291,7 +291,7 @@ test("tablet: the agent and the preview at 1024 px, dark (S9)", async ({ page })
   await page.evaluate(() => document.fonts.ready);
   await capture(page, "tablet-agent-dark");
   await page.getByTestId("clarify-option").first().click();
-  await expect(page.getByTestId("ready-card")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("answer-card")).toBeVisible({ timeout: 30_000 });
   await openPreview(page);
   const box = await page.getByTestId("destinations").boundingBox();
   expect(box && box.x + box.width).toBeLessThanOrEqual(1024);

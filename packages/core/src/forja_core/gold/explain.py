@@ -37,7 +37,26 @@ def _dimension(dim: Dimension) -> str:
             "d'attribut crée une nouvelle version et les faits pointent vers la version "
             "valide à leur date."
         )
+    if dim.extracted:
+        order = f" (selon {dim.latest_by})" if dim.latest_by else ""
+        text = (
+            f"Entité extraite de {dim.source}, qui répète ses attributs sur chaque ligne : une "
+            f"ligne par {key}, attributs de la ligne la plus récente{order}, clé de "
+            f"substitution {dim.surrogate_key}, membre « inconnu » ({UNKNOWN_KEY}). "
+        )
+        levels = _hierarchy(dim)
+        if levels:
+            text += f"Hiérarchie géographique : {' > '.join(levels)}. "
     return text + "SCD1 : les attributs sont écrasés par leur dernière valeur."
+
+
+_GEOGRAPHY = ("ville", "commune", "departement", "region", "pays")
+
+
+def _hierarchy(dim: Dimension) -> list[str]:
+    """Geographic levels among the attributes, from the finest to the coarsest."""
+    names = {a.name for a in dim.attributes}
+    return [level for level in _GEOGRAPHY if level in names]
 
 
 def _fact(fact: Fact) -> str:
@@ -51,6 +70,14 @@ def _fact(fact: Fact) -> str:
         f"({UNKNOWN_KEY}) : aucune ligne de fait n'est perdue."
     )
     return " ".join(parts)
+
+
+_LEVELS = {
+    "day": "au jour",
+    "month": "au mois (premier jour du mois)",
+    "quarter": "au trimestre (premier jour du trimestre)",
+    "year": "à l'année (1er janvier de l'année)",
+}
 
 
 def refresh_explanations(plan: GoldPlan) -> GoldPlan:
@@ -73,13 +100,19 @@ def refresh_explanations(plan: GoldPlan) -> GoldPlan:
                 else fk.dimension
             )
             fk.explanation = (
-                f"{fk.name} → {fk.dimension} via la relation confirmée "
+                f"{fk.name} → {fk.dimension} par {fk.source}.{fk.column} (entité extraite de la "
+                "même source)."
+                if target_dim is not None and target_dim.extracted
+                else f"{fk.name} → {fk.dimension} via la relation confirmée "
                 f"{fk.source}.{fk.column} → {target}."
             )
         for date_key in fact.date_keys:
+            level = _LEVELS[date_key.grain]
+            main = " Date principale du fait." if date_key.name == fact.primary_date else ""
+            role = f" ({date_key.role})" if date_key.role else ""
             date_key.explanation = (
-                f"{date_key.name} → {DATE_DIMENSION} (clé AAAAMMJJ) à partir de "
-                f"{date_key.source}.{date_key.column}."
+                f"{date_key.name}{role} → {DATE_DIMENSION} (clé AAAAMMJJ) à partir de "
+                f"{date_key.source}.{date_key.column}, {level}.{main}"
             )
         for measure in fact.measures:
             measure.explanation = (

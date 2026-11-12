@@ -3,6 +3,7 @@ that survive regeneration, synonym proposals, and local lookups of attribute val
 
 from __future__ import annotations
 
+import calendar
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -25,6 +26,7 @@ from forja_core.semantic.models import (
     SemanticLayer,
     SemanticOverride,
     SynonymProposal,
+    TimeGrain,
 )
 from forja_core.semantic.text import key
 from forja_core.silver.dbt.project import DbtProjectGenerator
@@ -328,4 +330,15 @@ class SemanticService:
                 f"SELECT min(d.date), max(d.date) FROM {quote_ident(dim.fact)} f "
                 f"JOIN dim_date d ON d.date_key = f.{quote_ident(dim.fact_key)}"
             ).fetchall()
-        return None if first is None else (first, last)
+        if first is None:
+            return None
+        # A year (month, quarter) column is keyed on the first day of its period: the
+        # data covers the whole of the last one.
+        if dim.time_level is TimeGrain.YEAR:
+            last = date(last.year, 12, 31)
+        elif dim.time_level is TimeGrain.QUARTER:
+            month = last.month + 2
+            last = date(last.year, month, calendar.monthrange(last.year, month)[1])
+        elif dim.time_level is TimeGrain.MONTH:
+            last = date(last.year, last.month, calendar.monthrange(last.year, last.month)[1])
+        return first, last

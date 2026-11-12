@@ -150,6 +150,8 @@ export function agentHeadline(iteration: MartIteration): string {
       return "Data mart préparé";
     case "refused":
       return "Je ne peux pas répondre à cette demande";
+    case "answered":
+      return "Réponse sur les données";
     case "failed":
       return cancelled(iteration) ? "Préparation annulée" : "La préparation a échoué";
   }

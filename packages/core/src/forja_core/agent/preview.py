@@ -6,7 +6,12 @@
   multiplied or lost;
 - share of fact rows attached to an unknown member of a dimension used;
 - columns that are entirely or partly empty;
-- a warning when the period holds no data, with the period the data covers.
+- a warning when the period holds no data, with the period the data covers;
+- semantic coherence of the time filter: the reconciliation compares the mart with the
+  fact on the same scope, so it cannot see a scope read on the wrong date. A warning
+  when the date filtered on is filled on less than half of the fact rows, or when it
+  keeps a small share of the rows the best-filled date of the fact gives for the same
+  period.
 """
 
 from __future__ import annotations
@@ -18,6 +23,7 @@ from typing import Any
 import duckdb
 
 from forja_core.agent.compile import CompiledMart
+from forja_core.agent.insight import MAX_POINTS, build_insight
 from forja_core.agent.models import Control, MartPreview
 from forja_core.agent.spec import MartSpec
 from forja_core.gold.plan import UNKNOWN_KEY
@@ -28,6 +34,10 @@ from forja_core.silver.plan import PiiTreatment
 from forja_core.utils import quote_ident
 
 _TOLERANCE = 1e-6
+# Below these shares, the date read is doubtful: filled on less than half of the rows,
+# or keeping less than a fifth of what the best-filled date keeps on the period.
+MIN_DATE_FILL = 0.5
+MIN_PERIOD_SHARE = 0.2
 
 
 def _number(value: Any) -> float:
@@ -51,25 +61,33 @@ def build_preview(
 ) -> MartPreview:
     """``treatments``: by column name, how personal columns are shown to this reader."""
     [(row_count,)] = con.execute(f"select count(*) from ({compiled.sql})").fetchall()
-    cursor = con.execute(f"select * from ({compiled.sql}) limit {int(sample_rows)}")
-    names = [d[0] for d in cursor.description or []]
-    raw_rows = cursor.fetchall()
     pii = {c.name: c.pii for c in compiled.columns if c.pii}
-    rows: list[dict[str, Any]] = []
-    for raw in raw_rows:
-        row: dict[str, Any] = {}
-        for name, value in zip(names, raw, strict=True):
-            if name in pii and value is not None:
-                treatment = treatments.get(name, PiiTreatment.HASH)
-                if treatment is PiiTreatment.MASK:
-                    value = mask(str(value), pii[name])
-                elif treatment is not PiiTreatment.NONE:
-                    value = pseudonymize(str(value), salt)
-            row[name] = json_safe(value)
-        rows.append(row)
+
+    def shown(limit: int) -> list[dict[str, Any]]:
+        """Rows as this reader may see them: personal values treated by role."""
+        cursor = con.execute(f"select * from ({compiled.sql}) limit {int(limit)}")
+        names = [d[0] for d in cursor.description or []]
+        rows: list[dict[str, Any]] = []
+        for raw in cursor.fetchall():
+            row: dict[str, Any] = {}
+            for name, value in zip(names, raw, strict=True):
+                if name in pii and value is not None:
+                    treatment = treatments.get(name, PiiTreatment.HASH)
+                    if treatment is PiiTreatment.MASK:
+                        value = mask(str(value), pii[name])
+                    elif treatment is not PiiTreatment.NONE:
+                        value = pseudonymize(str(value), salt)
+                row[name] = json_safe(value) if not isinstance(value, date) else value
+            rows.append(row)
+        return rows
+
+    full = shown(MAX_POINTS) if int(row_count) <= MAX_POINTS else shown(sample_rows)
+    insight = build_insight(compiled.columns, full, int(row_count), spec, layer)
+    rows = [{k: json_safe(v) for k, v in row.items()} for row in full[: int(sample_rows)]]
 
     controls = _reconciliation(con, compiled, spec, layer)
     controls += _unknown_members(con, compiled, layer)
+    controls += _time_coherence(con, compiled, spec, layer)
     controls += _empty_columns(con, compiled)
     if int(row_count) == 0:
         if spec.period is not None:
@@ -102,6 +120,7 @@ def build_preview(
             n for n in pii if treatments.get(n, PiiTreatment.HASH) is not PiiTreatment.NONE
         ],
         controls=controls,
+        insight=insight,
     )
 
 
@@ -192,6 +211,108 @@ def _unknown_members(
                     else f"Toutes les lignes sont rattachées à un membre de {dim.label.lower()}."
                 ),
                 details={"dimension": dim.name, "rows": int(count), "share": round(share, 4)},
+            )
+        )
+    return controls
+
+
+def _date_fill(con: duckdb.DuckDBPyConnection, fact: str, key: str) -> tuple[int, int]:
+    """Fact rows with a known date on ``key``, and all fact rows."""
+    [(filled, total)] = con.execute(
+        f"select count(*) filter (where {quote_ident(key)} <> -1), count(*) "
+        f"from {quote_ident(fact)}"
+    ).fetchall()
+    return int(filled), int(total)
+
+
+def _rows_in_period(
+    con: duckdb.DuckDBPyConnection, fact: str, key: str, start: date | None, end: date | None
+) -> int:
+    conditions = ["d.date_key <> -1"]
+    if start is not None:
+        conditions.append(f"d.date >= DATE '{start.isoformat()}'")
+    if end is not None:
+        conditions.append(f"d.date <= DATE '{end.isoformat()}'")
+    [(count,)] = con.execute(
+        f"select count(*) from {quote_ident(fact)} f join dim_date d "
+        f"on d.date_key = f.{quote_ident(key)} where {' and '.join(conditions)}"
+    ).fetchall()
+    return int(count)
+
+
+def _time_coherence(
+    con: duckdb.DuckDBPyConnection, compiled: CompiledMart, spec: MartSpec, layer: SemanticLayer
+) -> list[Control]:
+    """Whether the date the period or the grain reads is a sound one for this fact."""
+    if spec.time_dimension is None or (spec.period is None and spec.time_grain is None):
+        return []
+    used = layer.dimension(spec.time_dimension)
+    if used is None or used.fact_key is None:
+        return []
+    dates = [d for d in layer.time_dimensions() if d.fact == compiled.fact and d.fact_key]
+    fills = {d.name: _date_fill(con, compiled.fact, d.fact_key or "") for d in dates}
+    filled, total = fills.get(used.name, (0, 0))
+    if not total:
+        return []
+    share = filled / total
+    controls: list[Control] = []
+    column = f" (colonne {used.column})" if used.column else ""
+    details: dict[str, object] = {
+        "time_dimension": used.name,
+        "column": used.column,
+        "filled_share": round(share, 4),
+    }
+    if share < MIN_DATE_FILL:
+        better = max(
+            (d for d in dates if d.name != used.name),
+            key=lambda d: fills[d.name][0],
+            default=None,
+        )
+        hint = (
+            f" La {better.label.lower()} est remplie sur "
+            f"{fills[better.name][0] / total:.0%} des lignes."
+            if better is not None and fills[better.name][0] > filled
+            else ""
+        )
+        controls.append(
+            Control(
+                code="time_coherence",
+                status="warning",
+                message=f"Le filtre temporel s'appuie sur « {used.label} »{column}, remplie sur "
+                f"{share:.0%} seulement des lignes du fait : les autres lignes sont écartées."
+                + hint,
+                details=details,
+            )
+        )
+    if spec.period is not None and len(dates) > 1:
+        kept = _rows_in_period(
+            con, compiled.fact, used.fact_key, spec.period.start, spec.period.end
+        )
+        best = max(dates, key=lambda d: fills[d.name][0])
+        if best.name != used.name and best.fact_key:
+            reference = _rows_in_period(
+                con, compiled.fact, best.fact_key, spec.period.start, spec.period.end
+            )
+            if reference and kept / reference < MIN_PERIOD_SHARE:
+                details |= {"rows": kept, "reference_rows": reference, "reference": best.name}
+                controls.append(
+                    Control(
+                        code="time_coherence",
+                        status="warning",
+                        message=f"Sur {spec.period.label or 'la période'}, « {used.label} » ne "
+                        f"retient que {kept} ligne(s) du fait, contre {reference} selon "
+                        f"« {best.label} » : vérifiez la date utilisée.",
+                        details=details,
+                    )
+                )
+    if not controls:
+        controls.append(
+            Control(
+                code="time_coherence",
+                status="ok",
+                message=f"Période lue sur « {used.label} »{column}, remplie sur {share:.0%} des "
+                "lignes du fait.",
+                details=details,
             )
         )
     return controls

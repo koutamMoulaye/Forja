@@ -16,6 +16,7 @@ import uuid
 from collections.abc import Callable
 from datetime import date
 from decimal import Decimal
+from difflib import get_close_matches
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -23,6 +24,13 @@ import duckdb
 
 from forja_core import duck
 from forja_core.agent.compile import CompiledMart, compile_spec
+from forja_core.agent.intents import (
+    SourceSummary,
+    declined_sentence,
+    describe_data,
+    out_of_scope_reason,
+    read_message,
+)
 from forja_core.agent.interpreter import InterpretationError, InterpretRequest, MartInterpreter
 from forja_core.agent.models import (
     AgentOverview,
@@ -38,7 +46,13 @@ from forja_core.agent.models import (
     SummaryPart,
     TermCorrection,
 )
-from forja_core.agent.parser import ParseOutcome, clarification, parse, refine
+from forja_core.agent.parser import (
+    ParseOutcome,
+    clarification,
+    mentions_period,
+    parse,
+    refine,
+)
 from forja_core.agent.preselect import preselect
 from forja_core.agent.preview import build_preview
 from forja_core.agent.spec import AgentAnswer, Clarification, MartSpec
@@ -73,7 +87,7 @@ from forja_core.locks import WarehouseLocks
 from forja_core.logging import get_logger
 from forja_core.models import ColumnSchema
 from forja_core.profiling.models import PiiType
-from forja_core.semantic.models import SemanticLayer
+from forja_core.semantic.models import SemanticLayer, TimeGrain
 from forja_core.semantic.service import SemanticService, visible
 from forja_core.semantic.text import key, words
 from forja_core.serving import Publisher
@@ -308,7 +322,8 @@ class MartService:
         self, mart_id: str, principal: Principal, choice: MartValidation | None = None
     ) -> tuple[MartRequest, Job | None]:
         request = self._owned(mart_id, principal)
-        latest = request.latest
+        self._busy(request)
+        latest = request.previewed
         if request.status is not MartStatus.PREVIEWED or latest is None or latest.preview is None:
             raise PlanStateError("validate a request once its preview is ready")
         errors = [c for c in latest.preview.controls if c.status == "error"]
@@ -468,17 +483,41 @@ class MartService:
         )
         default_year = data_range[1].year if data_range else today.year
         base = request.current_spec if iteration.refines else None
+        text = iteration.effective
+        declined: list[str] = []
+        about: str | None = None
+        if iteration.kind in ("question", "refinement") and iteration.proposed is None:
+            reading = read_message(
+                text,
+                vocabulary,
+                has_period=lambda part: mentions_period(part, today),
+                known=self._known(layer),
+                values_in_scope=self.interpreter is not None,
+            )
+            declined = reading.declined
+            if reading.of("about"):
+                about = self._describe(request.project_id, layer, values, today, default_year)
+            if not reading.data:
+                self._answer_only(request, iteration, layer, about, declined, log_line)
+                job.result = {
+                    "mart_request_id": request.id,
+                    "version": iteration.version,
+                    "status": iteration.status,
+                }
+                return RunMetrics()
+            if declined or about is not None:
+                text = reading.data  # only the part about the data is interpreted
         if base is not None:
             outcome = refine(
-                base, iteration.effective, layer, vocabulary,
+                base, text, layer, vocabulary,
                 values=values, bindings=request.bindings, today=today,
             )  # fmt: skip
         else:
             outcome = parse(
-                iteration.effective, layer, vocabulary, values=values,
+                text, layer, vocabulary, values=values,
                 bindings=request.bindings, today=today, default_year=default_year,
             )  # fmt: skip
-        matches = vocabulary.match(words(iteration.effective))
+        matches = vocabulary.match(words(text))
         selection = preselect(
             layer, matches, unknown_words=outcome.unknown, base=base, bindings=request.bindings
         )
@@ -501,7 +540,7 @@ class MartService:
                     InterpretRequest(
                         project_id=request.project_id,
                         project_name=self.catalog.get_project(request.project_id).name,
-                        instruction=iteration.effective,
+                        instruction=text,
                         selection=selection,
                         today=today.isoformat(),
                         base=base,
@@ -529,6 +568,13 @@ class MartService:
             answer = self._fallback(layer, outcome)
         report("validation", "validation et compilation", 70)
         self._apply(request, iteration, answer, layer, data_range, log_line)
+        if declined and iteration.status == "previewed":
+            # The part of the message about something else is said to be left aside.
+            sentence = declined_sentence(declined)
+            iteration.summary = f"{iteration.summary} {sentence}"
+            iteration.summary_parts.append(SummaryPart(text=f" {sentence}"))
+        if about is not None:
+            iteration.answer = about
         request.updated_at = utcnow()
         self.catalog.save_mart_request(request)
         job.result = {
@@ -539,6 +585,80 @@ class MartService:
             "context_tokens": iteration.context_tokens,
         }
         return RunMetrics()
+
+    def _known(self, layer: SemanticLayer) -> Callable[[str], bool]:
+        """Whether a word is close to the business vocabulary (a typo, a plural): the
+        clause holding it is then about the data, and the agent asks what it means."""
+        vocabulary = {
+            word
+            for metric in layer.metrics
+            for text in (metric.label, *metric.synonyms)
+            for word in key(text)
+        } | {
+            word
+            for dim in layer.dimensions
+            for attribute in dim.attributes
+            for text in (attribute.label, *attribute.synonyms)
+            for word in key(text)
+        }
+        candidates = [w for w in vocabulary if len(w) > 3]
+
+        def known(word: str) -> bool:
+            return bool(get_close_matches(word, candidates, n=1, cutoff=0.8))
+
+        return known
+
+    def _describe(
+        self,
+        project_id: str,
+        layer: SemanticLayer,
+        values: dict[str, list[str]],
+        today: date,
+        default_year: int,
+    ) -> str:
+        project = self.catalog.get_project(project_id)
+        sources = [
+            SourceSummary(
+                name=s.name, filename=s.original_filename, rows=s.row_count, columns=s.column_count
+            )
+            for s in self.catalog.list_sources(project_id)
+        ]
+        examples = suggestions(
+            layer, Vocabulary.build(layer, values), values, self._lookup(layer),
+            today=today, default_year=default_year,
+        )  # fmt: skip
+        return describe_data(
+            layer,
+            sources,
+            project=project.name,
+            description=project.description,
+            ranges=self._date_ranges(layer),
+            examples=examples,
+        )
+
+    def _answer_only(
+        self,
+        request: MartRequest,
+        iteration: MartIteration,
+        layer: SemanticLayer,
+        about: str | None,
+        declined: list[str],
+        log_line: Callable[[str], None],
+    ) -> None:
+        """A message with no request for data: answered, or declined. The version
+        prepared before stays as it was, ready to validate."""
+        iteration.path = AgentPath.PARSER
+        if about is not None:
+            iteration.status = "answered"
+            iteration.answer = about + (f" {declined_sentence(declined)}" if declined else "")
+            log_line("answered: question about the data")
+        else:
+            iteration.status = "refused"
+            iteration.refusal = out_of_scope_reason(declined, layer)
+            log_line(f"refusal: {iteration.refusal}")
+        request.status = MartStatus.PREVIEWED if request.current_spec else MartStatus.DRAFTED
+        request.updated_at = utcnow()
+        self.catalog.save_mart_request(request)
 
     def _fallback(self, layer: SemanticLayer, outcome: ParseOutcome) -> AgentAnswer:
         """Without a language model: ask about the unknown word, or refuse."""
@@ -605,7 +725,9 @@ class MartService:
         previous = request.current_spec
         fallback_status = MartStatus.PREVIEWED if previous is not None else MartStatus.DRAFTED
         if answer.kind == "mart" and answer.mart is not None:
-            validation = validate_spec(answer.mart, layer, self._lookup(layer))
+            validation = validate_spec(
+                answer.mart, layer, self._lookup(layer), self._date_ranges(layer)
+            )
             if validation.spec is not None and validation.fact is not None:
                 self._preview(
                     request, iteration, validation.spec, validation.fact, layer, data_range,
@@ -628,7 +750,7 @@ class MartService:
                 iteration.option_counts = [
                     self._option_count(layer, option.ref) for option in cleaned.options
                 ]
-                request.status = MartStatus.DRAFTED
+                request.status = fallback_status
                 log_line(f"clarification: {cleaned.question}")
                 return
             answer = AgentAnswer(
@@ -668,13 +790,29 @@ class MartService:
                 total = self.semantic.scalar(layer.project_id, compiled.sql)
                 if not isinstance(total, int | float | Decimal):
                     return None
-                return OptionCount(value=float(total), format=metric.format.value)
+                unit = metric.unit if metric.unit not in (None, "EUR", "lignes") else ""
+                return OptionCount(value=float(total), unit=unit or "", format=metric.format.value)
         except (duckdb.Error, ForjaError) as exc:
             log.warning("option_count_failed", ref=ref, error=str(exc))
         return None
 
     def _lookup(self, layer: SemanticLayer) -> Callable[..., list[str]]:
         return lambda dim, attribute: self.semantic.distinct_values(layer, dim, attribute)
+
+    def _date_ranges(self, layer: SemanticLayer) -> Callable[[str], tuple[date, date] | None]:
+        """The dates each time dimension covers, read once per request."""
+        cache: dict[str, tuple[date, date] | None] = {}
+
+        def covered(name: str) -> tuple[date, date] | None:
+            if name not in cache:
+                try:
+                    cache[name] = self.semantic.date_range(layer, name)
+                except (duckdb.Error, ForjaError) as exc:
+                    log.warning("date_range_failed", time_dimension=name, error=str(exc))
+                    cache[name] = None
+            return cache[name]
+
+        return covered
 
     def _treatments(
         self, request: MartRequest, compiled: CompiledMart, layer: SemanticLayer
@@ -707,6 +845,8 @@ class MartService:
         data_range: tuple[date, date] | None,
         notes: list[str] | None = None,
     ) -> None:
+        if spec.time_dimension and spec.time_dimension != layer.default_time_dimension:
+            data_range = self._date_ranges(layer)(spec.time_dimension)
         compiled = compile_spec(spec, layer, fact)
         report("preview", "calcul de l'aperçu et des contrôles", 85)
         warehouse = self.generator.warehouse_path(request.project_id)
@@ -761,7 +901,7 @@ class MartService:
         if self.settings.mart_require_approval and request.approved_at is None:
             raise PlanStateError("an engineer must approve the request before publication")
         spec = request.current_spec
-        latest = request.latest
+        latest = request.previewed
         if spec is None or latest is None:
             raise PlanStateError("the request has no previewed specification")
         layer = visible(self.semantic.current(request.project_id))
@@ -959,6 +1099,16 @@ def _keep_local_findings(answer: AgentAnswer, outcome: ParseOutcome) -> AgentAns
         update["filters"] = [*spec.filters, *missing]
     if spec.period is None and local.period is not None:
         update["period"] = local.period
+    period = spec.period or local.period
+    single_year = (
+        period is not None
+        and period.start is not None
+        and period.end is not None
+        and period.start.year == period.end.year
+    )
+    if single_year and local.time_grain is None and spec.time_grain is TimeGrain.YEAR:
+        # « en 2023 »: a year said alone filters, it is not an axis of one value.
+        update["time_grain"] = None
     if not update:
         return answer
     return answer.model_copy(update={"mart": spec.model_copy(update=update)})

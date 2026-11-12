@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Segmented } from "@/components/ui/tabs";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/cn";
 import {
   createConnection,
@@ -185,7 +185,9 @@ export function DatabaseWizard({
             </p>
             {submit.error ? (
               <p role="alert" className="m-0 text-ui text-err-fg">
-                {submit.error instanceof ApiError ? submit.error.message : "Import impossible."}
+                {submit.error instanceof ApiError
+                  ? frenchMessage(submit.error.code, submit.error.message)
+                  : "Import impossible."}
               </p>
             ) : null}
           </div>

@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import {
   createConnection,
   importObjects,
@@ -398,7 +398,9 @@ export function ApiWizard({
             </p>
             {submit.error ? (
               <p role="alert" className="m-0 text-ui text-err-fg">
-                {submit.error instanceof ApiError ? submit.error.message : "Import impossible."}
+                {submit.error instanceof ApiError
+                  ? frenchMessage(submit.error.code, submit.error.message)
+                  : "Import impossible."}
               </p>
             ) : null}
           </div>
@@ -593,7 +595,9 @@ function PreviewPanel({
   if (error) {
     return (
       <p role="alert" className="m-0 rounded-xl bg-err-bg px-4 py-3 text-ui text-err-fg">
-        {error instanceof ApiError ? error.message : "Aperçu impossible."}
+        {error instanceof ApiError
+          ? frenchMessage(error.code, error.message)
+          : "Aperçu impossible."}
       </p>
     );
   }

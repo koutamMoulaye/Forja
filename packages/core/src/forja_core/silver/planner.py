@@ -14,6 +14,7 @@ from typing import Any
 from forja_core.config import Settings
 from forja_core.errors import PlanValidationError
 from forja_core.models import Source
+from forja_core.profiling.grain import is_measure_key, key_rank
 from forja_core.profiling.models import (
     ColumnProfile,
     ConfidenceLevel,
@@ -22,7 +23,13 @@ from forja_core.profiling.models import (
     ProfileReport,
 )
 from forja_core.profiling.pii import column_tokens
-from forja_core.profiling.types import BOOLEAN_FALSE, BOOLEAN_TRUE, ISO8601, inferred_from_physical
+from forja_core.profiling.types import (
+    BOOLEAN_FALSE,
+    BOOLEAN_TRUE,
+    ISO8601,
+    inferred_from_physical,
+    sentinel_key,
+)
 from forja_core.silver.explain import refresh_explanations
 from forja_core.silver.plan import (
     DEFAULT_NULL_VALUES,
@@ -138,9 +145,12 @@ def _cast_spec(column: ColumnProfile, target: SilverType) -> CastSpec:
     inferred = column.inferred
     # Null markers such as "N/A" only make sense where a value is parsed: in a text
     # column, "NA" may well be data (the country code of Namibia).
-    if not inferred.from_text or target is SilverType.VARCHAR:
+    if not inferred.from_text:
         return CastSpec(null_values=[])
-    spec = CastSpec()
+    sentinels = [sentinel_key(v) for v in inferred.sentinels]
+    if target is SilverType.VARCHAR:
+        return CastSpec(null_values=sentinels)
+    spec = CastSpec(null_values=list(dict.fromkeys([*DEFAULT_NULL_VALUES, *sentinels])))
     if target in (SilverType.DATE, SilverType.TIMESTAMP):
         spec.date_format = inferred.format
     elif target in NUMERIC_TYPES:
@@ -226,11 +236,14 @@ def _default_column(
         pii_level=pii.level if pii else None,
         accepted_values=_accepted_values(column, row_count, target, normalization, settings),
         stats=_stats(column, row_count),
+        sentinels=[sentinel_key(v) for v in inferred.sentinels],
     )
     if pii is not None and pii.level in (ConfidenceLevel.HIGH, ConfidenceLevel.MEDIUM):
         plan_column.pii_treatment = PiiTreatment(settings.pii_default_treatment)
     if needs_cast(plan_column):
-        plan_column.rules.append(ValidityRule(kind=RuleKind.CASTABLE))
+        # A value that does not convert is set to empty and reported; only the key
+        # columns (enabled once the key is chosen) send their rows to quarantine.
+        plan_column.rules.append(ValidityRule(kind=RuleKind.CASTABLE, enabled=False))
     if pii is not None and pii.pii_type in _FORMAT_RULES:
         plan_column.rules.append(
             ValidityRule(
@@ -271,10 +284,25 @@ def choose_primary_key(profile: ProfileReport, columns: list[ColumnPlan]) -> Pri
     if simple:
         best = min(simple, key=lambda name: _key_rank(by_name[name], position[name]))
         return PrimaryKeyPlan(columns=[best])
-    for key in profile.candidate_keys:
-        if key.kind == "composite" and usable(key.columns):
-            return PrimaryKeyPlan(columns=list(key.columns))
-    return _quasi_unique_key(profile, by_name, position, usable)
+    profiles = {c.name: c for c in profile.columns}
+    # Ranked by the profiler: entity x period first. Numbers unique together by chance
+    # (two measures) are never a key.
+    composite = [
+        k
+        for k in profile.candidate_keys
+        if k.kind == "composite" and usable(k.columns) and not is_measure_key(k.columns, profiles)
+    ]
+    exact = [k for k in composite if k.uniqueness >= 1]
+    if exact:
+        chosen = min(exact, key=lambda k: key_rank(k.columns, profiles))
+        return PrimaryKeyPlan(columns=list(chosen.columns))
+    simple_quasi = _quasi_unique_key(profile, by_name, position, usable)
+    if simple_quasi is not None:
+        return simple_quasi
+    if composite:
+        near = min(composite, key=lambda k: (key_rank(k.columns, profiles), -k.uniqueness))
+        return PrimaryKeyPlan(columns=list(near.columns), quasi_unique=True)
+    return None
 
 
 def _quasi_unique_key(
@@ -310,9 +338,12 @@ def _quasi_unique_key(
 
 
 def sync_key_rules(plan: TransformationPlan) -> None:
-    """NOT_NULL rules exist exactly on primary key columns."""
+    """NOT_NULL rules exist exactly on primary key columns, whose values must convert."""
     keys = set(plan.primary_key.columns) if plan.primary_key else set()
     for column in plan.columns:
+        castable = column.rule(RuleKind.CASTABLE)
+        if column.source_column in keys and castable is not None:
+            castable.enabled = True
         rule = column.rule(RuleKind.NOT_NULL)
         if column.source_column in keys and rule is None:
             column.rules.insert(0, ValidityRule(kind=RuleKind.NOT_NULL))
@@ -433,7 +464,9 @@ def refresh_plan(
     return refresh_explanations(fresh)
 
 
-_DESCRIPTIVE_FIELDS = frozenset({"stats", "description", "explanation", "inferred_type"})
+_DESCRIPTIVE_FIELDS = frozenset(
+    {"stats", "description", "explanation", "inferred_type", "sentinels"}
+)
 
 
 def column_signature(column: ColumnPlan, *, silver_only: bool = False) -> dict[str, Any]:
@@ -483,7 +516,8 @@ def _apply_type_change(column: ColumnPlan, target: SilverType) -> None:
 
     castable = column.rule(RuleKind.CASTABLE)
     if needs_cast(column) and castable is None:
-        column.rules.append(ValidityRule(kind=RuleKind.CASTABLE))
+        # Enabled again for a key column by sync_key_rules.
+        column.rules.append(ValidityRule(kind=RuleKind.CASTABLE, enabled=False))
     elif not needs_cast(column) and castable is not None:
         column.rules.remove(castable)
 

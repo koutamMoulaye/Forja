@@ -113,6 +113,11 @@ class ColumnPlan(BaseModel):
     rules: list[ValidityRule] = Field(default_factory=list)
     accepted_values: list[str] | None = None
     stats: ColumnStats
+    sentinels: list[str] = Field(
+        default_factory=list,
+        description="Placeholders found at profiling (inconnu, nc...), treated as empty "
+        "while they are among the null values",
+    )
     description: str = ""
     explanation: str = ""
 

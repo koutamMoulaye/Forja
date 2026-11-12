@@ -16,6 +16,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from forja_core.agent.insight import Insight
 from forja_core.agent.spec import Clarification, MartSpec
 from forja_core.jobs.models import ExportedFile
 from forja_core.pagination import Page
@@ -47,10 +48,19 @@ class Control(BaseModel):
 class MartColumn(BaseModel):
     name: str
     kind: Literal["axis", "metric"]
-    label: str
+    label: str = Field(description="Business name, as read: « Région », « Fréquentation »")
+    detail: str = Field(
+        default="", description="Where it comes from (dimension, date), for tooltips"
+    )
     ref: str
     additivity: str | None = None
     pii: str | None = Field(default=None, description="Personal data type, pseudonymized")
+    unit: str | None = Field(
+        default=None, description="Metric: unit of its values (EUR, entrées...), none for a number"
+    )
+    format: str | None = Field(
+        default=None, description="Metric: currency, integer, decimal or percent"
+    )
 
 
 class MartPreview(BaseModel):
@@ -59,6 +69,11 @@ class MartPreview(BaseModel):
     rows: list[dict[str, Any]] = Field(description="Sample, personal data pseudonymized")
     pseudonymized: list[str] = Field(default_factory=list)
     controls: list[Control] = Field(default_factory=list)
+    insight: Insight | None = Field(
+        default=None,
+        description="The answer shown in the conversation: a sentence computed from the "
+        "result and the data of its visual (personal values pseudonymized)",
+    )
 
 
 TermKind = Literal["metric", "grain", "axis", "period", "filter", "limit"]
@@ -104,11 +119,18 @@ class MartIteration(BaseModel):
     effective: str = Field(default="", description="Text actually interpreted")
     refines: bool = Field(default=False, description="Applied to the previous spec")
     job_id: str | None = None
-    status: Literal["processing", "clarification", "refused", "previewed", "failed"] = "processing"
+    status: Literal["processing", "clarification", "refused", "previewed", "answered", "failed"] = (
+        "processing"
+    )
     path: AgentPath | None = None
     spec: MartSpec | None = None
     clarification: Clarification | None = None
     refusal: str | None = None
+    answer: str | None = Field(
+        default=None,
+        description="A question about the data answered from the semantic layer and the "
+        "sources (« ce cas parle de quoi ? »), without a data mart",
+    )
     summary: str | None = None
     summary_parts: list[SummaryPart] = Field(
         default_factory=list, description="The summary, with the terms the user can correct"
@@ -173,12 +195,19 @@ class MartRequest(BaseModel):
         return self.iterations[-1] if self.iterations else None
 
     @property
-    def current_spec(self) -> MartSpec | None:
-        """The spec of the latest previewed iteration (base of a refinement)."""
+    def previewed(self) -> MartIteration | None:
+        """The latest version with a preview: what is validated and published, even while
+        a later message waits for an answer or was declined."""
         for iteration in reversed(self.iterations):
             if iteration.spec is not None and iteration.status == "previewed":
-                return iteration.spec
+                return iteration
         return None
+
+    @property
+    def current_spec(self) -> MartSpec | None:
+        """The spec of the latest previewed iteration (base of a refinement)."""
+        previewed = self.previewed
+        return previewed.spec if previewed else None
 
 
 def latest_versions(request: MartRequest) -> MartRequest:

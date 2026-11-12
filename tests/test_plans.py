@@ -77,9 +77,9 @@ def test_plan_generated_from_profile(catalog: Catalog, fr_source: Source) -> Non
     assert amounts.target_type is SilverType.DECIMAL
     assert amounts.explanation.startswith("Montant : conversion en décimal exact DECIMAL(18,2)")
     assert amounts.cast.decimal_separator == ","
-    assert amounts.stats.invalid_count == 1
-    assert "1 valeur invalide détectée" in amounts.explanation
-    assert "n/a" in amounts.cast.null_values
+    assert amounts.stats.invalid_count == 0
+    assert amounts.sentinels == ["n/a"] and "n/a" in amounts.cast.null_values
+    assert "Valeurs de remplissage « n/a » traitées comme vides." in amounts.explanation
 
     actif = columns["actif"]
     assert actif.target_type is SilverType.BOOLEAN

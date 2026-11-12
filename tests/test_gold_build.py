@@ -30,8 +30,11 @@ def gold_shop(
     tmp_path_factory: pytest.TempPathFactory, ecommerce_dir: Path
 ) -> Iterator[tuple[AppState, Project, Job]]:
     state, project = build_shop(shop_settings(tmp_path_factory.mktemp("gold_build")), ecommerce_dir)
-    failed = _submit(state, project, JobType.BUILD_GOLD)
-    assert failed.status is JobStatus.FAILED and "approve one first" in (failed.error or "")
+    # No approved star schema yet: the run stops cleanly and says what comes next (MT-19).
+    stopped = _submit(state, project, JobType.BUILD_GOLD)
+    assert stopped.status is JobStatus.SUCCEEDED
+    assert stopped.result is not None and stopped.result["next_action"] == "propose_gold_plan"
+    assert "proposez un modèle" in stopped.result["message"]
     for relation in state.catalog.list_relations(project.id):
         state.relations.confirm(relation.id)
     state.gold.propose(project.id)

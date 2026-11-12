@@ -6,10 +6,12 @@ creates a version when the model or the overrides changed.
 
 from __future__ import annotations
 
-from forja_core.gold.context import GoldContext, is_numeric, is_temporal
-from forja_core.gold.heuristic import AMOUNT_TOKENS, QUANTITY_TOKENS, entity_name
+from forja_core.gold.context import GoldContext, is_integer, is_numeric, is_temporal
+from forja_core.gold.heuristic import QUANTITY_TOKENS, entity_name
+from forja_core.gold.naming import Process, process_of
 from forja_core.gold.plan import DATE_DIMENSION, Aggregation, Fact, GoldPlan, Measure
 from forja_core.profiling.models import PiiType
+from forja_core.relations.naming import singular
 from forja_core.semantic import labels
 from forja_core.semantic.models import (
     Additivity,
@@ -19,6 +21,7 @@ from forja_core.semantic.models import (
     MetricAggregation,
     MetricFormat,
     SemanticDimension,
+    TimeGrain,
 )
 
 SEMI_ADDITIVE_TOKENS = frozenset({"stock", "solde", "balance", "encours", "effectif", "inventaire"})
@@ -87,7 +90,9 @@ def _standard_dimensions(plan: GoldPlan, fact: Fact, ctx: GoldContext) -> list[S
     result: list[SemanticDimension] = []
     for fk in fact.foreign_keys:
         dim = dims[fk.dimension]
-        entity = entity_name(dim.source)
+        # An entity extracted from a denormalized source is named by its content
+        # (dim_musee), not by the file it was read from.
+        entity = dim.name.removeprefix("dim_") if dim.extracted else entity_name(dim.source)
         many = len([f for f in fact.foreign_keys if f.dimension == dim.name]) > 1
         name = fk.name.removesuffix("_key") if many else entity
         attributes = [_attribute(ctx, dim.source, c, c) for c in dim.natural_key]
@@ -134,44 +139,89 @@ def _degenerate(fact: Fact, ctx: GoldContext) -> SemanticDimension | None:
     )
 
 
-def _date_attributes() -> list[Attribute]:
+# Calendar attributes that make sense at each level: a year column holds no month.
+_LEVEL_ATTRIBUTES = {
+    "day": tuple(labels.DATE_ATTRIBUTES),
+    "month": ("annee", "trimestre", "mois", "nom_mois"),
+    "quarter": ("annee", "trimestre"),
+    "year": ("annee",),
+}
+_LEVEL_GRAINS = {
+    "day": TimeGrain.DAY,
+    "month": TimeGrain.MONTH,
+    "quarter": TimeGrain.QUARTER,
+    "year": TimeGrain.YEAR,
+}
+_CALENDAR = ("annee", "trimestre", "mois", "date")
+
+
+def _date_attributes(level: str = "day") -> list[Attribute]:
+    kept = _LEVEL_ATTRIBUTES[level]
     return [
         Attribute(name=name, column=name, label=label, data_type=data_type)
         for name, (label, data_type) in labels.DATE_ATTRIBUTES.items()
+        if name in kept
     ]
 
 
 def _time_dimensions(fact: Fact) -> list[SemanticDimension]:
-    return [
-        SemanticDimension(
-            name=key.name.removesuffix("_key"),
-            label=labels.label(key.name.removesuffix("_key")),
-            kind="time",
-            fact=fact.name,
-            table=DATE_DIMENSION,
-            fact_key=key.name,
-            table_key="date_key",
-            display_attribute="date",
-            attributes=_date_attributes(),
-            hierarchies=[
-                Hierarchy(
-                    name="calendrier",
-                    label="Calendrier",
-                    levels=["annee", "trimestre", "mois", "date"],
-                )
-            ],
-            synonyms=[labels.label(key.name.removesuffix("_key")).lower(), "date", "période"],
+    keys = sorted(fact.date_keys, key=lambda k: k.name != fact.primary_date)
+    dimensions = []
+    for key in keys:
+        name = key.name.removesuffix("_key")
+        label = labels.time_label(key.grain, key.role, key.column)
+        attributes = _date_attributes(key.grain)
+        levels = [level for level in _CALENDAR if any(a.name == level for a in attributes)]
+        dimensions.append(
+            SemanticDimension(
+                name=name,
+                label=label,
+                description=f"{label} : colonne {key.column} du fait {fact.name}.",
+                kind="time",
+                fact=fact.name,
+                table=DATE_DIMENSION,
+                fact_key=key.name,
+                table_key="date_key",
+                display_attribute="date" if key.grain == "day" else "annee",
+                time_level=_LEVEL_GRAINS[key.grain],
+                column=key.column,
+                primary=key.name == fact.primary_date,
+                attributes=attributes,
+                hierarchies=(
+                    [Hierarchy(name="calendrier", label="Calendrier", levels=levels)]
+                    if len(levels) > 1
+                    else []
+                ),
+                synonyms=list(dict.fromkeys([label.lower(), "date", "période"])),
+            )
         )
-        for key in fact.date_keys
-    ]
+    return dimensions
 
 
-def _format(measure: str) -> tuple[MetricFormat, str | None]:
+# A measure is money only when its name says so: a « total » of entries is a number.
+MONEY_TOKENS = frozenset(
+    {"montant", "prix", "price", "amount", "ca", "chiffre", "cout", "cost", "euro", "euros",
+     "eur", "tarif", "frais", "fee", "fees", "revenu", "revenue", "recette", "recettes",
+     "budget", "salaire", "salary", "remise", "discount", "ht", "ttc", "tva", "vat", "marge",
+     "margin", "solde", "balance", "paiement", "payment", "depense", "depenses", "subvention",
+     "loyer", "achat", "achats"}
+)  # fmt: skip
+
+
+def is_money(name: str) -> bool:
+    return bool(labels.tokens(name) & MONEY_TOKENS) or "chiffre_affaires" in name
+
+
+def _format(
+    measure: str, column_type: str | None = None, process: Process | None = None
+) -> tuple[MetricFormat, str | None]:
     tokens = labels.tokens(measure)
-    if tokens & AMOUNT_TOKENS or tokens & PRICE_TOKENS or "frais" in tokens:
+    if is_money(measure):
         return MetricFormat.CURRENCY, "EUR"
     if tokens & QUANTITY_TOKENS:
         return MetricFormat.INTEGER, "unités"
+    if column_type is not None and is_integer(column_type):
+        return MetricFormat.INTEGER, process.count_unit or None if process else None
     return MetricFormat.DECIMAL, None
 
 
@@ -184,12 +234,20 @@ _AGGREGATIONS = {
 }
 
 
-def _measure_metric(fact: Fact, measure: Measure, time_dims: list[str]) -> Metric | None:
+def _measure_metric(
+    fact: Fact,
+    measure: Measure,
+    time_dims: list[str],
+    ctx: GoldContext | None = None,
+    process: Process | None = None,
+) -> Metric | None:
     aggregation = _AGGREGATIONS.get(measure.aggregation)
     if aggregation is None:
         return None  # avg or none: exposed as a ratio of additive metrics instead
     tokens = labels.tokens(measure.name)
-    fmt, unit = _format(measure.name)
+    source = ctx.sources.get(fact.source) if ctx else None
+    column_type = source.columns.get(measure.expression.strip()) if source else None
+    fmt, unit = _format(measure.name, column_type, process)
     additivity = Additivity.ADDITIVE
     non_additive: list[str] = []
     if aggregation in (MetricAggregation.SUM, MetricAggregation.COUNT):
@@ -199,13 +257,18 @@ def _measure_metric(fact: Fact, measure: Measure, time_dims: list[str]) -> Metri
         additivity = Additivity.NON_ADDITIVE
     if measure.expression.strip() == "1":
         fmt, unit = MetricFormat.INTEGER, "lignes"
-        label = f"Nombre de lignes ({fact.source.replace('_', ' ')})"
+        # The source in the description only: the label stays readable.
+        label = "Nombre de lignes"
+        description = f"Nombre de lignes de {fact.name} (source {fact.source})."
     else:
         label = labels.METRIC_LABELS.get(measure.name) or labels.label(measure.name)
+        description = f"{aggregation.value}({measure.name}) sur {fact.name}"
+        if process is not None and process.count_unit and unit == process.count_unit:
+            label = labels.qualified_count(process.count_unit, measure.name)
     return Metric(
         name=measure.name,
         label=label,
-        description=measure.description or f"{aggregation.value}({measure.name}) sur {fact.name}",
+        description=measure.description or description,
         fact=fact.name,
         aggregation=aggregation,
         column=measure.name,
@@ -237,11 +300,38 @@ def _ratio(
     )
 
 
-def _fact_metrics(fact: Fact, time_dims: list[str]) -> list[Metric]:
-    metrics = [m for m in (_measure_metric(fact, x, time_dims) for x in fact.measures) if m]
+def _main_count(metrics: list[Metric], process: Process) -> Metric | None:
+    """The count a process is measured by: ``total``, or a measure named like the process
+    (entrees, visiteurs)."""
+    counts = [
+        m
+        for m in metrics
+        if m.aggregation is MetricAggregation.SUM and m.unit == process.count_unit
+    ]
+    for metric in counts:
+        if labels.tokens(metric.name) & {"total", "totaux", "ensemble", "global"}:
+            return metric
+    for metric in counts:
+        if {singular(t) for t in labels.tokens(metric.name)} & process.words:
+            return metric
+    return None
+
+
+def _fact_metrics(fact: Fact, time_dims: list[str], ctx: GoldContext | None = None) -> list[Metric]:
+    source = ctx.sources.get(fact.source) if ctx else None
+    process = process_of(fact.source, source.columns if source else [])
+    metrics = [
+        m for m in (_measure_metric(fact, x, time_dims, ctx, process) for x in fact.measures) if m
+    ]
     by_name = {m.name: m for m in metrics}
     summed = [m for m in metrics if m.aggregation is MetricAggregation.SUM]
-    amount = next((m for m in summed if labels.tokens(m.name) & AMOUNT_TOKENS), None)
+    amount = next((m for m in summed if is_money(m.name) and m.unit == "EUR"), None)
+    main = _main_count(metrics, process) if process and process.count_unit else None
+    if main is not None:
+        # « Fréquentation totale par région » : the business names of the main count.
+        main.label = process.count_label or main.label  # type: ignore[union-attr]
+        main.synonyms = list(dict.fromkeys([*main.synonyms, *process.count_synonyms]))  # type: ignore[union-attr]
+        main.default = True
     quantity = next((m for m in summed if labels.tokens(m.name) & QUANTITY_TOKENS), None)
     lines = next((m for m in summed if m.unit == "lignes"), None)
 
@@ -340,7 +430,7 @@ def generate_layer(
     dimensions: list[SemanticDimension] = []
     for fact in plan.facts:
         time_dims = _time_dimensions(fact)
-        metrics += _fact_metrics(fact, [t.name for t in time_dims])
+        metrics += _fact_metrics(fact, [t.name for t in time_dims], ctx)
         dimensions += _standard_dimensions(plan, fact, ctx)
         degenerate = _degenerate(fact, ctx)
         if degenerate is not None and all(d.name != degenerate.name for d in dimensions):

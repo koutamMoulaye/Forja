@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarBlank, CheckCircle, Info, WarningCircle } from "@phosphor-icons/react";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/cn";
 import {
   interpretSchedule,
@@ -73,7 +73,9 @@ export function TestOutcome({
   if (error) {
     return (
       <p role="alert" className="m-0 rounded-xl bg-err-bg px-4 py-3 text-ui text-err-fg">
-        {error instanceof ApiError ? error.message : "Le test n’a pas pu être lancé."}
+        {error instanceof ApiError
+          ? frenchMessage(error.code, error.message)
+          : "Le test n’a pas pu être lancé."}
       </p>
     );
   }

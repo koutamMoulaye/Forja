@@ -10,7 +10,7 @@ from datetime import date
 from forja_core.agent.parser import parse
 from forja_core.agent.validate import validate_spec
 from forja_core.agent.vocabulary import Vocabulary
-from forja_core.semantic.models import Metric, SemanticLayer
+from forja_core.semantic.models import Metric, SemanticLayer, TimeGrain
 
 Lookup = Callable[..., list[str]]
 
@@ -46,7 +46,13 @@ def _candidates(layer: SemanticLayer, year: int) -> Iterator[str]:
                 label = dim.label if attribute.name == dim.display_attribute else attribute.label
                 axes.append((label.lower(), dim.label.lower() + "s"))
     first = metrics[0] if metrics else None
-    if first is not None:
+    main = next((d for d in layer.time_dimensions() if d.primary), None)
+    yearly = main is not None and main.time_level is TimeGrain.YEAR
+    if first is not None and yearly and axes:
+        # A year column: the months and quarters do not exist, the years do.
+        yield f"{first.label} par {axes[0][0]} en {year}"
+        yield f"{first.label} par année"
+    elif first is not None:
         yield f"{first.label} par mois en {year}"
     # One question per metric, each on another axis, so the chips do not repeat.
     for index, metric in enumerate(metrics):
@@ -57,8 +63,9 @@ def _candidates(layer: SemanticLayer, year: int) -> Iterator[str]:
             yield f"Top 5 des {plural} par {_lower_first(metric.label)}"
         else:
             yield f"{metric.label} par {label}"
-    for metric in metrics[:2]:
-        yield f"{metric.label} par trimestre en {year}"
+    if not yearly:
+        for metric in metrics[:2]:
+            yield f"{metric.label} par trimestre en {year}"
 
 
 def suggestions(
@@ -81,8 +88,9 @@ def suggestions(
         answer = outcome.answer
         if not outcome.confident or answer is None or answer.kind != "mart" or answer.mart is None:
             continue
-        if validate_spec(answer.mart, layer, lookup).spec is None:
-            continue
+        checked = validate_spec(answer.mart, layer, lookup)
+        if checked.spec is None or checked.notes:
+            continue  # adjusted by Forja: not the question it reads
         kept.append(question)
         if len(kept) == limit:
             break

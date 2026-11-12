@@ -38,14 +38,28 @@ def test_infer_text_type(values: tuple[str, ...], expected: InferredType) -> Non
 
 
 def test_inference_is_weighted_by_counts() -> None:
-    values = [("12,5", 96), ("N/A", 4)]
+    values = [("12,5", 96), ("abc", 4)]
     result = infer_text_type(values)
     assert result.inferred_type is InferredType.DECIMAL
     assert result.match_ratio == pytest.approx(0.96)
 
 
+def test_placeholders_are_left_out_of_the_inference() -> None:
+    """« N/A », « Inconnu », « NC » stand for a missing value: they are not counted
+    against the type, and the profile reports them to be treated as empty (MT-12)."""
+    values = [("12,5", 90), ("N/A", 4), (" Inconnu ", 3), ("nc", 2), ("n. d.", 1)]
+    result = infer_text_type(values)
+    assert result.inferred_type is InferredType.DECIMAL
+    assert result.match_ratio == pytest.approx(1.0)
+    assert result.sentinels == ["Inconnu", "N/A", "n. d.", "nc"]
+    assert result.sentinel_count == 10
+    # In a text column only the unambiguous ones: « NA » may be Namibia.
+    text = infer_text_type([("Paris", 5), ("Lyon", 4), ("Inconnu", 2), ("NA", 1)])
+    assert text.inferred_type is InferredType.STRING and text.sentinels == ["Inconnu"]
+
+
 def test_near_type_is_reported() -> None:
-    values = [("15/01/2023", 7), ("unknown", 3)]
+    values = [("15/01/2023", 7), ("voir dossier", 3)]
     result = infer_text_type(values)
     assert result.inferred_type is InferredType.STRING
     assert result.near_type is InferredType.DATE

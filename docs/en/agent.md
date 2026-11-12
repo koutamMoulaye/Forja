@@ -29,6 +29,24 @@ with the request and its run, progress is followed with `GET /runs/{id}`
 (`progress.step`: `preselection`, `llm`, `validation`, `preview`, `dbt`, `serving`), and
 `POST /runs/{id}/cancel` cancels it (the ongoing model call is interrupted).
 
+## 0. Intent of the message
+
+First, `forja_core.agent.intents` cuts the message into clauses (punctuation, « et
+la… ») and tells what each is about, without a language model:
+
+- **a request for data**: it names a metric, an axis, a date, a period, or an adjustment
+  verb (« ajoute », « retire », « seulement »); it goes to the parser;
+- **a question about the data** (« ce cas parle de quoi ? »): a deterministic answer
+  written from the semantic layer and the sources (files, rows, metrics and their units,
+  axes, dates and years covered, examples the parser understands); the `answered`
+  version creates no data mart;
+- **out of scope** (« la météo à Paris »): a polite refusal with what Forja can measure.
+  A value alone (« Paris ») is not enough without an LLM; with one, the model decides.
+
+A mixed message is cut: the part about the data is handled, the rest set aside in one
+sentence added to the summary. An off-topic message never refines the data mart and
+never blocks the version ready: the request stays « preview ready ».
+
 ## 1. Local preselection
 
 `forja_core.agent.vocabulary` indexes the labels, synonyms and names of the visible

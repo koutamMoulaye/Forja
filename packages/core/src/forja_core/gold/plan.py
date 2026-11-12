@@ -57,6 +57,16 @@ class Dimension(_Strict):
     surrogate_key: str = Field(description="Deterministic hash of the natural key")
     attributes: list[DimensionAttribute] = Field(default_factory=list)
     scd: ScdType = ScdType.SCD1
+    extracted: bool = Field(
+        default=False,
+        description="Entity taken out of a denormalized source (its attributes repeated on "
+        "every row): one row per natural key, the latest row giving the attributes; the "
+        "natural key is then a part of the source key, not the whole of it",
+    )
+    latest_by: str | None = Field(
+        default=None,
+        description="Extracted dimension: column ordering the rows of a key, the latest wins",
+    )
     explanation: str = ""
 
 
@@ -79,10 +89,23 @@ class ForeignKey(_Strict):
     explanation: str = ""
 
 
+DateGrain = Literal["day", "month", "quarter", "year"]
+
+
 class DateKey(_Strict):
     name: str = Field(description="Column of the fact holding the dim_date key (YYYYMMDD)")
     source: str
     column: str
+    grain: DateGrain = Field(
+        default="day",
+        description="day: a date or timestamp column; year, quarter, month: an integer "
+        "column (2023, 20231, 202301) linked to the first day of its period",
+    )
+    role: str = Field(
+        default="",
+        description="Business name of this date for the fact, in French (« fréquentation », "
+        "« appellation »)",
+    )
     explanation: str = ""
 
 
@@ -110,6 +133,11 @@ class Fact(_Strict):
     joins: list[FactJoin] = Field(default_factory=list)
     foreign_keys: list[ForeignKey] = Field(default_factory=list)
     date_keys: list[DateKey] = Field(default_factory=list)
+    primary_date: str | None = Field(
+        default=None,
+        description="Name of the main date key: the one a period (« en 2023 ») filters on, "
+        "the most filled and the closest to the grain",
+    )
     degenerate_dimensions: list[DegenerateDimension] = Field(default_factory=list)
     measures: list[Measure] = Field(default_factory=list)
     explanation: str = ""

@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/toast";
 import { api, unwrap } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, frenchMessage } from "@/lib/api/errors";
 import type { GoldPlanPatch } from "@/lib/model/view";
 import { keys } from "@/lib/project/queries";
 import {
@@ -20,7 +20,10 @@ function failure(title: string) {
   return (error: unknown) =>
     toast.error({
       title,
-      description: error instanceof ApiError ? error.message : "Réessayez dans un instant.",
+      description:
+        error instanceof ApiError
+          ? frenchMessage(error.code, error.message)
+          : "Réessayez dans un instant.",
     });
 }
 
