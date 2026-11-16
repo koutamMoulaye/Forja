@@ -9,6 +9,7 @@ import yaml
 
 from forja_api.state import AppState
 from forja_core.gold.build import gold_inputs
+from forja_core.gold.plan import GoldPlanPatch, ScdType
 from forja_core.jobs.models import Job, JobStatus, JobType, RunRequest
 from forja_core.models import Project
 from forja_core.privacy import pseudonymize
@@ -38,6 +39,8 @@ def gold_shop(
     for relation in state.catalog.list_relations(project.id):
         state.relations.confirm(relation.id)
     state.gold.propose(project.id)
+    # Historized by choice (no version of the clients differs yet): the SCD2 build.
+    state.gold.patch(project.id, GoldPlanPatch(dimension_scd={"dim_client": ScdType.SCD2}))
     state.gold.approve(project.id)
     job = _submit(state, project, JobType.BUILD_GOLD)
     assert job.status is JobStatus.SUCCEEDED, state.catalog.job_logs(job.id)
@@ -55,8 +58,8 @@ def test_models_and_unknown_members(gold_shop: tuple[AppState, Project, Job]) ->
     rows = {m.name: m.rows for m in job.metrics.models}
     lines = len(ec.lignes_rows())
     assert rows["fct_ventes"] == lines  # no fact row is lost
-    assert rows["dim_clients"] == ec.CLIENT_COUNT + 1  # plus the unknown member
-    assert rows["dim_produits"] == ec.PRODUCT_COUNT + 1
+    assert rows["dim_client"] == ec.CLIENT_COUNT + 1  # plus the unknown member
+    assert rows["dim_produit"] == ec.PRODUCT_COUNT + 1
     assert rows["snap_clients"] == ec.CLIENT_COUNT
     assert rows["dim_date"] > 300
 
@@ -79,7 +82,7 @@ def test_dbt_tests_cover_keys_relationships_and_grain(
     assert any(n.startswith("relationships_fct_ventes_client_key") for n in names)
     assert any(n.startswith("relationships_fct_ventes_date_commande_key") for n in names)
     assert any(n.startswith("forja_unique_combination_fct_ventes") for n in names)
-    assert "unique_dim_clients_client_key" in names
+    assert "unique_dim_client_client_key" in names
 
 
 def test_warehouse_content(gold_shop: tuple[AppState, Project, Job]) -> None:
@@ -87,7 +90,7 @@ def test_warehouse_content(gold_shop: tuple[AppState, Project, Job]) -> None:
     warehouse = state.generator.warehouse_path(project.id)
     with duckdb.connect(str(warehouse), read_only=True) as con:
         [(unknown_name, unknown_key)] = con.execute(
-            "SELECT nom, client_key FROM dim_clients WHERE id_client IS NULL"
+            "SELECT nom, client_key FROM dim_client WHERE id_client IS NULL"
         ).fetchall()
         [(amount, quantity, price)] = con.execute(
             "SELECT montant, quantite, prix_unitaire FROM fct_ventes "
@@ -113,7 +116,7 @@ def test_gold_tables_registered_and_plan_applied(
 ) -> None:
     state, project, _ = gold_shop
     gold = state.catalog.list_tables(project.id, TableLayer.GOLD)
-    assert sorted(t.name for t in gold) == ["dim_clients", "dim_date", "dim_produits", "fct_ventes"]
+    assert sorted(t.name for t in gold) == ["dim_client", "dim_date", "dim_produit", "fct_ventes"]
     assert all(t.publish for t in gold)
     silver = state.catalog.list_tables(project.id, TableLayer.SILVER)
     assert silver and not any(t.publish for t in silver)
@@ -131,14 +134,14 @@ def test_serving_publishes_gold_tables(gold_shop: tuple[AppState, Project, Job])
     with duckdb.connect(str(serving), read_only=True) as con:
         tables = {row[0] for row in con.execute("SHOW TABLES").fetchall()}
         [(email,)] = con.execute(
-            "SELECT email FROM dim_clients WHERE id_client = 'CLI-0001' AND is_current"
+            "SELECT email FROM dim_client WHERE id_client = 'CLI-0001' AND is_current"
         ).fetchall()
         layers = dict(con.execute("SELECT table_name, layer FROM _forja_tables").fetchall())
-    assert tables == {"dim_clients", "dim_date", "dim_produits", "fct_ventes", "_forja_tables"}
+    assert tables == {"dim_client", "dim_date", "dim_produit", "fct_ventes", "_forja_tables"}
     assert set(layers.values()) == {"gold"}
     assert email == pseudonymize("jean.dupont@exemple.fr", salt)
     exported = {Path(e.path).name for e in export.metrics.exports}
-    assert "fct_ventes.csv" in exported and "dim_clients.parquet" in exported
+    assert "fct_ventes.csv" in exported and "dim_client.parquet" in exported
 
     orders = state.catalog.find_table(project.id, "stg_commandes")
     assert orders is not None
@@ -153,7 +156,7 @@ def test_serving_publishes_gold_tables(gold_shop: tuple[AppState, Project, Job])
 
 def test_gold_preview_is_treated(gold_shop: tuple[AppState, Project, Job]) -> None:
     state, project, _ = gold_shop
-    dim = state.catalog.find_table(project.id, "dim_clients")
+    dim = state.catalog.find_table(project.id, "dim_client")
     assert dim is not None
     preview = state.publisher.preview(dim, 50)
     emails = {row["email"] for row in preview.rows}
@@ -168,14 +171,14 @@ def test_gold_project_files(gold_shop: tuple[AppState, Project, Job]) -> None:
     plans = state.catalog.effective_plans(project.id)
     files = render_project(project, plans, gold=inputs)
     assert files == render_project(project, plans, gold=inputs)
-    for name in ("dim_clients", "dim_produits", "dim_date", "fct_ventes"):
+    for name in ("dim_client", "dim_produit", "dim_date", "fct_ventes"):
         assert f"models/gold/{name}.sql" in files
     snapshots = yaml.safe_load(files["snapshots/snapshots.yml"])["snapshots"]
-    assert {s["name"] for s in snapshots} == {"snap_clients", "snap_produits"}
+    assert {s["name"] for s in snapshots} == {"snap_clients"}  # the only historized one
     fact = files["models/gold/fct_ventes.sql"]
-    assert "coalesce(dim_clients.client_key, '-1') as client_key" in fact
+    assert "coalesce(dim_client.client_key, '-1') as client_key" in fact
     assert "lignes_commande.quantite * lignes_commande.prix_unitaire as montant" in fact
-    assert "commandes.date_commande >= dim_clients.valid_from" in fact
+    assert "commandes.date_commande >= dim_client.valid_from" in fact
 
     # A Silver build regenerates the whole project, Gold included: nothing changes.
     rebuilt = state.generator.generate(project, plans, gold=inputs)

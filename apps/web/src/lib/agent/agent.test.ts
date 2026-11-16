@@ -300,7 +300,7 @@ describe("verification preview", () => {
         filters: [{ field: "client.segment", operator: "eq", value: "professionnel" }],
         period: { label: "2025" },
       } as MartIteration["spec"],
-      sql: "with base as (select … from fct_ventes as f left join dim_date as date_commande on … left join dim_clients as client on …)",
+      sql: "with base as (select … from fct_ventes as f left join dim_date as date_commande on … left join dim_client as client on …)",
     });
     expect(mainTotal(it)).toEqual({
       metric: "montant",
@@ -310,7 +310,7 @@ describe("verification preview", () => {
     expect(lineage(it)).toEqual([
       { name: "fct_ventes", kind: "fact", detail: "faits" },
       { name: "dim_date", kind: "dimension", detail: "axe" },
-      { name: "dim_clients", kind: "dimension", detail: "filtre appliqué" },
+      { name: "dim_client", kind: "dimension", detail: "filtre appliqué" },
       { name: "Data mart", kind: "mart", detail: "156 lignes" },
     ]);
     const layer = {
@@ -436,7 +436,7 @@ describe("indicators", () => {
         label: "Client",
         kind: "standard",
         fact: "f",
-        table: "dim_clients",
+        table: "dim_client",
         display_attribute: "id_client",
         attributes: [
           { name: "id_client", column: "id", label: "Identifiant client", filterable: true },

@@ -37,7 +37,7 @@ describe("layout of the demo project", async () => {
   it("puts fct_ventes in the star schema, right of its dimensions", () => {
     const fact = layout.nodes["fct_ventes"]!;
     expect(lane("fct_ventes").lane).toBe("star_schema");
-    for (const dim of ["dim_clients", "dim_produits", "dim_date"]) {
+    for (const dim of ["dim_client", "dim_produit", "dim_date"]) {
       expect(layout.nodes[dim]!.x + layout.nodes[dim]!.width).toBeLessThan(fact.x);
     }
   });
@@ -95,7 +95,7 @@ describe("quick ranking, drawn while ELK is on its way", () => {
   });
 
   it("puts fct_ventes right of its dimensions and a source beside its cleaned table", () => {
-    for (const dim of ["dim_clients", "dim_produits", "dim_date"]) {
+    for (const dim of ["dim_client", "dim_produit", "dim_date"]) {
       expect(layout.nodes[dim]!.x + layout.nodes[dim]!.width).toBeLessThan(
         layout.nodes["fct_ventes"]!.x,
       );

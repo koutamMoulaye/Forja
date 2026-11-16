@@ -59,7 +59,7 @@ def test_built_shop(shop: AppState) -> None:
     assert set(nodes) == {
         "src_clients", "src_produits", "src_commandes", "src_lignes_commande",
         "stg_clients", "stg_produits", "stg_commandes", "stg_lignes_commande",
-        "dim_clients", "dim_produits", "dim_date", "fct_ventes", "dest_serving",
+        "dim_client", "dim_produit", "dim_date", "fct_ventes", "dest_serving",
     }  # fmt: skip
     assert nodes["fct_ventes"].lane == "star_schema" and nodes["fct_ventes"].type == "fact"
     assert nodes["dim_date"].type == "date_dimension"
@@ -68,14 +68,14 @@ def test_built_shop(shop: AppState) -> None:
     assert clients.name == ec.CLIENTS and clients.quality_score is not None
     assert clients.pii_count > 0 and clients.counts.rows == len(ec.clients_rows())
     assert nodes["stg_clients"].counts.rules == plan_rules(shop.catalog.get_plan(clients.ref or ""))
-    assert nodes["dim_clients"].pii_count == len(nodes["dim_clients"].pii_columns) > 0
+    assert nodes["dim_client"].pii_count == len(nodes["dim_client"].pii_columns) > 0
     assert set(nodes["stg_clients"].pii_columns) >= {"email"}
     assert nodes["fct_ventes"].highlights  # measures, shown when zoomed in
 
     edges = {(e.source, e.target): e for e in graph.edges}
     assert edges[("src_clients", "stg_clients")].type == "lineage"
     assert {("stg_lignes_commande", "fct_ventes"), ("stg_commandes", "fct_ventes")} <= set(edges)
-    relation = edges[("dim_clients", "fct_ventes")]
+    relation = edges[("dim_client", "fct_ventes")]
     assert relation.type == "relation" and relation.confidence and relation.confidence > 0.9
     # Gold tables are published by default and no data mart reads them yet.
     assert edges[("fct_ventes", "dest_serving")].type == "publication"
@@ -98,7 +98,7 @@ def test_running_build_marks_nodes(shop: AppState) -> None:
         assert nodes["stg_produits"].state == "applied"
         assert nodes["stg_produits"].run and nodes["stg_produits"].run.status == "succeeded"
         assert nodes["stg_commandes"].state == "pending"  # not reached yet
-        gold_run = nodes["dim_clients"].run  # not built by this run: keeps the Gold build
+        gold_run = nodes["dim_client"].run  # not built by this run: keeps the Gold build
         assert gold_run is not None and gold_run.type is JobType.BUILD_GOLD
         edges = {(e.source, e.target): e for e in graph.edges}
         assert edges[("src_clients", "stg_clients")].state == "running"

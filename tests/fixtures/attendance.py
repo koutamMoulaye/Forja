@@ -13,6 +13,7 @@ It has the shape of an open-data export where each row is one entity for one yea
   ``total`` is ``payant + gratuit`` except on a few rows of ``GAP_YEAR``, where the
   source disagrees with itself by ``GAP_PER_ROW`` entries;
 - one entity with a generic name (« Musée de l'affiche »): « musées » is never that one;
+- three entities sharing one name (« Musée des Beaux-Arts ») in three cities;
 - two keys in conflict in ``CONFLICT_YEAR``, appended at the end of the file: a copy
   that only differs by blanks (``NEAR_IDENTICAL``) and one that disagrees on the counts
   (``DIVERGENT``).
@@ -60,6 +61,9 @@ GEOGRAPHY: dict[str, dict[str, list[tuple[str, str]]]] = {
     },
 }
 GENERIC_NAME = "Musée de l'affiche"
+# Three museums of the same name, in three cities: never added up in a ranking.
+HOMONYM = "Musée des Beaux-Arts"
+HOMONYMS = (2, 3, 4)
 GAP_YEAR = 2014
 GAP_PER_ROW = 250
 CONFLICT_YEAR = 2021
@@ -110,7 +114,13 @@ def rows(seed: int = SEED) -> list[Row]:
     for index in range(1, ENTITY_COUNT + 1):
         region, department, city, insee = places[index % len(places)]
         entity = f"M{index:04d}"
-        name = GENERIC_NAME if index == 1 else f"{KINDS[index % len(KINDS)]} de {city.title()}"
+        name = (
+            GENERIC_NAME
+            if index == 1
+            else HOMONYM
+            if index in HOMONYMS
+            else f"{KINDS[index % len(KINDS)]} de {city.title()}"
+        )
         closed = "OUI" if index % 11 == 0 else "NON"
         # The secondary date: filled for one entity in three only.
         appellation = (

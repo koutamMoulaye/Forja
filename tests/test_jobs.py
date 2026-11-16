@@ -160,7 +160,7 @@ def test_build_all_runs_silver_gold_and_serving(tmp_path: Path, ecommerce_dir: P
         job = _run(state, project, RunRequest(type=JobType.BUILD_ALL))
         assert job.status is JobStatus.SUCCEEDED, state.catalog.job_logs(job.id)
         assert job.progress is not None and job.progress.percent == 100
-        assert {"stg_clients", "dim_clients", "fct_ventes"} <= set(job.progress.done)
+        assert {"stg_clients", "dim_client", "fct_ventes"} <= set(job.progress.done)
         assert job.metrics is not None and job.metrics.models and job.metrics.exports
         assert job.metrics.serving_path is not None
         assert state.catalog.effective_gold_plan(project.id).status is PlanStatus.APPLIED  # type: ignore[union-attr]
