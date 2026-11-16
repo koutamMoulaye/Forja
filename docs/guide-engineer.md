@@ -62,10 +62,15 @@ après.
 Après le nettoyage, Forja détecte les relations entre sources (inclusion des valeurs,
 noms de colonnes, types) ; confirmez ou rejetez-les dans *Modèle*.
 
-« Proposer le modèle » produit un schéma en étoile : dimensions (avec historique SCD2
-si besoin), faits au grain explicite, mesures. La proposition vient du fournisseur d'IA
-configuré ou, sans IA, de règles déterministes. La liste « À résoudre » signale ce qui
-bloque (grain ambigu, relation non confirmée, fan-out). Ajustez, **Valider le modèle**,
+« Proposer le modèle » produit en quelques secondes, par des règles déterministes, un
+schéma en étoile : un fait par table d'événements et par grain (lignes de commande,
+paiements, avis), les en-têtes joints aux faits, des dimensions (SCD1, SCD2 dès qu'un
+changement a été observé entre deux versions d'une source), les tables de référence
+fusionnées dans leur dimension. Les relations suggérées à forte confiance sont utilisées
+et listées « à confirmer » dans « À résoudre », avec ce qui bloque encore (grain
+ambigu, fan-out). Si un fournisseur d'IA est configuré, « Améliorer avec l'IA » lance en
+arrière-plan une proposition alternative, durée estimée affichée, à comparer puis
+adopter ou non. Ajustez, **Valider le modèle**,
 puis **Construire** : dbt construit les tables Gold et la couche sémantique est
 générée.
 

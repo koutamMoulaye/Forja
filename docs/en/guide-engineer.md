@@ -66,12 +66,15 @@ before and after.
 After cleaning, Forja detects the relations between sources (value inclusion, column
 names, types); confirm or reject them in *Modèle* (model).
 
-« Proposer le modèle » (propose the model) produces a star schema: dimensions (with SCD2
-history when needed), facts with an explicit grain, measures. The proposal comes from
-the configured AI provider or, without one, from deterministic rules: they recognise
-code columns (a nomenclature, a month) and keep them as dimensions instead of summing
-them. The « À résoudre » list (to resolve) shows what blocks (ambiguous grain,
-unconfirmed relation, fan-out). Adjust, **Valider le modèle** (validate), then
+« Proposer le modèle » (propose the model) produces a star schema in seconds, from
+deterministic rules: one fact per event table and grain (order lines, payments,
+reviews), event headers joined to the facts, dimensions (SCD1; SCD2 once a change was
+observed between two versions of a source), reference tables merged into their
+dimension, code columns kept as dimensions instead of summed. Strong suggested relations
+are used and listed « à confirmer » in « À résoudre » (to resolve), with what still
+blocks (ambiguous grain, fan-out). With an AI provider configured, « Améliorer avec
+l'IA » runs an alternative proposal in the background, its duration estimated first, to
+compare and adopt or not. Adjust, **Valider le modèle** (validate), then
 **Construire** (build): dbt builds the Gold tables and the semantic layer is
 generated.
 

@@ -62,7 +62,7 @@ Règles de génération :
 
 | Type | Source | Exemple |
 |---|---|---|
-| `standard` | une dimension Gold reliée au fait par une clé étrangère | `client` (dim_clients, `client_key`) |
+| `standard` | une dimension Gold reliée au fait par une clé étrangère | `client` (dim_client, `client_key`) |
 | `degenerate` | les dimensions dégénérées gardées sur le fait | `commande` (id_commande, num_ligne, statut) |
 | `time` | un rôle de `dim_date` par clé de date du fait | `date_commande` |
 

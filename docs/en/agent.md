@@ -166,7 +166,7 @@ with base as (
         f.id_commande as _m_nb_commandes
     from fct_ventes as f
     left join dim_date as date_commande on date_commande.date_key = f.date_commande_key
-    left join dim_clients as client on client.client_key = f.client_key
+    left join dim_client as client on client.client_key = f.client_key
     where client.segment = 'professionnel'
         and date_commande.date >= DATE '2024-01-01'
         and date_commande.date <= DATE '2024-12-31'
@@ -315,3 +315,24 @@ instructions change, even at temperature 0. The deterministic guards (the parser
 questions, kept filters, strict validation) make the result depend less on the model;
 the full set of 20 questions remains to be run on a cloud model
 (`--provider anthropic`).
+
+### Case 2 questions (« marketplace » fixture, several facts)
+
+`tests/agent_eval/marketplace.py`: six questions on `tests/fixtures/marketplace.py`
+(nine files shaped like the Olist export), parser only. The model has three facts
+(sales, payments, reviews): a dimension shared by several facts is one semantic
+dimension linked to each fact; a fact reaches the dimensions of another fact sharing its
+header (an order's review and the categories of its lines) through a bridge counting
+each row once per distinct value, for averages and distinct counts only (a sum is
+refused, with the reason). Score: 0/6 before, 6/6 after, all by the parser.
+
+### Model proposal: rules first, AI on demand
+
+« Proposer un modèle » always gives the rule-based proposal (0.4 s on the Olist project).
+« Améliorer avec l'IA » is a separate, cancellable background run, preceded by an
+estimate (context tokens ÷ throughput measured on the model's previous calls,
+`GET /projects/{id}/gold-plan/llm-estimate`); its result is kept in the run and shown
+beside the current version, which changes only when it is adopted
+(`POST /projects/{id}/gold-plan/adopt`). From four sources the context is reduced to
+key, relation, date and candidate measure columns: 6,725 tokens before, 3,768 after on
+Olist (−44 %, task included).

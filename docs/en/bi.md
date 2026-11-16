@@ -20,7 +20,7 @@ By default only the **Gold tables** (the star schema) are published:
 | Table | Content |
 |---|---|
 | `fct_<process>` (e.g. `fct_ventes`) | One row per grain of the fact (e.g. an order line): keys to the dimensions, date keys, degenerate dimensions (order number, status, codes), measures |
-| `dim_<source>` (e.g. `dim_clients`) | One row per member, or per version with SCD2 (`valid_from`, `valid_to`, `is_current`), plus the "Unknown" member with key `-1` |
+| `dim_<source>` (e.g. `dim_client`) | One row per member, or per version with SCD2 (`valid_from`, `valid_to`, `is_current`), plus the "Unknown" member with key `-1` |
 | `dim_date` | One day per row (`date_key` as YYYYMMDD), year, quarter, month, ISO week, day and French labels, plus the `-1` member |
 | `<source>` (e.g. `commandes`) | A Silver table, only if it was published explicitly (`PATCH /tables/{id}` with `{"publish": true}`) |
 | `_forja_tables` | One row per published table: layer, origin table, plan version, row count, treated columns, publication date |
@@ -28,7 +28,7 @@ By default only the **Gold tables** (the star schema) are published:
 ### Using the star schema
 
 - Relate each key of the fact to the key of its dimension (`fct_ventes.client_key` →
-  `dim_clients.client_key`, `fct_ventes.date_commande_key` → `dim_date.date_key`),
+  `dim_client.client_key`, `fct_ventes.date_commande_key` → `dim_date.date_key`),
   many-to-one, filtering from the dimension to the fact. In Power BI, mark `dim_date` as
   the date table (column `date`).
 - SCD2 dimensions hold one row per version: the fact already points to the version

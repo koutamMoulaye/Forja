@@ -180,7 +180,7 @@ with base as (
         f.id_commande as _m_nb_commandes
     from fct_ventes as f
     left join dim_date as date_commande on date_commande.date_key = f.date_commande_key
-    left join dim_clients as client on client.client_key = f.client_key
+    left join dim_client as client on client.client_key = f.client_key
     where client.segment = 'professionnel'
         and date_commande.date >= DATE '2024-01-01'
         and date_commande.date <= DATE '2024-12-31'
@@ -414,3 +414,42 @@ consigne change, même à température 0. Les garde-fous déterministes (questio
 parseur, filtres conservés, validation stricte) rendent le résultat moins dépendant du
 modèle ; le jeu complet de 20 questions reste à passer sur un modèle cloud
 (`--provider anthropic`).
+
+### Questions du cas 2 (fixture « marketplace », plusieurs faits)
+
+`tests/agent_eval/marketplace.py` : six questions sur la fixture
+`tests/fixtures/marketplace.py` (9 fichiers de forme Olist), mode parseur sans LLM
+(`tests/test_agent_eval.py`). Le modèle a trois faits (ventes, paiements, avis) : une
+dimension commune à plusieurs faits (client, date d'achat) est une seule dimension
+sémantique, reliée à chaque fait ; un fait atteint les dimensions d'un autre fait qui
+partage son en-tête (l'avis d'une commande et les catégories de ses lignes) par un pont
+qui compte chaque ligne une fois par valeur distincte — réservé aux moyennes et aux
+comptages distincts, une somme y est refusée avec son explication.
+
+| Id | Question | Attendu | Contrôle |
+|---|---|---|---|
+| o01 | Chiffre d'affaires par mois en 2017 | price, par mois, 2017 (date d'achat) | total par mois = source |
+| o02 | Chiffre d'affaires par État du client en 2017 | price par état du client | — |
+| o03 | Top 10 des catégories de produits par chiffre d'affaires | price par catégorie, 10 premiers | — |
+| o04 | Montant total payé par mode de paiement | payment_value par mode de paiement | total = source paiements, sans démultiplication |
+| o05 | Nombre de clients par État | clients distincts (identifiant stable) par état | = source |
+| o06 | Note moyenne des avis par catégorie | note moyenne par catégorie, via les lignes de la commande | un avis compte une fois par catégorie de sa commande |
+
+Score : **0/6** avant (aucun modèle utilisable sans relations confirmées ; avec, faits et
+noms faux), **6/6** après, toutes par le parseur.
+
+### Proposition du modèle : heuristique d'abord, IA à la demande
+
+« Proposer un modèle » donne toujours la proposition heuristique (0,4 s sur le projet
+Olist, lecture du contexte comprise, pendant une suite de tests). « Améliorer avec
+l'IA » est une action séparée : avant de la lancer, Forja affiche la taille du contexte
+et la durée estimée (tokens ÷ débit mesuré sur les appels précédents du même modèle,
+`GET /projects/{id}/gold-plan/llm-estimate`) ; le run est annulable ; la proposition
+obtenue reste dans le run (`result.alternative`) et s'affiche à côté de la version
+actuelle, qui ne change que si on l'adopte (`POST /projects/{id}/gold-plan/adopt`).
+
+À partir de 4 sources, le contexte envoyé est réduit aux colonnes de clé et de relation,
+aux dates et aux mesures candidates, sans statistiques secondaires ni valeurs par
+défaut. Projet Olist (9 sources) : **6 725 tokens** avant (toutes les colonnes et
+statistiques), **3 768** après (−44 %, consigne de 1 298 tokens comprise ; 5 902 sans la
+réduction des colonnes).
