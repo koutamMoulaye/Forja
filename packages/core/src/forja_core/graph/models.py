@@ -54,11 +54,11 @@ class NodeRun(_Output):
 class GraphNode(_Output):
     id: str = Field(
         description="Identifiant stable, lisible dans l'URL : src_clients, stg_clients, "
-        "dim_clients, fct_ventes, dim_date, mart_<id>, dest_serving, dest_exports"
+        "dim_client, fct_ventes, dim_date, mart_<id>, dest_serving, dest_exports"
     )
     type: NodeType
     lane: Lane = Field(description="Compartiment du canvas")
-    name: str = Field(description="Nom affiché sur le nœud : clients.csv, clients, dim_clients")
+    name: str = Field(description="Nom affiché sur le nœud : clients.csv, clients, dim_client")
     label: str = Field(description="Libellé complet en français : « Nettoyage de clients »")
     ref: str | None = Field(
         default=None,

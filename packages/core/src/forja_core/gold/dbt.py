@@ -104,15 +104,27 @@ def _unknown_value(column_type: str) -> str:
 
 def render_dimension(plan: GoldPlan, dim: Dimension, ctx: GoldContext) -> str:
     source = ctx.sources[dim.source]
+    historized = dim.scd is ScdType.SCD2
+    member_source = "versions" if historized else "source"
     columns = [*dim.natural_key, *(a.column for a in dim.attributes)]
     names = {a.column: a.name for a in dim.attributes}
-    selected = [
-        f"{_q(c)} as {_q(names.get(c, c))}" if names.get(c, c) != c else _q(c) for c in columns
-    ]
+    selected = [_column(member_source, c, names.get(c, c)) for c in columns]
     unknown = [f"cast(null as {source.columns[c].lower()}) as {_q(c)}" for c in dim.natural_key] + [
         f"{_unknown_value(source.columns[a.column])} as {_q(a.name)}" for a in dim.attributes
     ]
-    historized = dim.scd is ScdType.SCD2
+    lookup_joins: list[str] = []
+    for index, lookup in enumerate(dim.lookups, start=1):
+        alias = f"lookup_{index}"
+        reference = ctx.sources[lookup.source]
+        selected += [_column(alias, a.column, a.name) for a in lookup.attributes]
+        unknown += [
+            f"{_unknown_value(reference.columns[a.column])} as {_q(a.name)}"
+            for a in lookup.attributes
+        ]
+        lookup_joins.append(
+            f"{INDENT}left join {_q(alias)}\n{INDENT * 2}on {_q(alias)}.{_q(lookup.to_column)} = "
+            f"{_q(member_source)}.{_q(lookup.from_column)}"
+        )
     upstream = snapshot_name(dim) if historized else silver_model(dim.source)
 
     ctes = [f"source as (\n\n{INDENT}select * from {{{{ ref({sql_literal(upstream)}) }}}}\n\n)"]
@@ -130,6 +142,13 @@ def render_dimension(plan: GoldPlan, dim: Dimension, ctx: GoldContext) -> str:
             f"{INDENT}qualify row_number() over (partition by {partition} order by {order}) = 1"
             "\n\n)"
         )
+    for index, lookup in enumerate(dim.lookups, start=1):
+        reference_model = sql_literal(silver_model(lookup.source))
+        ctes.append(
+            f"{_q(f'lookup_{index}')} as (\n\n"
+            f"{INDENT}-- Reference table merged into the dimension.\n"
+            f"{INDENT}select * from {{{{ ref({reference_model}) }}}}\n\n)"
+        )
     if historized:
         partition = ", ".join(_q(c) for c in dim.natural_key)
         ctes.append(
@@ -139,29 +158,29 @@ def render_dimension(plan: GoldPlan, dim: Dimension, ctx: GoldContext) -> str:
             " as version_number\n"
             f"{INDENT}from source\n\n)"
         )
-        key = _hash_key(dim.natural_key, extra="dbt_valid_from")
+        key = _hash_key(dim.natural_key, extra="versions.dbt_valid_from", table="versions")
         members = [
             f"{key} as {_q(dim.surrogate_key)}",
             *selected,
             "-- The first version is valid since the origin: older facts find it too.\n"
-            f"{INDENT * 2}case when version_number = 1 then {VALID_FROM_ORIGIN} "
-            "else cast(dbt_valid_from as timestamp) end as valid_from",
-            f"coalesce(cast(dbt_valid_to as timestamp), {VALID_TO_END}) as valid_to",
-            "dbt_valid_to is null as is_current",
+            f"{INDENT * 2}case when versions.version_number = 1 then {VALID_FROM_ORIGIN} "
+            "else cast(versions.dbt_valid_from as timestamp) end as valid_from",
+            f"coalesce(cast(versions.dbt_valid_to as timestamp), {VALID_TO_END}) as valid_to",
+            "versions.dbt_valid_to is null as is_current",
         ]
         unknown += [
             f"{VALID_FROM_ORIGIN} as valid_from",
             f"{VALID_TO_END} as valid_to",
             "true as is_current",
         ]
-        member_source = "versions"
     else:
-        members = [f"{_hash_key(dim.natural_key)} as {_q(dim.surrogate_key)}", *selected]
-        member_source = "source"
+        members = [
+            f"{_hash_key(dim.natural_key, table='source')} as {_q(dim.surrogate_key)}",
+            *selected,
+        ]
 
-    ctes.append(
-        f"members as (\n\n{INDENT}select\n{_list(members)}\n{INDENT}from {member_source}\n\n)"
-    )
+    from_clause = "\n".join([f"{INDENT}from {member_source}", *lookup_joins])
+    ctes.append(f"members as (\n\n{INDENT}select\n{_list(members)}\n{from_clause}\n\n)")
     ctes.append(
         "unknown_member as (\n\n"
         f"{INDENT}-- Target of the foreign keys that match no member.\n"
@@ -357,6 +376,15 @@ def _dimension_schema(dim: Dimension, ctx: GoldContext) -> dict[str, Any]:
                 or f"Attribut issu de {dim.source}.{attribute.column}.",
             }
         )
+    for lookup in dim.lookups:
+        for attribute in lookup.attributes:
+            columns.append(
+                {
+                    "name": attribute.name,
+                    "description": attribute.description
+                    or f"Attribut de la table de référence {lookup.source}.{attribute.column}.",
+                }
+            )
     if dim.scd is ScdType.SCD2:
         columns += [
             {"name": "valid_from", "description": "Début de validité de la version."},

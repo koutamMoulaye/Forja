@@ -28,7 +28,7 @@ export const STATE_TOKENS = [
 
 export const TYPE_SCALE = [
   ["Titre écran 28 · 600", "Modèle en étoile", "text-title font-semibold"],
-  ["Titre panneau 18 · 600", "dim_clients", "text-panel font-semibold"],
+  ["Titre panneau 18 · 600", "dim_client", "text-panel font-semibold"],
   ["Section 16 · 600", "À résoudre", "text-section font-semibold"],
   ["Lecture 18 · 400", "Le chiffre d’affaires HT, par mois", "text-read"],
   ["Corps 14,5 · 400", "94 % des valeurs existent dans clients.id_client.", "text-body"],

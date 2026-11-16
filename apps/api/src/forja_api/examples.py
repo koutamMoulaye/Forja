@@ -401,7 +401,7 @@ def record(root: Path) -> dict[str, Any]:
             "PATCH",
             "/projects/{project_id}/gold-plan",
             p("/projects/{project_id}/gold-plan"),
-            json={"dimension_scd": {"dim_produits": "scd1"}},
+            json={"dimension_scd": {"dim_produit": "scd1"}},
         )
         post(engineer, "/projects/{project_id}/gold-plan/approve")
 
