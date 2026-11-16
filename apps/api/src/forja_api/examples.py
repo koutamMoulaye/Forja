@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import tempfile
 import threading
+import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -30,6 +31,9 @@ from forja_core.connectors.models import (
     DatabaseTable,
 )
 from forja_core.demo import ecommerce
+from forja_core.gold.context import GoldContext
+from forja_core.gold.plan import GoldModel
+from forja_core.gold.service import GoldProposer
 from forja_core.jobs.models import JobType, RunRequest
 
 _BOOTSTRAP = "Exemple-Bootstrap-2026"
@@ -186,6 +190,29 @@ class _Recorder:
                 "body": _shorten(body) if body is not None else None,
             }
         return body
+
+
+class _ExampleProposer(GoldProposer):
+    """A stand-in language model for the examples: it answers the model it is given."""
+
+    origin = "llm:ollama/qwen3.5:9b"
+
+    def __init__(self, model: GoldModel) -> None:
+        self.model = model
+
+    def propose(self, ctx: GoldContext, feedback: list[str]) -> GoldModel:
+        return self.model
+
+    def context_tokens(self, ctx: GoldContext, *, compact: bool | None = None) -> int:
+        return 2400 if compact is not False else 3900
+
+
+def _wait_run(state: Any, run_id: str, timeout: float = 120) -> None:
+    deadline = time.monotonic() + timeout
+    while state.catalog.get_job(run_id).status.value in ("queued", "running"):
+        if time.monotonic() > deadline:
+            raise RuntimeError(f"run {run_id} did not finish")
+        time.sleep(0.2)
 
 
 def record(root: Path) -> dict[str, Any]:
@@ -403,6 +430,14 @@ def record(root: Path) -> dict[str, Any]:
             p("/projects/{project_id}/gold-plan"),
             json={"dimension_scd": {"dim_produit": "scd1"}},
         )
+        # « Améliorer avec l'IA », with a stand-in proposer answering the current model.
+        current = state.catalog.latest_gold_plan(project)
+        state.gold.proposer = _ExampleProposer(current.model())
+        get(engineer, "/projects/{project_id}/gold-plan/llm-estimate")
+        ai_run = post(engineer, "/projects/{project_id}/gold-plan/propose", {"use_llm": True})
+        _wait_run(state, ai_run["id"])
+        post(engineer, "/projects/{project_id}/gold-plan/adopt", {"run_id": ai_run["id"]})
+        state.gold.proposer = None
         post(engineer, "/projects/{project_id}/gold-plan/approve")
 
         # Runs and tables
