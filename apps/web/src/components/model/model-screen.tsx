@@ -52,9 +52,11 @@ import {
 import {
   useGoldIssues,
   useGoldPlan,
+  useLlmEstimate,
   useRelations,
   useTables,
   type GoldPlan,
+  type LlmEstimate,
   type Relation,
   type ValidationIssue,
   type WarehouseTable,
@@ -67,6 +69,8 @@ import { ModelVersions } from "./model-versions";
 import { useModelMutations, useModelRun, useStartRun } from "./use-model";
 
 type View = "schema" | "relations" | "versions";
+type Fact = NonNullable<GoldPlan["facts"]>[number];
+type GoldModelView = Pick<GoldPlan, "facts" | "dimensions">;
 type Selection =
   { kind: "fact"; name: string } | { kind: "dimension"; name: string } | { kind: "date" };
 
@@ -88,6 +92,10 @@ export function ModelScreen() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditFocus | null>(null);
+  const [factName, setFactName] = useState<string | null>(null);
+  const [askAi, setAskAi] = useState(false);
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const estimate = useLlmEstimate(project.id);
 
   // A proposal that ends brings its new version.
   const proposalDone = proposal.run && !proposal.active ? proposal.run.id : null;
@@ -108,18 +116,44 @@ export function ModelScreen() {
     );
   }
 
+  const aiAvailable = estimate.data?.available === true;
   const proposeButton = (
     <Button
       variant={plan.data ? "secondary" : "primary"}
       size="lg"
-      loading={starts.propose.isPending}
+      loading={starts.propose.isPending && starts.propose.variables === false}
       disabled={proposal.active}
-      onClick={() => starts.propose.mutate(true)}
+      onClick={() => starts.propose.mutate(false)}
+      data-testid="propose-model"
     >
-      <Sparkle size={17} />
+      <FunctionIcon size={17} />
       Proposer un modèle
     </Button>
   );
+  const aiButton = aiAvailable ? (
+    <Button
+      variant="secondary"
+      size="lg"
+      loading={starts.propose.isPending && starts.propose.variables === true}
+      disabled={proposal.active || !plan.data}
+      onClick={() => setAskAi(true)}
+      data-testid="improve-with-ai"
+    >
+      <Sparkle size={17} />
+      Améliorer avec l&apos;IA
+    </Button>
+  ) : null;
+  const aiLaunch =
+    askAi && estimate.data ? (
+      <AiLaunch
+        estimate={estimate.data}
+        onLaunch={() => {
+          setAskAi(false);
+          starts.propose.mutate(true);
+        }}
+        onClose={() => setAskAi(false)}
+      />
+    ) : null;
 
   if (!plan.data) {
     return (
@@ -155,7 +189,18 @@ export function ModelScreen() {
   const errors = live.filter((i) => i.severity === "error");
   const draft = data.status === "draft";
   const ready = draft && errors.length === 0 && !issues.isFetching;
-  const fact = data.facts?.[0] ?? null;
+  const facts = data.facts ?? [];
+  const fact = facts.find((f) => f.name === factName) ?? facts[0] ?? null;
+  const finished = proposal.run && !proposal.active ? proposal.run : null;
+  const alternative =
+    finished &&
+    finished.status === "succeeded" &&
+    finished.params?.use_llm &&
+    finished.id !== dismissed &&
+    finished.result?.alternative &&
+    finished.result?.based_on === data.version
+      ? finished
+      : null;
   const dimensions = data.dimensions ?? [];
   const selected: Selection =
     selection ?? (fact ? { kind: "fact", name: fact.name } : { kind: "date" });
@@ -201,6 +246,17 @@ export function ModelScreen() {
           selected={selected}
           highlight={highlight}
           proposal={proposal.active ? proposal.run : null}
+          alternative={
+            alternative ? (
+              <AlternativeCard
+                current={data}
+                run={alternative}
+                adopting={starts.adopt.isPending}
+                onAdopt={() => starts.adopt.mutate(alternative.id)}
+                onKeep={() => setDismissed(alternative.id)}
+              />
+            ) : null
+          }
           onHighlight={setHighlight}
           onConfirm={(id) => mutations.relation.mutate({ id, action: "confirm" })}
           onReject={(id) => mutations.relation.mutate({ id, action: "reject" })}
@@ -227,6 +283,7 @@ export function ModelScreen() {
         actions={
           <>
             {proposeButton}
+            {aiButton}
             <Button variant="secondary" size="lg" onClick={() => setEditing({ tab: "measures" })}>
               <PencilSimple size={17} />
               Modifier
@@ -235,6 +292,7 @@ export function ModelScreen() {
           </>
         }
       />
+      {aiLaunch}
       <div className="flex flex-wrap items-center gap-3">
         <Segmented<View>
           label="Vue du modèle"
@@ -246,6 +304,17 @@ export function ModelScreen() {
             { value: "versions", label: "Versions" },
           ]}
         />
+        {view === "schema" && facts.length > 1 && fact ? (
+          <Segmented<string>
+            label="Fait affiché"
+            value={fact.name}
+            onValueChange={(name) => {
+              setFactName(name);
+              setSelection({ kind: "fact", name });
+            }}
+            options={facts.map((f) => ({ value: f.name, label: f.name }))}
+          />
+        ) : null}
         <span className="ml-auto flex items-center gap-2 text-ui text-tx3">
           <StatusBadge
             kind={
@@ -273,7 +342,9 @@ export function ModelScreen() {
       {view === "schema" ? (
         fact ? (
           <StarSchema
+            key={fact.name}
             plan={data}
+            fact={fact}
             issues={live}
             tables={tableByName}
             selected={selected}
@@ -315,14 +386,15 @@ export function ModelScreen() {
 
 function edgeState(
   dimension: string,
-  plan: GoldPlan,
+  fact: Fact,
   issues: ValidationIssue[],
 ): "app" | "prop" | "err" {
-  const fact = plan.facts?.[0];
-  const key = fact?.foreign_keys?.find((k) => k.dimension === dimension);
-  if (!key || !fact) return "app";
+  const key = fact.foreign_keys?.find((k) => k.dimension === dimension);
+  if (!key) return "app";
   const location = `facts.${fact.name}.foreign_keys.${key.name}`;
-  const issue = issues.find((i) => i.location === location);
+  const issue = issues.find(
+    (i) => i.location === location || i.location === `dimensions.${dimension}`,
+  );
   if (!issue) return "app";
   return issue.code === "unconfirmed_relation" ? "prop" : "err";
 }
@@ -330,6 +402,7 @@ function edgeState(
 /** The star: fact at the centre, dimensions around it, links coloured by their state. */
 function StarSchema({
   plan,
+  fact,
   issues,
   tables,
   selected,
@@ -337,6 +410,7 @@ function StarSchema({
   onSelect,
 }: {
   plan: GoldPlan;
+  fact: Fact;
   issues: ValidationIssue[];
   tables: Map<string, WarehouseTable>;
   selected: Selection;
@@ -359,10 +433,13 @@ function StarSchema({
     observer.observe(card);
     return () => observer.disconnect();
   }, []);
-  const fact = plan.facts![0]!;
-  const withDate = plan.date_dimension?.enabled !== false;
+  const withDate = plan.date_dimension?.enabled !== false && (fact.date_keys ?? []).length > 0;
+  // The dimensions of this fact: a model of several facts shows one star at a time.
+  const used = new Set((fact.foreign_keys ?? []).map((k) => k.dimension));
   const nodes = [
-    ...(plan.dimensions ?? []).map((d) => ({ kind: "dimension" as const, name: d.name, dim: d })),
+    ...(plan.dimensions ?? [])
+      .filter((d) => used.has(d.name))
+      .map((d) => ({ kind: "dimension" as const, name: d.name, dim: d })),
     ...(withDate ? [{ kind: "date" as const, name: "dim_date", dim: null }] : []),
   ];
   const geometry = starLayout(nodes.length, width, { width: FACT_WIDTH, height: factHeight }, CARD);
@@ -394,7 +471,7 @@ function StarSchema({
           {nodes.map((node, index) => {
             const p = positions[index]!;
             const end = { x: p.x + CARD.width / 2, y: p.y + CARD.height / 2 };
-            const state = node.kind === "date" ? "app" : edgeState(node.name, plan, issues);
+            const state = node.kind === "date" ? "app" : edgeState(node.name, fact, issues);
             const lit = highlight === node.name;
             const dx = (end.x - center.x) * 0.5;
             return (
@@ -426,7 +503,7 @@ function StarSchema({
             x: onLeft ? (p.x + CARD.width + fx) / 2 : (fx + FACT_WIDTH + p.x) / 2,
             y: p.y + CARD.height / 2 - 12,
           };
-          const state = node.kind === "date" ? "app" : edgeState(node.name, plan, issues);
+          const state = node.kind === "date" ? "app" : edgeState(node.name, fact, issues);
           return (
             <span
               key={`card-${node.name}`}
@@ -559,7 +636,7 @@ function StarSchema({
           <span className="flex flex-col gap-1">
             <span className="text-[12.5px] font-semibold text-tx3">Clés</span>
             {(fact.foreign_keys ?? []).map((key) => {
-              const state = edgeState(key.dimension, plan, issues);
+              const state = edgeState(key.dimension, fact, issues);
               return (
                 <span key={key.name} className="flex items-center gap-2 text-[13px]">
                   {state === "app" ? (
@@ -609,6 +686,159 @@ function StarSchema({
   );
 }
 
+/** Before « Améliorer avec l'IA »: what it sends and how long it should take. */
+function AiLaunch({
+  estimate,
+  onLaunch,
+  onClose,
+}: {
+  estimate: LlmEstimate;
+  onLaunch: () => void;
+  onClose: () => void;
+}) {
+  const reduced =
+    estimate.full_context_tokens && estimate.full_context_tokens > estimate.context_tokens;
+  return (
+    <div
+      data-testid="ai-launch"
+      className="flex flex-col gap-2.5 rounded-2xl bg-node px-4 py-3.5 shadow-node"
+    >
+      <div className="flex items-center gap-2">
+        <Sparkle size={17} className="text-acc-tx" />
+        <span className="text-[14.5px] font-semibold">Améliorer avec l&apos;IA</span>
+        <span className="ml-auto text-meta text-tx3">
+          {originView(estimate.origin ?? "").title}
+        </span>
+      </div>
+      <p className="m-0 text-[13.5px] leading-[1.55] text-tx2">
+        {aiDurationText(estimate)} Le calcul tourne en arrière-plan et reste annulable ; le modèle
+        actuel ne change pas. Le résultat s&apos;affiche comme une proposition à comparer.
+      </p>
+      <p className="m-0 text-meta text-tx3 tabular-nums">
+        Contexte envoyé : {formatTokens(estimate.context_tokens)}
+        {reduced
+          ? ` (au lieu de ${formatTokens(estimate.full_context_tokens ?? 0)} : clés, mesures, dates et relations seulement)`
+          : ""}
+        . Aucune valeur des données n&apos;est envoyée.
+      </p>
+      <div className="flex gap-1.5">
+        <Button variant="primary" size="md" onClick={onLaunch} data-testid="ai-launch-confirm">
+          Lancer
+        </Button>
+        <Button variant="tonal" size="md" onClick={onClose}>
+          Annuler
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function formatTokens(tokens: number): string {
+  return `${tokens.toLocaleString("fr-FR")} tokens`;
+}
+
+export function aiDurationText(estimate: LlmEstimate): string {
+  const seconds = estimate.estimated_seconds;
+  if (seconds == null) {
+    return "Durée inconnue : ce modèle n'a pas encore été mesuré sur cette machine.";
+  }
+  const duration =
+    seconds < 90 ? `${Math.max(1, Math.round(seconds))} s` : `${Math.round(seconds / 60)} min`;
+  return `Durée estimée : environ ${duration} (${formatTokens(
+    estimate.context_tokens,
+  )} à ${estimate.tokens_per_second?.toLocaleString("fr-FR")} tokens/s, débit mesuré sur ${plural(
+    estimate.measured_calls ?? 0,
+    "appel",
+    "appels",
+  )}).`;
+}
+
+/** The language model's proposal beside the current one: adopt it, or keep the plan. */
+function AlternativeCard({
+  current,
+  run,
+  adopting,
+  onAdopt,
+  onKeep,
+}: {
+  current: GoldPlan;
+  run: Job;
+  adopting: boolean;
+  onAdopt: () => void;
+  onKeep: () => void;
+}) {
+  const result = run.result as { alternative?: GoldModelView; origin?: string; errors?: number };
+  const other = result.alternative ?? {};
+  const rows: { label: string; mine: string[]; theirs: string[] }[] = [
+    {
+      label: "Faits",
+      mine: (current.facts ?? []).map((f) => f.name),
+      theirs: (other.facts ?? []).map((f) => f.name),
+    },
+    {
+      label: "Dimensions",
+      mine: (current.dimensions ?? []).map((d) => d.name),
+      theirs: (other.dimensions ?? []).map((d) => d.name),
+    },
+  ];
+  return (
+    <div
+      data-testid="ai-alternative"
+      className="flex flex-col gap-2.5 rounded-xl bg-node px-4 py-3.5 shadow-node"
+    >
+      <div className="flex items-center gap-2">
+        <StatusBadge kind="prop" label="Proposition de l'IA" size={12.5} />
+        <span className="ml-auto text-[12.5px] text-tx3">
+          {originView(result.origin ?? "").title}
+        </span>
+      </div>
+      <p className="m-0 text-[13.5px] leading-[1.55] text-tx2">
+        À comparer avec la version {current.version}. Rien ne change tant que vous ne l&apos;adoptez
+        pas.
+      </p>
+      <table className="w-full border-collapse text-[13px]">
+        <thead>
+          <tr className="text-left text-tx3">
+            <th className="py-1 font-medium" />
+            <th className="py-1 font-medium">Actuelle</th>
+            <th className="py-1 font-medium">IA</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.label} className="align-top">
+              <td className="py-1 pr-2 text-tx3">{row.label}</td>
+              <td className="py-1 pr-2 font-mono text-[12.5px]">{row.mine.join(", ") || "—"}</td>
+              <td className="py-1 font-mono text-[12.5px]">{row.theirs.join(", ") || "—"}</td>
+            </tr>
+          ))}
+          <tr>
+            <td className="py-1 pr-2 text-tx3">Erreurs</td>
+            <td className="py-1 pr-2 tabular-nums">
+              {(current.issues ?? []).filter((i) => i.severity === "error").length}
+            </td>
+            <td className="py-1 tabular-nums">{result.errors ?? 0}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div className="flex flex-wrap gap-1.5">
+        <Button
+          variant="primary"
+          size="md"
+          loading={adopting}
+          onClick={onAdopt}
+          data-testid="ai-adopt"
+        >
+          Adopter la proposition de l&apos;IA
+        </Button>
+        <Button variant="tonal" size="md" onClick={onKeep}>
+          Garder la version actuelle
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ProposalProgress({ run, onCancel }: { run: Job; onCancel: (id: string) => void }) {
   const current = goldStepIndex(run.progress?.step);
   return (
@@ -618,7 +848,9 @@ function ProposalProgress({ run, onCancel }: { run: Job; onCancel: (id: string) 
     >
       <div className="flex items-center gap-2">
         <Spinner size={13} className="text-run-fg" />
-        <span className="text-[14.5px] font-semibold">Proposition du modèle</span>
+        <span className="text-[14.5px] font-semibold">
+          {run.params?.use_llm ? "Proposition de l'IA" : "Proposition du modèle"}
+        </span>
         <span className="ml-auto text-meta text-tx3 tabular-nums">
           {run.progress?.percent ?? 0} %
         </span>
@@ -673,6 +905,7 @@ function ModelAside({
   selected,
   highlight,
   proposal,
+  alternative,
   busy,
   onHighlight,
   onConfirm,
@@ -690,6 +923,7 @@ function ModelAside({
   selected: Selection;
   highlight: string | null;
   proposal: Job | null;
+  alternative: React.ReactNode;
   busy: boolean;
   onHighlight: (name: string | null) => void;
   onConfirm: (id: string) => void;
@@ -724,6 +958,7 @@ function ModelAside({
         data-testid="model-aside"
       >
         {proposal ? <ProposalProgress run={proposal} onCancel={onCancelProposal} /> : null}
+        {alternative}
         <div className="flex items-baseline gap-2">
           <h2 className="m-0 text-section font-semibold">À résoudre</h2>
           <span className="text-[14px] text-tx3 tabular-nums">
@@ -999,6 +1234,14 @@ function DimensionDetail({
         ]}
       />
       <p className="m-0 text-[13.5px] leading-[1.55] text-tx2">{SCD_DESCRIPTIONS[scd]}</p>
+      {(dimension.lookups ?? []).map((lookup) => (
+        <p key={lookup.source} className="m-0 text-[13px] leading-[1.5] text-tx2">
+          Table de référence <span className="font-mono">{lookup.source}</span> fusionnée :{" "}
+          <span className="font-mono">
+            {(lookup.attributes ?? []).map((a) => a.name).join(", ")}
+          </span>
+        </p>
+      ))}
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-meta text-tx3">
           {scd === "scd2" ? "Colonnes suivies" : "Attributs"}

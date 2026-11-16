@@ -102,7 +102,11 @@ class AppState:
         llm_base = LLMSettings()
         llm_settings = effective_settings(llm_base, llm_store.load())
         llm = get_provider(llm_settings, journal=catalog.add_llm_call, cache=catalog)
-        gold = GoldPlanService(catalog, LLMGoldProposer(llm, catalog) if llm is not None else None)
+        gold = GoldPlanService(
+            catalog,
+            LLMGoldProposer(llm, catalog) if llm is not None else None,
+            data_dir=settings.data_dir,
+        )
         executor = JobExecutor(
             catalog,
             workspace,

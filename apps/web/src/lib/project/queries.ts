@@ -55,6 +55,7 @@ export const keys = {
     ["gold-plan", projectId, version ?? 0] as const,
   goldPlans: (projectId: string) => ["gold-plans", projectId] as const,
   goldIssues: (projectId: string) => ["gold-issues", projectId] as const,
+  llmEstimate: (projectId: string) => ["llm-estimate", projectId] as const,
   relations: (projectId: string) => ["relations", projectId] as const,
   semantic: (projectId: string, version?: number) => ["semantic", projectId, version ?? 0] as const,
   semanticVersions: (projectId: string) => ["semantic-versions", projectId] as const,
@@ -365,6 +366,19 @@ export function useApiKeys() {
     queryFn: async () => unwrap(await api.GET("/auth/api-keys")),
   });
 }
+
+/** What « Améliorer avec l'IA » would cost on this project, before launching it. */
+export function useLlmEstimate(projectId: string, enabled = true) {
+  return useQuery({
+    queryKey: keys.llmEstimate(projectId),
+    enabled,
+    staleTime: 60_000,
+    queryFn: async () =>
+      unwrap(await api.GET("/projects/{project_id}/gold-plan/llm-estimate", project(projectId))),
+  });
+}
+
+export type LlmEstimate = S["LLMEstimate"];
 
 export function useLlmSettings() {
   return useQuery({

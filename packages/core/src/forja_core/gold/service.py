@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
+
+from pydantic import BaseModel, Field
 
 from forja_core.catalog import Catalog
 from forja_core.errors import GoldProposalError, PlanStateError, PlanValidationError
@@ -37,6 +40,44 @@ class GoldProposer:
 
     def propose(self, ctx: GoldContext, feedback: list[str]) -> GoldModel:
         raise NotImplementedError
+
+    def context_tokens(self, ctx: GoldContext, *, compact: bool | None = None) -> int:
+        """Tokens sent for a proposal (``compact=False``: the full context)."""
+        return 0
+
+
+class LLMEstimate(BaseModel):
+    """What « Améliorer avec l'IA » would cost, said before it is launched."""
+
+    available: bool
+    origin: str | None = None
+    context_tokens: int = Field(default=0, description="Tokens sent (compact context)")
+    full_context_tokens: int = Field(default=0, description="Tokens of the full context")
+    tokens_per_second: float | None = Field(
+        default=None, description="Throughput measured on this model's previous calls"
+    )
+    measured_calls: int = 0
+    estimated_seconds: int | None = Field(
+        default=None, description="(context + expected answer) / throughput; None unmeasured"
+    )
+
+
+class Alternative(BaseModel):
+    """A language model's proposal, kept beside the current plan to be compared."""
+
+    model: GoldModel
+    origin: str
+    based_on: int | None = Field(default=None, description="Version it is compared with")
+    issues: list[ValidationIssue] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+# Tokens a Gold proposal answers with, before any has been measured.
+EXPECTED_ANSWER_TOKENS = 2500
+# Recent calls of a model used to measure its throughput.
+THROUGHPUT_CALLS = 20
+# Validation errors a person resolves, not the language model.
+_PERSON_CODES = frozenset({"unconfirmed_relation"})
 
 
 def _complete(model: GoldModel, ctx: GoldContext) -> GoldModel:
@@ -80,16 +121,29 @@ def normalize_sources(model: GoldModel, ctx: GoldContext) -> GoldModel:
 
 
 def _issue_lines(issues: list[ValidationIssue]) -> list[str]:
-    return [f"[{i.code}] {i.message}" for i in issues if i.severity == "error"]
+    """Errors the language model can correct (a relation to confirm is a person's)."""
+    return [
+        f"[{i.code}] {i.message}"
+        for i in issues
+        if i.severity == "error" and i.code not in _PERSON_CODES
+    ]
 
 
 class GoldPlanService:
-    def __init__(self, catalog: Catalog, proposer: GoldProposer | None = None) -> None:
+    def __init__(
+        self,
+        catalog: Catalog,
+        proposer: GoldProposer | None = None,
+        data_dir: Path | None = None,
+    ) -> None:
         self.catalog = catalog
         self.proposer = proposer
+        self.data_dir = data_dir
 
-    def context(self, project_id: str) -> GoldContext:
-        ctx = build_gold_context(self.catalog, project_id)
+    def context(self, project_id: str, *, history: bool = False) -> GoldContext:
+        """``history``: measure the keys that changed between versions of each source
+        (read from Bronze), which decides SCD2 in a proposal."""
+        ctx = build_gold_context(self.catalog, project_id, self.data_dir if history else None)
         if not ctx.sources:
             raise GoldProposalError(
                 "no Silver table has been built in this project: run build_silver first"
@@ -130,10 +184,75 @@ class GoldPlanService:
         )
         return None
 
+    def propose_alternative(self, project_id: str) -> Alternative:
+        """The language model's proposal, validated, not saved as a version: it is shown
+        beside the current plan and adopted, or not, by a person."""
+        if self.proposer is None:
+            raise GoldProposalError("no language model is configured")
+        report("context", "lecture des tables Silver et des relations", 5)
+        ctx = self.context(project_id, history=True)
+        warnings: list[str] = []
+        proposal = self._llm_proposal(ctx, warnings)
+        if proposal is None:
+            raise GoldProposalError(warnings[-1] if warnings else "no proposal")
+        report("validation", "validation de la proposition", 90)
+        linked = link_relations(_complete(proposal.model, ctx), ctx)
+        previous = self.catalog.latest_gold_plan(project_id)
+        return Alternative(
+            model=linked,
+            origin=proposal.origin,
+            based_on=previous.version if previous else None,
+            issues=validate_model(linked, ctx),
+            warnings=warnings,
+        )
+
+    def adopt(self, project_id: str, alternative: Alternative) -> GoldPlan:
+        """A new draft version from an alternative proposal."""
+        ctx = self.context(project_id)
+        plan = self._new_version(
+            project_id, alternative.model, alternative.origin, ctx, alternative.warnings
+        )
+        log.info("gold_plan_adopted", project_id=project_id, version=plan.version)
+        return plan
+
+    def llm_estimate(self, project_id: str) -> LLMEstimate:
+        """Context size and expected duration of a proposal by the language model, from
+        the throughput measured on its previous calls."""
+        if self.proposer is None:
+            return LLMEstimate(available=False)
+        ctx = self.context(project_id)
+        tokens = self.proposer.context_tokens(ctx)
+        full = self.proposer.context_tokens(ctx, compact=False)
+        provider, _, model = self.proposer.origin.removeprefix("llm:").partition("/")
+        calls = [
+            c
+            for c in self.catalog.list_llm_calls()
+            if c.provider == provider
+            and c.model == model
+            and c.status == "succeeded"
+            and c.duration_ms > 0
+            and c.input_tokens + c.output_tokens > 0
+        ][-THROUGHPUT_CALLS:]
+        rate = None
+        if calls:
+            seconds = sum(c.duration_ms for c in calls) / 1000
+            rate = round(sum(c.input_tokens + c.output_tokens for c in calls) / seconds, 1)
+        answers = sorted(c.output_tokens for c in calls if c.purpose == "gold_plan")
+        expected = answers[len(answers) // 2] if answers else EXPECTED_ANSWER_TOKENS
+        return LLMEstimate(
+            available=True,
+            origin=self.proposer.origin,
+            context_tokens=tokens,
+            full_context_tokens=full,
+            tokens_per_second=rate,
+            measured_calls=len(calls),
+            estimated_seconds=round((tokens + expected) / rate) if rate else None,
+        )
+
     def propose(self, project_id: str, *, use_llm: bool = True) -> GoldPlan:
         """A new draft version, from the language model if configured, else heuristic."""
-        report("context", "lecture des tables Silver et des relations confirmées", 5)
-        ctx = self.context(project_id)
+        report("context", "lecture des tables Silver et des relations", 5)
+        ctx = self.context(project_id, history=True)
         warnings: list[str] = []
         proposal = self._llm_proposal(ctx, warnings) if use_llm else None
         report("validation", "validation et enregistrement du plan", 90)
