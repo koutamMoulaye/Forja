@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from itertools import combinations
 from pathlib import Path
 from typing import Any
@@ -27,8 +28,9 @@ from forja_core.profiling.models import (
     ProfileReport,
     TopValue,
     TypeInference,
+    ValueVariants,
 )
-from forja_core.profiling.naming import is_identifier_name, is_period_name
+from forja_core.profiling.naming import is_identifier_name, is_period_name, variant_key
 from forja_core.profiling.pii import detect_pii
 from forja_core.profiling.quality import compute_quality
 from forja_core.profiling.types import (
@@ -38,7 +40,7 @@ from forja_core.profiling.types import (
     inferred_from_physical,
     typed_expression,
 )
-from forja_core.utils import quote_ident, sql_literal, utcnow
+from forja_core.utils import quote_ident, sql_literal, strip_accents, utcnow
 
 # Words naming a column that adds up others (total = payant + gratuit).
 _TOTALS = frozenset({"total", "totaux", "totale", "ensemble", "tot"})
@@ -55,6 +57,8 @@ _KEY_ELIGIBLE = frozenset(
     {InferredType.INTEGER, InferredType.STRING, InferredType.DATE, InferredType.DATETIME}
 )
 _MAX_COMPOSITE_KEYS = 10
+# Categories whose labels are compared for spelling variants (a region, a status).
+VARIANT_MAX_DISTINCT = 1000
 # A near key: an identifier with at most 5 % blanks, unique with its partner on 99 % of
 # the rows.
 QUASI_KEY_MAX_NULLS = 0.05
@@ -90,10 +94,13 @@ class Profiler:
         parquet_path: Path,
         version_id: str | None = None,
         version: int | None = None,
+        history: Sequence[Path] = (),
     ) -> ProfileReport:
+        """``history``: the earlier versions of the source, where the spellings of a
+        label are compared too (a region written one way in 2022, another in 2023)."""
         con = duck.connect()
         try:
-            report = self._profile(con, source_id, source_name, parquet_path)
+            report = self._profile(con, source_id, source_name, parquet_path, history)
             return report.model_copy(update={"version_id": version_id, "version": version})
         except duckdb.Error as exc:
             raise ProfilingError(f"profiling failed for '{source_name}': {exc}") from exc
@@ -106,9 +113,15 @@ class Profiler:
         source_id: str,
         source_name: str,
         parquet_path: Path,
+        history: Sequence[Path] = (),
     ) -> ProfileReport:
         con.execute(
             f"CREATE VIEW src AS SELECT * FROM read_parquet({sql_literal(str(parquet_path))})"
+        )
+        files = ", ".join(sql_literal(str(p)) for p in [*history, parquet_path] if p.exists())
+        con.execute(
+            f"CREATE VIEW every_version AS SELECT * FROM read_parquet([{files}], "
+            "union_by_name = true)"
         )
         schema = [
             (str(row[0]), str(row[1]))
@@ -147,6 +160,7 @@ class Profiler:
         entities = self._entities(con, columns, row_count, keys, stats)
         conflicts = self._key_conflicts(con, columns, keys, row_count)
         compositions = self._compositions(con, columns)
+        variants = self._variants(con, columns)
         quality = compute_quality(columns, duplicates, keys, pii)
         report = ProfileReport(
             source_id=source_id,
@@ -160,6 +174,7 @@ class Profiler:
             duplicates=duplicates,
             key_conflicts=conflicts,
             compositions=compositions,
+            variants=variants,
             pii=pii,
             quality=quality,
             sampled=sample_rows is not None,
@@ -483,6 +498,38 @@ class Profiler:
                     label = str(value)
                     conflict.by_period[label] = conflict.by_period.get(label, 0) + 1
             found.append(conflict)
+        return found
+
+    def _variants(
+        self, con: duckdb.DuckDBPyConnection, columns: list[ColumnProfile]
+    ) -> list[ValueVariants]:
+        """Labels of a category written several ways (case, accents, hyphens, spaces):
+        one region spelled two ways makes 19 regions out of 18. Read locally, never sent."""
+        found: list[ValueVariants] = []
+        for column in columns:
+            if (
+                column.inferred.inferred_type is not InferredType.STRING
+                or column.pii is not None
+                or is_identifier_name(column.name)
+                or not 2 <= column.distinct_count <= VARIANT_MAX_DISTINCT
+            ):
+                continue
+            ident = quote_ident(column.name)
+            rows = con.execute(
+                f"SELECT trim(CAST({ident} AS VARCHAR)) AS v, count(*) FROM every_version "
+                f"WHERE {ident} IS NOT NULL AND trim(CAST({ident} AS VARCHAR)) <> '' GROUP BY 1"
+            ).fetchall()
+            groups: dict[str, dict[str, int]] = {}
+            for value, count in rows:
+                groups.setdefault(variant_key(str(value)), {})[str(value)] = int(count)
+            for spellings in groups.values():
+                if len(spellings) < 2:
+                    continue
+                # The most frequent spelling, the accented one on a tie.
+                canonical = max(spellings, key=lambda v: (spellings[v], v != strip_accents(v), v))
+                found.append(
+                    ValueVariants(column=column.name, canonical=canonical, spellings=spellings)
+                )
         return found
 
     def _compositions(

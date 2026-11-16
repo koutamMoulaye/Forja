@@ -3,12 +3,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
+from forja_core import duck
 from forja_core.catalog import Catalog
+from forja_core.logging import get_logger
 from forja_core.profiling.models import ColumnProfile, Composition, EntityAttributes
 from forja_core.relations.models import Relation, RelationStatus
 from forja_core.silver.plan import TransformationPlan
 from forja_core.silver.tables import SilverTable, TableLayer
+
+log = get_logger(__name__)
+
+# A suggested relation is used by a proposal (and flagged « to confirm ») from this
+# confidence on; below, it waits for review.
+STRONG_SUGGESTION = 0.9
 
 _NUMERIC_PREFIXES = (
     "TINYINT", "SMALLINT", "INTEGER", "BIGINT", "HUGEINT", "UTINYINT", "USMALLINT",
@@ -44,6 +53,10 @@ class SilverSource:
     row_count: int = 0
     # A total column and the columns it adds up, in Silver names, with the gap measured.
     compositions: tuple[Composition, ...] = ()
+    # Ingested versions, and keys whose attributes differ between two of them (None when
+    # not measured): a dimension is historized only when its source did change.
+    versions: int = 1
+    changed_keys: int | None = None
 
     @property
     def model(self) -> str:
@@ -68,11 +81,23 @@ class GoldContext:
     def confirmed(self) -> list[Relation]:
         return [r for r in self.relations if r.status is RelationStatus.CONFIRMED]
 
-    def relation(
-        self, from_source: str, from_column: str, to_source: str, to_column: str
+    @property
+    def strong_suggestions(self) -> list[Relation]:
+        return [
+            r
+            for r in self.relations
+            if r.status is RelationStatus.SUGGESTED and r.confidence >= STRONG_SUGGESTION
+        ]
+
+    def _find(
+        self,
+        relations: list[Relation],
+        from_source: str,
+        from_column: str,
+        to_source: str,
+        to_column: str,
     ) -> Relation | None:
-        """The confirmed relation between these columns, if any."""
-        for relation in self.confirmed:
+        for relation in relations:
             if (
                 relation.from_source == from_source
                 and relation.from_column == from_column
@@ -80,7 +105,35 @@ class GoldContext:
                 and relation.to_column == to_column
             ):
                 return relation
+        # A one-to-one relation between two keys reads both ways: each value appears once
+        # on each side.
+        for relation in relations:
+            origin = self.sources.get(relation.from_source)
+            if (
+                relation.cardinality == "1-1"
+                and origin is not None
+                and origin.key == (relation.from_column,)
+                and relation.from_source == to_source
+                and relation.from_column == to_column
+                and relation.to_source == from_source
+                and relation.to_column == from_column
+            ):
+                return relation
         return None
+
+    def relation(
+        self, from_source: str, from_column: str, to_source: str, to_column: str
+    ) -> Relation | None:
+        """The confirmed relation between these columns, if any (a 1-1 relation stored
+        the other way round counts too)."""
+        return self._find(self.confirmed, from_source, from_column, to_source, to_column)
+
+    def suggestion(
+        self, from_source: str, from_column: str, to_source: str, to_column: str
+    ) -> Relation | None:
+        """The relation still waiting for review between these columns, if any."""
+        suggested = [r for r in self.relations if r.status is RelationStatus.SUGGESTED]
+        return self._find(suggested, from_source, from_column, to_source, to_column)
 
 
 def _entities(plan: TransformationPlan, report: object) -> tuple[EntityAttributes, ...]:
@@ -118,7 +171,32 @@ def _compositions(plan: TransformationPlan, report: object) -> tuple[Composition
     return tuple(found)
 
 
-def build_gold_context(catalog: Catalog, project_id: str) -> GoldContext:
+def _changed_keys(data_dir: Path, plan: TransformationPlan, paths: list[str]) -> int | None:
+    """Keys present in two versions of a source with different contents (Bronze rows,
+    compared by their hash; nothing leaves the warehouse)."""
+    keys = [c.source_column for c in plan.key_columns()]
+    if not keys or len(paths) < 2:
+        return None
+    files = ", ".join("'" + (data_dir / p).as_posix().replace("'", "''") + "'" for p in paths)
+    columns = ", ".join('"' + k.replace('"', '""') + '"' for k in keys)
+    try:
+        with duck.connect() as con:
+            [(count,)] = con.execute(
+                f"SELECT count(*) FROM (SELECT {columns} FROM read_parquet([{files}], "
+                "union_by_name = true) GROUP BY ALL "
+                "HAVING count(DISTINCT _batch_id) > 1 AND count(DISTINCT _row_hash) > 1)"
+            ).fetchall()
+    except Exception as exc:  # a missing or unreadable file: not measured
+        log.warning("gold_changed_keys_unavailable", source=plan.source_name, error=str(exc))
+        return None
+    return int(count)
+
+
+def build_gold_context(
+    catalog: Catalog, project_id: str, data_dir: Path | None = None
+) -> GoldContext:
+    """The Silver sources and relations of a project. With ``data_dir``, the keys that
+    changed between versions of each source are measured too (for the proposal)."""
     sources: dict[str, SilverSource] = {}
     reports = catalog.latest_profiles(project_id)
     for table in catalog.list_tables(project_id, TableLayer.SILVER):
@@ -126,6 +204,7 @@ def build_gold_context(catalog: Catalog, project_id: str) -> GoldContext:
         plan = catalog.get_plan(table.source_id, version=table.plan_version)
         report = reports.get(table.source_id)
         by_source = {c.name: c for c in report.columns} if report else {}
+        versions = catalog.list_versions(table.source_id) if data_dir is not None else []
         sources[plan.source_name] = SilverSource(
             name=plan.source_name,
             table=table,
@@ -140,6 +219,12 @@ def build_gold_context(catalog: Catalog, project_id: str) -> GoldContext:
             entities=_entities(plan, report),
             row_count=report.row_count if report else 0,
             compositions=_compositions(plan, report),
+            versions=max(1, len(versions)),
+            changed_keys=(
+                _changed_keys(data_dir, plan, [v.bronze_path for v in versions])
+                if data_dir is not None and len(versions) > 1
+                else None
+            ),
         )
     return GoldContext(
         project_id=project_id,

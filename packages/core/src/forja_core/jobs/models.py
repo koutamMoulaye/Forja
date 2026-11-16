@@ -62,7 +62,9 @@ class RunRequest(BaseModel):
     )
     csv_delimiter: str | None = Field(default=None, min_length=1, max_length=1)
     use_llm: bool = Field(
-        default=True, description="gold_proposal: ask the configured LLM, else the heuristic"
+        default=False,
+        description="gold_proposal: false, the rule-based proposal (a new draft version); "
+        "true, the configured LLM's proposal, kept in the result as an alternative to compare",
     )
     mart_request_id: str | None = Field(
         default=None, description="mart_request and publish_mart: the request processed"
@@ -160,7 +162,7 @@ class JobProgress(BaseModel):
     updated_at: datetime | None = None
     running: list[str] = Field(
         default_factory=list,
-        description="Items being processed: dbt models (stg_clients, dim_clients...), or "
+        description="Items being processed: dbt models (stg_clients, dim_client...), or "
         "source ids while profiling",
     )
     done: list[str] = Field(default_factory=list, description="Items finished successfully")

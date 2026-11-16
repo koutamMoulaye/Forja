@@ -78,12 +78,12 @@ test("the canvas draws the demo pipeline", async ({ page }) => {
   // fct_ventes sits in the star schema, right of its dimensions.
   const lane = (await page.getByTestId("lane-star_schema").boundingBox())!;
   const fact = (await node(page, "fct_ventes").boundingBox())!;
-  const dim = (await node(page, "dim_clients").boundingBox())!;
+  const dim = (await node(page, "dim_client").boundingBox())!;
   expect(fact.x).toBeGreaterThan(lane.x);
   expect(fact.x + fact.width).toBeLessThan(lane.x + lane.width);
   expect(fact.x).toBeGreaterThan(dim.x + dim.width);
   // « Ajuster »: every node is on screen.
-  for (const id of ["src_clients", "dest_exports", "dim_date", "dim_produits"]) {
+  for (const id of ["src_clients", "dest_exports", "dim_date", "dim_produit"]) {
     const box = (await node(page, id).boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(1440);
@@ -93,17 +93,17 @@ test("the canvas draws the demo pipeline", async ({ page }) => {
   await captureThemes(page, "canvas");
 });
 
-test("selecting dim_clients opens the inspector on its columns, in the URL", async ({ page }) => {
+test("selecting dim_client opens the inspector on its columns, in the URL", async ({ page }) => {
   await openCanvas(page);
-  await node(page, "dim_clients").click();
+  await node(page, "dim_client").click();
   const inspector = page.getByTestId("inspector");
-  await expect(inspector.getByRole("heading", { name: "dim_clients" })).toBeVisible();
+  await expect(inspector.getByRole("heading", { name: "dim_client" })).toBeVisible();
   await inspector.getByRole("tab", { name: "Colonnes" }).click();
-  await expect(page).toHaveURL(/\?node=dim_clients&tab=columns$/);
+  await expect(page).toHaveURL(/\?node=dim_client&tab=columns$/);
   await expect(inspector.getByText("client_key")).toBeVisible();
   await expect(inspector.getByText("Pseudonymisé").first()).toBeVisible();
   // Out of the lineage, nodes fade; the minimap steps aside for the inspector.
-  await expect(node(page, "dim_produits")).toHaveCSS("opacity", "0.28");
+  await expect(node(page, "dim_produit")).toHaveCSS("opacity", "0.28");
   await expect(page.getByTestId("canvas-minimap")).toHaveCSS("opacity", "0");
   await captureThemes(page, "selection");
 
@@ -116,20 +116,20 @@ test("selecting dim_clients opens the inspector on its columns, in the URL", asy
 
 test("⌘K « cli » finds the nodes and moves the camera to the one chosen", async ({ page }) => {
   await openCanvas(page);
-  // Start away from dim_clients.
+  // Start away from dim_client.
   await page.mouse.move(700, 450);
   await page.mouse.wheel(0, -900);
   await page.waitForTimeout(400);
   await page.keyboard.press("ControlOrMeta+k");
   await page.keyboard.type("cli");
   const options = page.getByRole("option");
-  await expect(options.filter({ hasText: "dim_clients" })).toBeVisible();
+  await expect(options.filter({ hasText: "dim_client" })).toBeVisible();
   await expect(options.filter({ hasText: "clients.csv" })).toBeVisible();
   await captureThemes(page, "palette");
-  await options.filter({ hasText: "dim_clients" }).click();
-  await expect(page).toHaveURL(/node=dim_clients/);
+  await options.filter({ hasText: "dim_client" }).click();
+  await expect(page).toHaveURL(/node=dim_client/);
   await page.waitForTimeout(700);
-  expect(await offCentre(page, "dim_clients", true)).toBeLessThan(40);
+  expect(await offCentre(page, "dim_client", true)).toBeLessThan(40);
 });
 
 test("the « À revoir » filter fades what needs nothing", async ({ page }) => {

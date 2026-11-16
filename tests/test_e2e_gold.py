@@ -70,7 +70,13 @@ def test_ecommerce_star_schema_with_scd2(
         ("lignes_commande", "id_commande", "commandes"),
     }
     assert all(r["status"] == "suggested" for r in relations)
-    assert _propose(client, project_id)["facts"] == []  # nothing to model before review
+    # Before review, the proposal already builds on the strong suggestions, and asks for
+    # each of them to be confirmed: it cannot be approved yet.
+    early = _propose(client, project_id)
+    assert [f["name"] for f in early["facts"]] == ["fct_ventes"]
+    to_confirm = [i for i in early["issues"] if i["code"] == "unconfirmed_relation"]
+    assert to_confirm and all("à confirmer" in i["message"] for i in to_confirm)
+    assert client.post(f"/projects/{project_id}/gold-plan/approve").status_code == 422
     for relation in relations:
         assert client.post(f"/relations/{relation['id']}/confirm").status_code == 200
 
@@ -80,15 +86,21 @@ def test_ecommerce_star_schema_with_scd2(
     assert [i for i in plan["issues"] if i["severity"] == "error"] == []
     [fact] = plan["facts"]
     assert fact["name"] == "fct_ventes"
-    assert sorted(d["name"] for d in plan["dimensions"]) == ["dim_clients", "dim_produits"]
+    assert sorted(d["name"] for d in plan["dimensions"]) == ["dim_client", "dim_produit"]
     assert plan["date_dimension"]["enabled"] is True
+    # No client changed yet: SCD1 is proposed; the engineer historizes the clients.
+    assert {d["name"]: d["scd"] for d in plan["dimensions"]}["dim_client"] == "scd1"
+    patched = client.patch(
+        f"/projects/{project_id}/gold-plan", json={"dimension_scd": {"dim_client": "scd2"}}
+    )
+    assert patched.status_code == 200
     assert client.post(f"/projects/{project_id}/gold-plan/approve").json()["status"] == "approved"
 
     # --- Gold build -------------------------------------------------------------------------
     gold = _run(client, project_id, "build_gold")
     rows = {m["name"]: m["rows"] for m in gold["metrics"]["models"]}
     assert rows["fct_ventes"] == len(ec.lignes_rows())
-    assert rows["dim_clients"] == ec.CLIENT_COUNT + 1
+    assert rows["dim_client"] == ec.CLIENT_COUNT + 1
     unknown = {u["key"]: u["rows"] for u in gold["metrics"]["unknown_member_rows"]}
     assert unknown["produit_key"] == 1 and unknown["client_key"] > 0
     assert gold["metrics"]["dbt_tests"]["failed"] == 0
@@ -100,7 +112,7 @@ def test_ecommerce_star_schema_with_scd2(
     with duckdb.connect(str(serving), read_only=True) as con:
         tables = {row[0] for row in con.execute("SHOW TABLES").fetchall()}
         [(revenue,)] = con.execute("SELECT sum(montant) FROM fct_ventes").fetchall()
-    assert tables == {"dim_clients", "dim_date", "dim_produits", "fct_ventes", "_forja_tables"}
+    assert tables == {"dim_client", "dim_date", "dim_produit", "fct_ventes", "_forja_tables"}
     assert revenue > 0
 
     gold_tables = {t["name"]: t for t in client.get(f"/projects/{project_id}/tables").json()}
@@ -109,7 +121,7 @@ def test_ecommerce_star_schema_with_scd2(
     parquet = client.get(f"/tables/{fact_table['id']}/export", params={"format": "parquet"})
     assert parquet.status_code == 200
     assert pq.read_table(io.BytesIO(parquet.content)).num_rows == len(ec.lignes_rows())
-    preview = client.get(f"/tables/{gold_tables['dim_clients']['id']}/preview").json()
+    preview = client.get(f"/tables/{gold_tables['dim_client']['id']}/preview").json()
     assert "jean.dupont@exemple.fr" not in str(preview)
 
     # --- v2 of clients: one client moved, one new client --------------------------------------
@@ -119,18 +131,23 @@ def test_ecommerce_star_schema_with_scd2(
     clients = next(s for s in incremental["metrics"]["sources"] if s["source_name"] == "clients")
     assert clients["rows_read"] == 2 and clients["full_refresh"] is False
     _run(client, project_id, "build_gold")
+    # A change was observed between two versions of the clients: a new proposal
+    # historizes them by itself, and says why.
+    reproposed = _propose(client, project_id)
+    assert {d["name"]: d["scd"] for d in reproposed["dimensions"]}["dim_client"] == "scd2"
+    assert any("ont changé d'attributs" in w for w in reproposed["warnings"])
 
     warehouse = settings.data_dir / project_id / "warehouse.duckdb"
     with duckdb.connect(str(warehouse), read_only=True) as con:
         versions = con.execute(
             "SELECT ville, segment, is_current, valid_from = TIMESTAMP '1900-01-01' "
-            "FROM dim_clients WHERE id_client = ? ORDER BY valid_from",
+            "FROM dim_client WHERE id_client = ? ORDER BY valid_from",
             [ec.CHANGED_CLIENT],
         ).fetchall()
-        [(dimension_rows,)] = con.execute("SELECT count(*) FROM dim_clients").fetchall()
+        [(dimension_rows,)] = con.execute("SELECT count(*) FROM dim_client").fetchall()
         fact_cities = con.execute(
             "SELECT DISTINCT d.ville FROM fct_ventes f "
-            "JOIN dim_clients d ON d.client_key = f.client_key WHERE d.id_client = ?",
+            "JOIN dim_client d ON d.client_key = f.client_key WHERE d.id_client = ?",
             [ec.CHANGED_CLIENT],
         ).fetchall()
     [old, current] = versions

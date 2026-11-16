@@ -157,7 +157,7 @@ def test_mt21_an_unknown_adjective_is_asked(case: tuple[AppState, Project, str])
     clarification = latest.clarification
     assert clarification is not None and clarification.term == "labellisés"
     refs = [o.ref for o in clarification.options]
-    assert refs == ["filled:dateappellation.date", "time:dateappellation", "ignore"]
+    assert refs == ["filled:dateappellation.date", "dated:dateappellation", "ignore"]
     labels_ = [o.label for o in clarification.options]
     assert labels_[:2] == ["Avec une date d'appellation renseignée", "Par année d'appellation"]
     # Answered: the museums with a date of appellation, per attendance year.
@@ -258,7 +258,7 @@ def test_mt26_every_series_is_drawn_and_compared(case: tuple[AppState, Project, 
     assert [s.label for s in insight.series] == ["Entrées payantes", "Entrées gratuites"]
     assert all(len(s.points) == 11 for s in insight.series)
     assert "Entrées gratuites : de " in insight.sentence
-    assert "Répartition sur la période : entrées payantes" in insight.sentence
+    assert "Répartition sur la période : entrées payantes" in " ".join(insight.details)
 
 
 def test_mt27_beyond_fifteen_members_top_ten_and_others(
@@ -270,7 +270,7 @@ def test_mt27_beyond_fifteen_members_top_ten_and_others(
     assert len(insight.points) == 11 and insight.points[-1].label == "Autres"
     assert insight.others == len(insight.ranking) - 10
     assert sum(p.value or 0 for p in insight.points) == pytest.approx(insight.total)
-    assert "les 10 premiers" in insight.sentence
+    assert "Les 10 premiers en font" in " ".join(insight.details)
 
 
 def test_mt28_time_series_high_low_and_largest_change(
@@ -289,9 +289,10 @@ def test_mt28_time_series_high_low_and_largest_change(
     by_year[2021] -= divergent.total or 0
     high = max(by_year, key=lambda y: by_year[y])
     low = min(by_year, key=lambda y: by_year[y])
-    assert f"point haut en {high}" in insight.sentence
-    assert f"point bas en {low}" in insight.sentence
-    assert "plus forte variation en " in insight.sentence
+    told = " ".join([insight.sentence, *insight.details]).lower()  # summary, then details
+    assert f"point haut en {high}" in told
+    assert f"point bas en {low}" in told
+    assert "plus forte variation en " in told
 
 
 def test_mt31_mart_named_by_its_business_label(case: tuple[AppState, Project, str]) -> None:

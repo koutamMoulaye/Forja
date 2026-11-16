@@ -41,6 +41,7 @@ class ReviewRuleKind(StrEnum):
     DEDUPLICATE = "deduplicate"
     PRIMARY_KEY = "primary_key"
     SENTINEL = "sentinel"
+    HARMONIZE = "harmonize"
 
 
 class ReviewRule(BaseModel):
@@ -247,6 +248,32 @@ def review_rules(plan: TransformationPlan) -> list[ReviewRule]:
             )
 
     for column in included:
+        if not column.harmonize:
+            continue
+        usual: dict[str, list[str]] = {}
+        for spelling, target in sorted(column.harmonize.items()):
+            usual.setdefault(target, []).append(spelling)
+        listed = " ; ".join(
+            f"{', '.join(f'« {s} »' for s in spellings)} → « {target} »"
+            for target, spellings in usual.items()
+        )
+        rules.append(
+            ReviewRule(
+                id=f"harmonize:{column.source_column}",
+                kind=ReviewRuleKind.HARMONIZE,
+                title=f"Harmoniser les libellés de {column.target_column}",
+                explanation=(
+                    f"Le même libellé est écrit de plusieurs façons (majuscules, accents, "
+                    f"tirets ou espaces) : {listed}. Sans cette règle, chaque écriture "
+                    "compterait pour une catégorie distincte."
+                ),
+                columns=[column.source_column],
+                confidence=ConfidenceLevel.HIGH,
+                affected=sum(len(s) for s in usual.values()),
+            )
+        )
+
+    for column in included:
         if column.pii_type is not None:
             rules.append(_pii_rule(column))
         for validity in column.rules:
@@ -364,6 +391,8 @@ def rejection_patch(plan: TransformationPlan) -> PlanPatch | None:
                 column(rule.columns[0]).null_values = [
                     v for v in current.cast.null_values if v not in current.sentinels
                 ]
+            case ReviewRuleKind.HARMONIZE:
+                column(rule.columns[0]).harmonize = {}
             case ReviewRuleKind.PII:  # pragma: no cover - refused when recorded
                 pass
     return patch

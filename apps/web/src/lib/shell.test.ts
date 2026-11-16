@@ -62,11 +62,11 @@ describe("shell helpers", () => {
     expect(paletteFilter("go:runs", "modele", ["Runs"])).toBe(0);
     // Nodes match fuzzily, best first: prefix, word start, substring, letters in order.
     expect(fuzzyScore("clients.csv", "cli")).toBe(1);
-    expect(fuzzyScore("dim_clients", "cli")).toBe(0.9);
+    expect(fuzzyScore("dim_client", "cli")).toBe(0.9);
     expect(fuzzyScore("Montant par client", "lient")).toBe(0.75);
-    expect(fuzzyScore("dim_clients", "dmcl")).toBe(0.4);
+    expect(fuzzyScore("dim_client", "dmcl")).toBe(0.4);
     expect(fuzzyScore("fct_ventes", "cli")).toBe(0);
-    expect(paletteFilter("node:dim_clients", "cli", ["dim_clients", "Modèle en étoile"])).toBe(0.9);
+    expect(paletteFilter("node:dim_client", "cli", ["dim_client", "Modèle en étoile"])).toBe(0.9);
   });
 
   it("write delays for people", () => {

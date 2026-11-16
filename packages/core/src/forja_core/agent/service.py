@@ -739,7 +739,7 @@ class MartService:
                 (kind == "metric" and layer.metric(name))
                 or (kind == "attribute" and layer.attribute(name))
                 or (kind == "value" and layer.attribute(name.partition("=")[0]))
-                or (kind in ("dimension", "time") and layer.dimension(name))
+                or (kind in ("dimension", "time", "dated") and layer.dimension(name))
                 or (kind == "filled" and layer.attribute(name))
             ):
                 kept.append(option)
@@ -865,7 +865,7 @@ class MartService:
             if found is None:
                 continue
             dim, attribute = found
-            treated = by_table.get(dim.table, {}).get(attribute.column)
+            treated = by_table.get(dim.table_of(attribute), {}).get(attribute.column)
             treatments[column.name] = treated.treatment if treated else PiiTreatment.HASH
         return treatments
 
@@ -881,6 +881,7 @@ class MartService:
     ) -> None:
         if spec.time_dimension and spec.time_dimension != layer.default_time_dimension:
             data_range = self._date_ranges(layer)(spec.time_dimension)
+        layer = layer.for_fact(fact)
         compiled = compile_spec(spec, layer, fact)
         report("preview", "calcul de l'aperçu et des contrôles", 85)
         warehouse = self.generator.warehouse_path(request.project_id)

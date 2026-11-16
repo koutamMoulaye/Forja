@@ -146,6 +146,8 @@ export function useStartRun(projectId: string) {
   const queryClient = useQueryClient();
   const refresh = useModelRefresh(projectId);
   const path = { params: { path: { project_id: projectId } } };
+  // « Proposer un modèle »: the rule-based proposal, a new version in seconds.
+  // « Améliorer avec l'IA » (useLlm): an alternative kept in the run, to compare.
   const propose = useMutation({
     mutationFn: async (useLlm: boolean) =>
       unwrap(
@@ -159,6 +161,23 @@ export function useStartRun(projectId: string) {
       refresh();
     },
     onError: failure("Proposition non lancée"),
+  });
+  const adopt = useMutation({
+    mutationFn: async (runId: string) =>
+      unwrap(
+        await api.POST("/projects/{project_id}/gold-plan/adopt", {
+          ...path,
+          body: { run_id: runId },
+        }),
+      ),
+    onSuccess: (plan) => {
+      toast.success({
+        title: `Proposition de l'IA adoptée, version ${plan.version}`,
+        description: "La proposition précédente reste dans l'historique des versions",
+      });
+      refresh();
+    },
+    onError: failure("Adoption impossible"),
   });
   const build = useMutation({
     mutationFn: async () =>
@@ -185,5 +204,5 @@ export function useStartRun(projectId: string) {
     },
     onError: failure("Annulation impossible"),
   });
-  return { propose, build, cancel };
+  return { propose, adopt, build, cancel };
 }

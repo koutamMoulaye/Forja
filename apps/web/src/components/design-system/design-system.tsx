@@ -484,7 +484,7 @@ function InspectorDemo() {
               <Cube size={22} weight="duotone" />
             </span>
             <div className="min-w-0 flex-1">
-              <SheetTitle>dim_clients</SheetTitle>
+              <SheetTitle>dim_client</SheetTitle>
               <SheetDescription>Dimension · 4 809 lignes</SheetDescription>
             </div>
             <SheetCloseButton />

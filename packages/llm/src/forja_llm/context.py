@@ -43,8 +43,8 @@ def _check_identifier(value: str) -> str:
 
 class SafeColumn(_SafeModel):
     name: str
-    physical_type: str
-    inferred_type: InferredType
+    physical_type: str | None = None
+    inferred_type: InferredType | None = None
     silver_type: SilverType | None = None
     included: bool = True
     is_primary_key: bool = False
@@ -52,8 +52,8 @@ class SafeColumn(_SafeModel):
     decimal_separator: str | None = None
     null_pct: float
     distinct_count: int
-    uniqueness: float
-    is_unique: bool
+    uniqueness: float | None = None
+    is_unique: bool | None = None
     pii_type: PiiType | None = None
     pii_confidence: float | None = None
     period_level: Literal["day", "month", "quarter", "year"] | None = Field(
@@ -65,7 +65,10 @@ class SafeColumn(_SafeModel):
         default=0, description="Rows holding a placeholder (Inconnu, NC...) treated as empty"
     )
 
-    _check_name = field_validator("name", "physical_type")(_check_identifier)
+    _check_name = field_validator("name")(_check_identifier)
+    _check_type = field_validator("physical_type")(
+        lambda v: v if v is None else _check_identifier(v)
+    )
 
     @field_validator("date_format")
     @classmethod
@@ -105,6 +108,11 @@ class SafeSource(_SafeModel):
     entities: list[SafeEntity] = Field(default_factory=list)
     duplicate_pct: float
     quality_score: float
+    other_columns: int = Field(
+        default=0,
+        description="Compact context: descriptive columns left out (neither key, date nor "
+        "candidate measure)",
+    )
 
     _check_name = field_validator("name", "silver_table")(
         lambda v: v if v is None else _check_identifier(v)
@@ -177,7 +185,9 @@ def _profile_column(
     }
 
 
-def _safe_source(item: SourceContext) -> SafeSource:
+def _safe_source(item: SourceContext, keep: set[str] | None = None) -> SafeSource:
+    """A source in the context; with ``keep``, only those Silver columns (the compact
+    context of a project with many sources) and the count of the others."""
     profile, plan = item.profile, item.plan
     by_name = {c.name: c for c in profile.columns}
     columns: list[SafeColumn] = []
@@ -207,6 +217,10 @@ def _safe_source(item: SourceContext) -> SafeSource:
             )
             columns.append(SafeColumn(**fields))
     rename = {c.source_column: c.target_column for c in plan.columns} if plan else {}
+    other_columns = 0
+    if keep is not None:
+        other_columns = sum(1 for c in columns if c.name not in keep)
+        columns = [c.model_copy(update=_COMPACT_COLUMN) for c in columns if c.name in keep]
     return SafeSource(
         name=item.source.name,
         silver_table=item.table.name if item.table else None,
@@ -214,7 +228,11 @@ def _safe_source(item: SourceContext) -> SafeSource:
         row_count=profile.row_count,
         columns=columns,
         primary_key=primary_key,
-        candidate_keys=[[rename.get(c, c) for c in k.columns] for k in profile.candidate_keys],
+        candidate_keys=(
+            []
+            if keep is not None
+            else [[rename.get(c, c) for c in k.columns] for k in profile.candidate_keys]
+        ),
         entities=[
             SafeEntity(
                 key=rename.get(e.key, e.key),
@@ -226,7 +244,22 @@ def _safe_source(item: SourceContext) -> SafeSource:
         ],
         duplicate_pct=profile.duplicates.duplicate_pct,
         quality_score=profile.quality.score,
+        other_columns=other_columns,
     )
+
+
+# Statistics a compact context leaves out (they do not change the shape of a model).
+_COMPACT_COLUMN: dict[str, object] = {
+    "date_format": None,
+    "decimal_separator": None,
+    "pii_confidence": None,
+    "physical_type": None,
+    "inferred_type": None,
+    "uniqueness": None,
+    "is_unique": None,
+    "included": True,
+    "placeholders_pct": 0,
+}
 
 
 def _safe_relation(relation: Relation) -> SafeRelation:
@@ -246,12 +279,17 @@ def build_safe_context(
     project: Project,
     sources: Sequence[SourceContext | tuple[Source, ProfileReport]],
     relations: Sequence[Relation] = (),
+    keep: dict[str, set[str]] | None = None,
 ) -> LLMSafeContext:
+    """``keep``: Silver columns kept per source name (compact context), all otherwise."""
     items = [s if isinstance(s, SourceContext) else SourceContext(*s) for s in sources]
     return LLMSafeContext(
         project_name=project.name,
         architecture=project.architecture,
-        sources=[_safe_source(item) for item in items],
+        sources=[
+            _safe_source(item, None if keep is None else keep.get(item.source.name, set()))
+            for item in items
+        ],
         relations=[_safe_relation(r) for r in relations if r.status is not RelationStatus.REJECTED],
     )
 
@@ -324,4 +362,4 @@ def serialize_for_llm(context: LLMSafeContext | SemanticContext) -> str:
         return context.render()
     if not isinstance(context, LLMSafeContext):
         raise TypeError("only an LLMSafeContext can be serialized for a language model")
-    return context.model_dump_json(exclude_none=True)
+    return context.model_dump_json(exclude_none=True, exclude_defaults=True)

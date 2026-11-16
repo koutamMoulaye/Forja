@@ -189,6 +189,19 @@ class QualityScore(BaseModel):
     issues: list[str] = Field(default_factory=list)
 
 
+class ValueVariants(BaseModel):
+    """Spellings of one label that differ only by case, accents, hyphens or spaces
+    (« Ile-de-France », « ÎLE DE FRANCE »): the most frequent one is proposed for all."""
+
+    column: str
+    canonical: str
+    spellings: dict[str, int] = Field(description="Each spelling and its rows, canonical too")
+
+    @property
+    def rows(self) -> int:
+        return sum(n for v, n in self.spellings.items() if v != self.canonical)
+
+
 class ProfileReport(BaseModel):
     source_id: str
     source_name: str
@@ -213,6 +226,10 @@ class ProfileReport(BaseModel):
     compositions: list[Composition] = Field(
         default_factory=list,
         description="Total columns and the columns they add up, with the gap measured",
+    )
+    variants: list[ValueVariants] = Field(
+        default_factory=list,
+        description="Labels written several ways in a text column (case, accents, hyphens)",
     )
     pii: list[PiiDetection]
     quality: QualityScore

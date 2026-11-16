@@ -42,7 +42,7 @@ export function paletteFilter(value: string, search: string, keywords?: string[]
 }
 
 /**
- * Fuzzy match of a node name: prefix first, then a word start (« cli » in dim_clients),
+ * Fuzzy match of a node name: prefix first, then a word start (« cli » in dim_client),
  * a substring, and last the letters in order (« dmcl »).
  */
 export function fuzzyScore(name: string, search: string): number {

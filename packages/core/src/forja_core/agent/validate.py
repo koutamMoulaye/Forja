@@ -23,7 +23,14 @@ from forja_core.agent.spec import (
     OrderBy,
     Period,
 )
-from forja_core.semantic.models import Attribute, SemanticDimension, SemanticLayer, TimeGrain
+from forja_core.semantic.labels import is_feminine
+from forja_core.semantic.models import (
+    Attribute,
+    MetricAggregation,
+    SemanticDimension,
+    SemanticLayer,
+    TimeGrain,
+)
 from forja_core.semantic.text import key, normalize
 
 ValueLookup = Callable[[SemanticDimension, Attribute], list[str]]
@@ -104,7 +111,7 @@ def _resolve_axis(layer: SemanticLayer, ref: str, fact: str) -> str:
     if found is None:
         raise _unknown(layer, "Dimension", ref, _attribute_choices(layer))
     dim, attribute = found
-    if dim.fact != fact:
+    if not dim.available(attribute, fact):
         raise _StopError(
             Validation(refusal=f"{dim.label} n'est pas reliée aux mesures demandées ({fact}).")
         )
@@ -324,8 +331,9 @@ def _validate(
     axes = list(dict.fromkeys(_resolve_axis(layer, a, fact) for a in spec.axes))
 
     time_dimension = spec.time_dimension
+    view = layer.for_fact(fact)
     if spec.time_grain is not None or spec.period is not None or time_dimension is not None:
-        candidates = [d for d in layer.time_dimensions() if d.fact == fact]
+        candidates = [d for d in view.time_dimensions() if d.fact == fact]
         if not candidates:
             raise _StopError(
                 Validation(refusal="Ces mesures n'ont pas de date : pas d'axe temporel possible.")
@@ -338,7 +346,7 @@ def _validate(
             )
     notes: list[str] = []
     time_grain = spec.time_grain
-    used = layer.dimension(time_dimension) if time_dimension else None
+    used = view.dimension(time_dimension) if time_dimension else None
     if (
         time_grain is not None
         and used is not None
@@ -363,6 +371,7 @@ def _validate(
     filters = [_filter(layer, f, fact, metrics, lookup) for f in spec.filters]
     axes, dropped = _drop_fixed_axes(layer, axes, filters)
     notes += dropped
+    notes += _bridged(view, [*axes, *(f.field for f in filters)], metrics)
 
     outputs = set(metrics) | {a.split(".")[-1] for a in axes} | set(axes)
     if time_grain:
@@ -389,6 +398,46 @@ def _validate(
         }
     )
     return Validation(spec=validated, fact=fact, notes=notes)
+
+
+def _bridged(view: SemanticLayer, refs: list[str], metrics: list[str]) -> list[str]:
+    """A dimension reached through another fact (the product categories of the order a
+    review is about) matches a row once per value: a sum would count it several times,
+    so only averages and distinct counts read it, and the result says how."""
+    bridged = []
+    read: list[str] = []
+    for ref in refs:
+        found = view.attribute(ref)
+        if found is not None and found[0].bridge is not None:
+            if found[0] not in bridged:
+                bridged.append(found[0])
+            read.append(found[1].label.lower())
+    if not bridged:
+        return []
+    for name in metrics:
+        metric = view.metric(name)
+        if metric is not None and metric.kind != "ratio" and metric.aggregation in (
+            MetricAggregation.SUM, MetricAggregation.COUNT
+        ):  # fmt: skip
+            dim = bridged[0]
+            raise _StopError(
+                Validation(
+                    refusal=f"{metric.label} ne se répartit pas par {dim.label.lower()} : une "
+                    f"même ligne peut concerner plusieurs {dim.label.lower()}s, la somme la "
+                    "compterait plusieurs fois. Une moyenne ou un nombre distinct le peut."
+                )
+            )
+    dim = bridged[0]
+    assert dim.bridge is not None
+    what = " et ".join(dict.fromkeys(read))
+    return [
+        f"La {what} est celle des lignes de {dim.bridge.fact} ayant le même {dim.bridge.key} : "
+        f"chaque ligne compte une fois par {what} distincte, jamais une fois par ligne."
+        if is_feminine(what)
+        else f"Le {what} est celui des lignes de {dim.bridge.fact} ayant le même "
+        f"{dim.bridge.key} : chaque ligne compte une fois par {what} distinct, jamais une "
+        "fois par ligne."
+    ]
 
 
 def _fixed_value(item: MartFilter) -> object | None:

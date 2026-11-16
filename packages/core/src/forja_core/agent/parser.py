@@ -26,7 +26,7 @@ from forja_core.agent.spec import (
     Period,
 )
 from forja_core.agent.vocabulary import Match, Vocabulary
-from forja_core.semantic.models import SemanticLayer, TimeGrain
+from forja_core.semantic.models import SemanticDimension, SemanticLayer, TimeGrain
 from forja_core.semantic.text import STOPWORDS, key, words
 from forja_core.utils import slugify
 
@@ -258,7 +258,7 @@ def _label(layer: SemanticLayer, ref: str) -> tuple[str, str]:
         if dim.kind == "time":
             return label, dim.label
         return label, f"{dim.label} · axe d'analyse" if label != dim.label else "Axe d'analyse"
-    if kind == "time":
+    if kind in ("time", "dated"):
         named = layer.dimension(name)
         if named is None:
             return name, ""
@@ -289,6 +289,26 @@ def filled_text(label: str) -> str:
     word = label[:1].lower() + label[1:]
     feminine = word.split(" ")[0].endswith(("e", "té", "ion"))
     return f"{'une' if feminine else 'un'} {word} renseigné{'e' if feminine else ''}"
+
+
+def _narrowed(layer: SemanticLayer, candidates: list[str], metrics: list[str]) -> list[str]:
+    """Attributes a word may name, narrowed by the metrics already understood: those of
+    their fact only, and, for a count of an entity (« nombre de clients »), that
+    entity's own attribute first (« par État » is then the customer's state)."""
+    facts = {m.fact for m in (layer.metric(n) for n in metrics) if m is not None}
+    entities = {m.entity for m in (layer.metric(n) for n in metrics) if m is not None and m.entity}
+
+    def dimension(ref: str) -> SemanticDimension | None:
+        return layer.dimension(ref.partition(":")[2].split(".")[0])
+
+    kept = candidates
+    if facts:
+        served = [c for c in kept if (d := dimension(c)) is None or all(d.serves(f) for f in facts)]
+        kept = served or kept
+    if entities:
+        own = [c for c in kept if (d := dimension(c)) is not None and d.name in entities]
+        kept = own or kept
+    return kept
 
 
 def clarification(
@@ -380,13 +400,20 @@ def qualifier_clarification(
     dim = layer.dimension(dimension)
     if dim is None:
         return None
-    dates = [d for d in layer.time_dimensions() if d.fact == dim.fact and not d.primary]
+    # The dates of events first (an appellation date), then period numbers (a closure
+    # year): the adjective speaks of an event.
+    dates = sorted(
+        (d for d in layer.time_dimensions() if d.serves(dim.fact) and not d.primary),
+        key=lambda d: d.time_level is not TimeGrain.DAY,
+    )
     refs: list[str] = []
     labels: dict[str, str] = {}
     for date_dim in dates[:2]:
         filled = f"filled:{date_dim.name}.{date_dim.display_attribute or 'date'}"
         refs.append(filled)
-        refs.append(f"time:{date_dim.name}")
+        # « par année d'appellation »: counted by that date, the members without one left
+        # out (they are not « labellisés »).
+        refs.append(f"dated:{date_dim.name}")
         level = _GRAIN_NAMES.get(grain, "") if grain else ""
         head = date_dim.label.split(" ", 1)
         by = (
@@ -394,13 +421,13 @@ def qualifier_clarification(
             if level and len(head) == 2 and head[0].lower() == "date"
             else f"Selon la {date_dim.label[:1].lower()}{date_dim.label[1:]}"
         )
-        labels[f"time:{date_dim.name}"] = by
+        labels[f"dated:{date_dim.name}"] = by
     if not refs:
         return None
     ask = clarification(
         layer,
         word,
-        [*refs[:3], "ignore"],
+        [*refs[:4], "ignore"],
         f"Que recouvre « {word} » ? Ce mot ne correspond à aucune donnée de "
         f"{dim.label.lower()} ; voici ce qui pourrait le traduire :",
     )
@@ -635,6 +662,22 @@ def parse(
             matched.append(f"attribute:{attribute_ref}")
             seen.append(match)
             continue
+        # « labellisés » answered as « par année d'appellation »: that date is the time
+        # axis, and only the members having one are counted.
+        dated = match.of_kind("dated")
+        if dated:
+            time_dimension = dated[0].partition(":")[2]
+            date_dim = layer.dimension(time_dimension)
+            field_ref = (
+                f"{time_dimension}.{(date_dim.display_attribute if date_dim else None) or 'date'}"
+            )
+            filters[field_ref] = MartFilter(
+                field=field_ref, operator=FilterOperator.NOT_NULL, value=True
+            )
+            state.use(*span)
+            matched += dated
+            seen.append(match)
+            continue
         # 3. Time dimension by name (« par date de livraison »).
         time_refs = match.of_kind("time")
         if time_refs:
@@ -706,6 +749,9 @@ def parse(
                     matched.append(attribute_refs[0])
                     seen.append(match)
                     continue
+        if len(candidates) > 1:
+            candidates = _narrowed(layer, candidates, metrics)
+            attribute_refs = [c for c in attribute_refs if c in candidates] or attribute_refs
         if len(candidates) > 1:
             # A dimension and its display attribute have the same name: one axis.
             names = {c.partition(":")[2].split(".")[0] for c in candidates}

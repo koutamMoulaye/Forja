@@ -195,12 +195,12 @@
       "connection_id": null
     },
     {
-      "id": "dim_clients",
+      "id": "dim_client",
       "type": "dimension",
       "lane": "star_schema",
-      "name": "dim_clients",
+      "name": "dim_client",
       "label": "Dimension clients",
-      "ref": "dim_clients",
+      "ref": "dim_client",
       "counts": {
         "rows": 21,
         "columns": 11,
@@ -219,12 +219,12 @@
       "connection_id": null
     },
     {
-      "id": "dim_produits",
+      "id": "dim_produit",
       "type": "dimension",
       "lane": "star_schema",
-      "name": "dim_produits",
+      "name": "dim_produit",
       "label": "Dimension produits",
-      "ref": "dim_produits",
+      "ref": "dim_produit",
       "counts": {
         "rows": 13,
         "columns": 9,
@@ -361,7 +361,7 @@
       "pii_count": 0,
       "pii_columns": [],
       "review_count": 0,
-      "highlights": ["dim_clients", "dim_date", "dim_produits"],
+      "highlights": ["dim_client", "dim_date", "dim_produit"],
       "run": null,
       "origin": null,
       "connection_id": null
@@ -425,17 +425,17 @@
       "confidence": null
     },
     {
-      "id": "stg_clients->dim_clients",
+      "id": "stg_clients->dim_client",
       "source": "stg_clients",
-      "target": "dim_clients",
+      "target": "dim_client",
       "type": "lineage",
       "state": "applied",
       "confidence": null
     },
     {
-      "id": "stg_produits->dim_produits",
+      "id": "stg_produits->dim_produit",
       "source": "stg_produits",
-      "target": "dim_produits",
+      "target": "dim_produit",
       "type": "lineage",
       "state": "applied",
       "confidence": null
@@ -457,16 +457,16 @@
       "confidence": null
     },
     {
-      "id": "dim_produits->fct_ventes",
-      "source": "dim_produits",
+      "id": "dim_produit->fct_ventes",
+      "source": "dim_produit",
       "target": "fct_ventes",
       "type": "relation",
       "state": "applied",
       "confidence": 0.95
     },
     {
-      "id": "dim_clients->fct_ventes",
-      "source": "dim_clients",
+      "id": "dim_client->fct_ventes",
+      "source": "dim_client",
       "target": "fct_ventes",
       "type": "relation",
       "state": "applied",
@@ -481,8 +481,8 @@
       "confidence": null
     },
     {
-      "id": "dim_clients->mart_a93444e99c45",
-      "source": "dim_clients",
+      "id": "dim_client->mart_a93444e99c45",
+      "source": "dim_client",
       "target": "mart_a93444e99c45",
       "type": "lineage",
       "state": "applied",
@@ -505,8 +505,8 @@
       "confidence": null
     },
     {
-      "id": "dim_produits->mart_7e611d48a1aa",
-      "source": "dim_produits",
+      "id": "dim_produit->mart_7e611d48a1aa",
+      "source": "dim_produit",
       "target": "mart_7e611d48a1aa",
       "type": "lineage",
       "state": "applied",

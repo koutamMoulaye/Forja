@@ -206,14 +206,14 @@ describe("star schema", () => {
 
   it("links an issue to what can solve it", () => {
     const plan = {
-      dimensions: [{ name: "dim_clients", source: "clients" }],
+      dimensions: [{ name: "dim_client", source: "clients" }],
       facts: [
         {
           name: "fct_ventes",
           foreign_keys: [
             {
               name: "client_key",
-              dimension: "dim_clients",
+              dimension: "dim_client",
               source: "commandes",
               column: "id_client",
             },
@@ -331,11 +331,11 @@ describe("serving", () => {
   it("shows Gold by default, Silver on demand, never marts", () => {
     const tables = [
       table("stg_clients", "silver", false),
-      table("dim_clients", "gold", true),
+      table("dim_client", "gold", true),
       table("mart_x", "mart", true),
     ];
-    expect(servingTables(tables, "gold").map((t) => t.name)).toEqual(["dim_clients"]);
-    expect(servingTables(tables, "all").map((t) => t.name)).toEqual(["dim_clients", "stg_clients"]);
+    expect(servingTables(tables, "gold").map((t) => t.name)).toEqual(["dim_client"]);
+    expect(servingTables(tables, "all").map((t) => t.name)).toEqual(["dim_client", "stg_clients"]);
   });
   it("finds the serving path and writes the connection steps", () => {
     const runs = [
@@ -435,14 +435,14 @@ describe("governance", () => {
     const gold = {
       dimensions: [
         {
-          name: "dim_clients",
+          name: "dim_client",
           source: "clients",
           attributes: [{ column: "email", name: "email", pii_treatment: "hash" }],
         },
       ],
     } as unknown as S["GoldPlan"];
     expect(personalDataMap([plan], gold)[0]).toMatchObject({
-      gold: "Pseudonymisée (dim_clients)",
+      gold: "Pseudonymisée (dim_client)",
       serving: "En clair",
       analyst: "Pseudonymisée",
       exposed: true,

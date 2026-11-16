@@ -109,7 +109,8 @@ def shared_null_markers(columns: Iterable[ColumnPlan]) -> tuple[str, ...] | None
 
 
 def cleaned_expression(column: ColumnPlan, shared_markers: tuple[str, ...] | None = None) -> str:
-    """Raw value as text, trimmed, with blank values and null markers turned into NULL."""
+    """Raw value as text, trimmed, with blank values and null markers turned into NULL,
+    and the variants of a label written its usual way."""
     source = ident(column.source_column)
     if not column.from_text:
         return source
@@ -119,8 +120,22 @@ def cleaned_expression(column: ColumnPlan, shared_markers: tuple[str, ...] | Non
             if tuple(column.cast.null_values) == shared_markers
             else null_markers_literal(column.cast.null_values)
         )
-        return f"case when lower(trim({source})) in {markers} then null else trim({source}) end"
+        value = f"trim({source})"
+        if column.harmonize:
+            value = _harmonized(value, column.harmonize)
+        return f"case when lower(trim({source})) in {markers} then null else {value} end"
+    if column.harmonize:
+        return _harmonized(f"nullif(trim({source}), '')", column.harmonize)
     return f"nullif(trim({source}), '')"
+
+
+def _harmonized(value: str, mapping: dict[str, str]) -> str:
+    """« ILE DE FRANCE » and « Ile-de-France » written « Île-de-France »."""
+    cases = " ".join(
+        f"when {sql_literal(spelling)} then {sql_literal(usual)}"
+        for spelling, usual in sorted(mapping.items())
+    )
+    return f"case {value} {cases} else {value} end"
 
 
 def typed_expression(column: ColumnPlan) -> str:

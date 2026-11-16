@@ -252,13 +252,15 @@ class JobExecutor:
             source = self.catalog.get_source(source_id)
             report("profile", f"profilage de {source.name}", 100 * index // len(source_ids))
             item_started(source.id)
-            version = self.catalog.list_versions(source_id)[-1]
+            versions = self.catalog.list_versions(source_id)
+            version = versions[-1]
             profile = self.profiler.profile(
                 source_id=source.id,
                 source_name=source.name,
                 parquet_path=self.workspace.resolve(version.bronze_path),
                 version_id=version.id,
                 version=version.version,
+                history=[self.workspace.resolve(v.bronze_path) for v in versions[:-1]],
             )
             self.catalog.save_profile(profile)
             self.plans.on_version_ingested(
@@ -300,7 +302,24 @@ class JobExecutor:
     def _gold_proposal(self, job: Job, log_line: Callable[[str], None]) -> RunMetrics:
         if self.gold is None:
             raise ForjaError("Gold proposals are not configured")
-        plan = self.gold.propose(job.project_id, use_llm=job.params.use_llm)
+        if job.params.use_llm:
+            # « Améliorer avec l'IA »: an alternative to compare, the plan is unchanged.
+            alternative = self.gold.propose_alternative(job.project_id)
+            errors = [i for i in alternative.issues if i.severity == "error"]
+            job.result = {
+                "alternative": alternative.model_dump(mode="json"),
+                "origin": alternative.origin,
+                "based_on": alternative.based_on,
+                "errors": len(errors),
+                "warnings": alternative.warnings,
+            }
+            log_line(
+                f"alternative proposed by {alternative.origin}: "
+                f"{len(alternative.model.facts)} fact(s), "
+                f"{len(alternative.model.dimensions)} dimension(s), {len(errors)} error(s)"
+            )
+            return RunMetrics()
+        plan = self.gold.propose(job.project_id, use_llm=False)
         job.result = {
             "gold_plan_version": plan.version,
             "origin": plan.origin,

@@ -243,6 +243,35 @@ def build_eval_museums(root: Path) -> tuple[AppState, Project]:
     return state, project
 
 
+def build_eval_marketplace(root: Path) -> tuple[AppState, Project]:
+    """The nine marketplace files of case 2, cleaned, their relations confirmed,
+    modelled (heuristic) and built up to Gold."""
+    from forja_core.jobs.models import JobStatus, JobType, RunRequest
+    from forja_core.models import ProjectCreate
+    from tests.fixtures import marketplace
+
+    state = AppState.build(shop_settings(root, agent_today=TODAY))
+    project = state.catalog.create_project(ProjectCreate(name="Cas 2 - Marketplace"))
+    paths = marketplace.write(root / "in")
+    for path in paths:
+        state.ingestion.ingest_file(project.id, path, path.name)
+
+    def run(job_type: JobType) -> None:
+        job = state.executor.create(project.id, RunRequest(type=job_type))
+        state.runner.submit(job.id)
+        assert state.catalog.get_job(job.id).status is JobStatus.SUCCEEDED
+
+    run(JobType.BUILD_SILVER)
+    for relation in state.catalog.list_relations(project.id):
+        state.relations.confirm(relation.id)
+    state.gold.propose(project.id, use_llm=False)
+    state.gold.approve(project.id)
+    run(JobType.BUILD_GOLD)
+    for path in paths:
+        path.unlink()
+    return state, project
+
+
 def run_eval(
     state: AppState,
     project: Project,

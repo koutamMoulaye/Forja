@@ -41,6 +41,12 @@ def gold_treatments(plan: GoldPlan, ctx: GoldContext) -> dict[str, dict[str, Tre
             columns[attribute.name] = TreatedColumn(
                 attribute.name, attribute.pii_treatment or treatment, pii_type
             )
+        for lookup in dim.lookups:
+            for attribute in lookup.attributes:
+                treatment, pii_type = _silver(ctx, lookup.source, attribute.column)
+                columns[attribute.name] = TreatedColumn(
+                    attribute.name, attribute.pii_treatment or treatment, pii_type
+                )
         result[dim.name] = {
             k: v
             for k, v in columns.items()

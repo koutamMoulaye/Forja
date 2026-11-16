@@ -11,7 +11,12 @@ from forja_api.state import AppState
 from forja_core.config import Settings
 from forja_core.errors import PlanStateError, PlanValidationError
 from forja_core.models import Project
-from forja_core.semantic.models import Additivity, MetricAggregation, SemanticOverride
+from forja_core.semantic.models import (
+    Additivity,
+    MetricAggregation,
+    MetricFormat,
+    SemanticOverride,
+)
 from forja_core.semantic.service import visible
 from forja_core.semantic.text import key, words
 from tests.auth import api_client
@@ -43,9 +48,11 @@ def test_metrics_and_additivity(shop: tuple[AppState, Project]) -> None:
     layer = state.semantic.current(project.id)
     metrics = {m.name: m for m in layer.metrics}
     revenue = metrics["montant"]
-    assert (revenue.label, revenue.unit, revenue.formula) == (
+    # An amount, in no currency the data names: never euros by default.
+    assert (revenue.label, revenue.unit, revenue.format, revenue.formula) == (
         "Chiffre d'affaires",
-        "EUR",
+        None,
+        MetricFormat.CURRENCY,
         "sum(montant)",
     )
     assert revenue.additivity is Additivity.ADDITIVE and "CA" in revenue.synonyms
@@ -68,7 +75,7 @@ def test_dimensions_attributes_and_hierarchies(shop: tuple[AppState, Project]) -
     state, project = shop
     layer = state.semantic.current(project.id)
     client = layer.dimension("client")
-    assert client is not None and client.table == "dim_clients" and client.historized
+    assert client is not None and client.table == "dim_client" and client.historized
     assert (client.fact_key, client.table_key) == ("client_key", "client_key")
     email = client.attribute("email")
     assert email is not None and email.pii is not None and not email.filterable
@@ -197,10 +204,21 @@ def test_english_names_get_french_synonyms_to_validate(settings: Settings, tmp_p
         for p in proposals:
             assert p["origin"] == "dictionary" and p["status"] == "pending"
             by_target.setdefault(p["target"], []).append(p["synonym"])
-        assert {"montant", "chiffre d'affaires"} <= set(by_target["metric:amount"])
+        assert "montant" in by_target["metric:amount"]
+        # The amount of a sales file is the revenue: named so by the generation itself.
+        amount = next(
+            m
+            for m in client.get(f"/projects/{project_id}/semantic-layer").json()["metrics"]
+            if m["name"] == "amount"
+        )
+        assert "chiffre d'affaires" in amount["synonyms"]
         assert "quantité" in by_target["metric:quantity"]
-        [city] = [t for t in by_target if t.endswith(".city")]
-        assert "ville" in by_target[city]
+        # « city » reads « Ville » already: its label and synonyms need no review.
+        layer_now = client.get(f"/projects/{project_id}/semantic-layer").json()
+        city_attribute = next(
+            a for d in layer_now["dimensions"] for a in d["attributes"] if a["name"] == "city"
+        )
+        assert city_attribute["label"] == "Ville" and "ville" in city_attribute["synonyms"]
         # Nothing is applied before review, and nothing is proposed twice.
         layer = client.get(f"/projects/{project_id}/semantic-layer").json()
         amount = next(m for m in layer["metrics"] if m["name"] == "amount")
@@ -214,7 +232,7 @@ def test_english_names_get_french_synonyms_to_validate(settings: Settings, tmp_p
         before = client.get(f"/mart-requests/{asked.json()['mart_request']['id']}").json()
         assert before["status"] != "previewed"
         for p in proposals:
-            accept = (p["target"], p["synonym"]) in {("metric:amount", "montant"), (city, "ville")}
+            accept = (p["target"], p["synonym"]) == ("metric:amount", "montant")
             verdict = "accept" if accept else "reject"
             assert client.post(f"/synonym-proposals/{p['id']}/{verdict}").status_code == 200
         client.post(f"/projects/{project_id}/semantic-layer/regenerate")

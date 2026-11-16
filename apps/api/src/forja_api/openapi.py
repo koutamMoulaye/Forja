@@ -393,6 +393,19 @@ ROUTE_DOCS: dict[tuple[str, str], tuple[str, str]] = {
         "une relation confirmée depuis la proposition lève son erreur. Le plan n'est pas "
         f"modifié. {ENG}",
     ),
+    ("get", "/projects/{project_id}/gold-plan/llm-estimate"): (
+        "Estimation d'une proposition par l'IA",
+        "Taille du contexte envoyé (réduit à partir de 4 sources, et sans réduction) et "
+        "durée estimée : tokens divisés par le débit mesuré sur les appels précédents du "
+        "même modèle ; durée absente tant que le modèle n'a pas été mesuré. "
+        f"« available » est faux sans fournisseur d'IA. {ENG}",
+    ),
+    ("post", "/projects/{project_id}/gold-plan/adopt"): (
+        "Adopter la proposition de l'IA",
+        "Crée une nouvelle version brouillon à partir de la proposition alternative gardée "
+        "dans un run « Améliorer avec l'IA » (run_id) ; la version précédente reste dans "
+        f"l'historique. {ENG}",
+    ),
     ("delete", "/projects/{project_id}/invitations/{invitation_id}"): (
         "Révoquer une invitation",
         f"Une invitation pas encore acceptée : son lien d'inscription cesse de marcher. {ADMIN}",

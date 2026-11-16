@@ -89,3 +89,25 @@ def test_museum_questions_pass_without_a_language_model(museums: EvalReport) -> 
     failures = [f"{r.id}: {r.outcome} — {r.reason}" for r in museums.results if not r.passed]
     assert failures == [], "\n".join(failures)
     assert all(r.path == "parser" for r in museums.results)
+
+
+# --- The questions of case 2 (marketplace), parser only ------------------------------
+
+
+@pytest.fixture(scope="module")
+def marketplace(tmp_path_factory: pytest.TempPathFactory) -> Iterator[EvalReport]:
+    from tests.agent_eval import marketplace as marketplace_cases
+    from tests.agent_eval.run import build_eval_marketplace
+
+    state, project = build_eval_marketplace(tmp_path_factory.mktemp("eval_marketplace"))
+    try:
+        yield run_eval(state, project, None, marketplace_cases.CASES, label="parseur")
+    finally:
+        state.close()
+
+
+def test_marketplace_questions_pass_without_a_language_model(marketplace: EvalReport) -> None:
+    """Manual case 2: six questions across three facts (sales, payments, reviews)."""
+    failures = [f"{r.id}: {r.outcome} — {r.reason}" for r in marketplace.results if not r.passed]
+    assert failures == [], "\n".join(failures)
+    assert all(r.path == "parser" for r in marketplace.results)

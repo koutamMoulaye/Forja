@@ -20,7 +20,7 @@ Par défaut, seules les **tables Gold** (modèle en étoile) sont publiées :
 | Table | Contenu |
 |---|---|
 | `fct_<processus>` (ex. `fct_ventes`) | Une ligne par grain du fait (ex. ligne de commande) : clés vers les dimensions, clés de date, dimensions dégénérées (n° de commande, statut), mesures |
-| `dim_<source>` (ex. `dim_clients`) | Une ligne par membre, ou par version en SCD2 (`valid_from`, `valid_to`, `is_current`), plus le membre « Inconnu » de clé `-1` |
+| `dim_<source>` (ex. `dim_client`) | Une ligne par membre, ou par version en SCD2 (`valid_from`, `valid_to`, `is_current`), plus le membre « Inconnu » de clé `-1` |
 | `dim_date` | Un jour par ligne (`date_key` au format AAAAMMJJ), année, trimestre, mois, semaine ISO, jour et libellés français, plus le membre `-1` |
 | `<source>` (ex. `commandes`) | Table Silver, uniquement si elle a été publiée explicitement (`PATCH /tables/{id}` avec `{"publish": true}`) |
 | `_forja_tables` | Une ligne par table publiée : couche, table d'origine, version du plan, nombre de lignes, colonnes traitées, date de publication |
@@ -28,7 +28,7 @@ Par défaut, seules les **tables Gold** (modèle en étoile) sont publiées :
 ### Utiliser le modèle en étoile
 
 - Reliez chaque clé du fait à la clé de sa dimension (`fct_ventes.client_key` →
-  `dim_clients.client_key`, `fct_ventes.date_commande_key` → `dim_date.date_key`), en
+  `dim_client.client_key`, `fct_ventes.date_commande_key` → `dim_date.date_key`), en
   relation plusieurs-à-un, filtrage de la dimension vers le fait. Dans Power BI, marquez
   `dim_date` comme table de dates (colonne `date`).
 - Les dimensions SCD2 contiennent une ligne par version : le fait pointe déjà vers la

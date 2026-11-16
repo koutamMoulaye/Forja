@@ -57,7 +57,7 @@ CASES: tuple[Case, ...] = (
         "Nombre de musées labellisés par année",
         # « labellisés » names nothing in the data: what it covers is asked, with the
         # attributes that could hold it.
-        ExpectedClarification(("filled:dateappellation.date", "time:dateappellation")),
+        ExpectedClarification(("filled:dateappellation.date", "dated:dateappellation")),
     ),
     Case(
         "m06",

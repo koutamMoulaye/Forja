@@ -102,12 +102,37 @@ class Attribute(BaseModel):
     filterable: bool = Field(
         default=False, description="Values can be resolved locally to filter on them"
     )
+    facts: list[str] = Field(
+        default_factory=list,
+        description="Degenerate attribute shared by several facts: the facts holding the "
+        "column (empty: every fact of the dimension)",
+    )
 
 
 class Hierarchy(BaseModel):
     name: str
     label: str
     levels: list[str] = Field(description="Attribute names, from the coarsest to the finest")
+
+
+class Bridge(BaseModel):
+    """How a fact reaches a dimension of another fact through a shared key: a review of
+    an order reaches the products of the order through the order lines. Each row of the
+    fact is matched once per distinct value read (never once per line of the other
+    fact), so sums would count it several times: only non-additive questions use it."""
+
+    fact: str = Field(description="Fact holding the foreign key of the dimension")
+    key: str = Field(description="Column shared by both facts (the header key)")
+    fact_key: str = Field(description="Foreign key column of the dimension in that fact")
+
+
+class DimensionLink(BaseModel):
+    """Another fact using the same dimension (a conformed dimension)."""
+
+    fact: str
+    fact_key: str | None = None
+    primary: bool = False
+    bridge: Bridge | None = None
 
 
 class SemanticDimension(BaseModel):
@@ -141,9 +166,55 @@ class SemanticDimension(BaseModel):
     hierarchies: list[Hierarchy] = Field(default_factory=list)
     synonyms: list[str] = Field(default_factory=list)
     hidden: bool = False
+    links: list[DimensionLink] = Field(
+        default_factory=list,
+        description="Other facts using this dimension, with their key (conformed dimension)",
+    )
+    bridge: Bridge | None = Field(
+        default=None, description="Set on a layer projected onto a fact reached by a bridge"
+    )
 
     def attribute(self, name: str) -> Attribute | None:
         return next((a for a in self.attributes if a.name == name), None)
+
+    def link(self, fact: str) -> DimensionLink | None:
+        if fact == self.fact:
+            return DimensionLink(
+                fact=fact, fact_key=self.fact_key, primary=self.primary, bridge=self.bridge
+            )
+        return next((link for link in self.links if link.fact == fact), None)
+
+    def serves(self, fact: str) -> bool:
+        return self.link(fact) is not None
+
+    def facts(self) -> list[str]:
+        return [self.fact, *(link.fact for link in self.links)]
+
+    def table_of(self, attribute: Attribute) -> str:
+        """The Gold table holding an attribute: a degenerate attribute shared by some facts
+        only is read from one of them."""
+        if self.kind == "degenerate" and attribute.facts and self.table not in attribute.facts:
+            return attribute.facts[0]
+        return self.table
+
+    def available(self, attribute: Attribute, fact: str) -> bool:
+        return self.serves(fact) and (not attribute.facts or fact in attribute.facts)
+
+    def for_fact(self, fact: str) -> SemanticDimension:
+        """This dimension as seen from ``fact``: its key, main date flag and bridge."""
+        link = self.link(fact)
+        if link is None:
+            return self
+        return self.model_copy(
+            update={
+                "fact": fact,
+                "fact_key": link.fact_key,
+                "primary": link.primary,
+                "bridge": link.bridge,
+                "links": [],
+                "attributes": [a for a in self.attributes if not a.facts or fact in a.facts],
+            }
+        )
 
 
 class SemanticLayer(BaseModel):
@@ -176,6 +247,13 @@ class SemanticLayer(BaseModel):
 
     def time_dimensions(self) -> list[SemanticDimension]:
         return [d for d in self.dimensions if d.kind == "time" and not d.hidden]
+
+    def for_fact(self, fact: str) -> SemanticLayer:
+        """The layer as seen from one fact: each dimension it uses carries that fact's
+        key (and bridge); the others are left out. Compilation reads this view."""
+        return self.model_copy(
+            update={"dimensions": [d.for_fact(fact) for d in self.dimensions if d.serves(fact)]}
+        )
 
     def content(self) -> dict[str, object]:
         """What a regeneration compares to decide whether a new version is needed."""

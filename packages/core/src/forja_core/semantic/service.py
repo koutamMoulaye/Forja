@@ -80,7 +80,15 @@ def visible(layer: SemanticLayer) -> SemanticLayer:
     """The layer without hidden elements (what analysts and the agent see); technical
     metrics such as the number of fact rows are for engineers only."""
     copy = layer.model_copy(deep=True)
-    copy.metrics = [m for m in copy.metrics if not m.hidden and not m.technical]
+    shown = [m for m in copy.metrics if not m.hidden and not m.technical]
+    # The parts of a ratio shown (the number of rows behind an average) stay, hidden:
+    # the ratio is computed from them, nobody asks for them.
+    parts = {p for m in shown for p in (m.numerator, m.denominator) if p}
+    for metric in copy.metrics:
+        if metric.name in parts and metric not in shown:
+            metric.hidden = True
+            shown.append(metric)
+    copy.metrics = shown
     copy.dimensions = [d for d in copy.dimensions if not d.hidden]
     for dim in copy.dimensions:
         dim.attributes = [a for a in dim.attributes if not a.hidden]
@@ -277,7 +285,7 @@ class SemanticService:
         cache_key = (
             layer.project_id,
             str(layer.gold_plan_version),
-            dimension.table,
+            dimension.table_of(attribute),
             attribute.column,
         )
         if cache_key in self._values:
@@ -285,7 +293,7 @@ class SemanticService:
         with self._warehouse(layer.project_id) as con:
             rows = con.execute(
                 f"SELECT DISTINCT CAST({quote_ident(attribute.column)} AS VARCHAR) "
-                f"FROM {quote_ident(dimension.table)} "
+                f"FROM {quote_ident(dimension.table_of(attribute))} "
                 f"WHERE {quote_ident(attribute.column)} IS NOT NULL LIMIT {MAX_DISTINCT_VALUES + 1}"
             ).fetchall()
         values = sorted(str(r[0]) for r in rows)
@@ -310,7 +318,7 @@ class SemanticService:
         with self._warehouse(layer.project_id) as con:
             [(count,)] = con.execute(
                 f"SELECT count(DISTINCT {quote_ident(counted)}) "
-                f"FROM {quote_ident(dimension.table)} "
+                f"FROM {quote_ident(dimension.table_of(attribute))} "
                 f"WHERE CAST({quote_ident(attribute.column)} AS VARCHAR) = ?",
                 [value],
             ).fetchall()

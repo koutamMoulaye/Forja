@@ -21,11 +21,13 @@ from forja_core.gold.expressions import ExpressionError, check_expression
 from forja_core.gold.plan import (
     Aggregation,
     Dimension,
+    DimensionLookup,
     Fact,
     GoldModel,
     ScdType,
     ValidationIssue,
 )
+from forja_core.profiling.naming import is_identifier_name
 
 _NAME_RE = re.compile(r"[a-z][a-z0-9_]*")
 _ADDITIVE = frozenset({Aggregation.SUM, Aggregation.COUNT})
@@ -83,7 +85,11 @@ def _check_dimension(issues: _Issues, dim: Dimension, ctx: GoldContext, taken: s
                 location,
             )
         known = {e.key for e in source.entities}
-        if dim.natural_key and dim.natural_key[0] not in known | set(source.key):
+        if (
+            dim.natural_key
+            and dim.natural_key[0] not in known | set(source.key)
+            and not is_identifier_name(dim.natural_key[0])
+        ):
             issues.warning(
                 "attributes_not_checked",
                 f"{dim.name} : {dim.natural_key[0]} n'identifie pas une entité au profilage ; "
@@ -119,6 +125,53 @@ def _check_dimension(issues: _Issues, dim: Dimension, ctx: GoldContext, taken: s
                 location,
             )
         _check_name(issues, attribute.name, f"{location}.{attribute.name}", columns)
+    for lookup in dim.lookups:
+        _check_lookup(issues, dim, lookup, ctx, columns)
+
+
+def _check_lookup(
+    issues: _Issues, dim: Dimension, lookup: DimensionLookup, ctx: GoldContext, taken: set[str]
+) -> None:
+    location = f"dimensions.{dim.name}.lookups.{lookup.source}"
+    reference = ctx.sources.get(lookup.source)
+    if reference is None:
+        issues.error(
+            "unknown_source",
+            f"{dim.name} : table de référence inconnue « {lookup.source} »",
+            location,
+        )
+        return
+    if reference.key != (lookup.to_column,):
+        issues.error(
+            "fan_out",
+            f"{dim.name} : {lookup.source}.{lookup.to_column} n'est pas la clé de "
+            f"{lookup.source} : chaque membre de la dimension serait démultiplié",
+            location,
+        )
+    relation = ctx.relation(dim.source, lookup.from_column, lookup.source, lookup.to_column)
+    if relation is None:
+        suggested = ctx.suggestion(dim.source, lookup.from_column, lookup.source, lookup.to_column)
+        issues.error(
+            "unconfirmed_relation",
+            (
+                f"{dim.name} : relation suggérée {dim.source}.{lookup.from_column} → "
+                f"{lookup.source}.{lookup.to_column} (confiance "
+                f"{round(suggested.confidence * 100)} %), à confirmer"
+            )
+            if suggested is not None
+            else f"{dim.name} : aucune relation confirmée {dim.source}.{lookup.from_column} → "
+            f"{lookup.source}.{lookup.to_column}",
+            location,
+        )
+    for attribute in lookup.attributes:
+        if attribute.column not in reference.columns:
+            issues.error(
+                "unknown_column",
+                f"{dim.name} : attribut sur une colonne inconnue "
+                f"{lookup.source}.{attribute.column}",
+                location,
+            )
+        _check_name(issues, attribute.name, f"{location}.{attribute.name}", taken)
 
 
 def _fact_tables(fact: Fact, ctx: GoldContext, issues: _Issues) -> dict[str, set[str]] | None:
@@ -153,7 +206,32 @@ def _fact_tables(fact: Fact, ctx: GoldContext, issues: _Issues) -> dict[str, set
             )
             continue
         relation = ctx.relation(join.from_source, join.from_column, join.source, join.to_column)
+        if relation is None and joined.key and (join.to_column,) != joined.key:
+            # The joined table has several rows per value (the payments of an order):
+            # each fact row would be repeated once per match.
+            issues.error(
+                "fan_out",
+                f"{fact.name} : en joignant {join.source} par {join.to_column}, chaque ligne du "
+                f"fait serait démultipliée : {join.source} a plusieurs lignes par "
+                f"{join.to_column} (sa clé est {', '.join(joined.key)}) et ses montants seraient "
+                "comptés plusieurs fois ; gardez-le dans un fait séparé, à son propre grain",
+                where,
+            )
+            continue
         if relation is None:
+            suggested = ctx.suggestion(
+                join.from_source, join.from_column, join.source, join.to_column
+            )
+            if suggested is not None:
+                issues.error(
+                    "unconfirmed_relation",
+                    f"{fact.name} : relation suggérée {join.from_source}.{join.from_column} → "
+                    f"{join.source}.{join.to_column} (confiance "
+                    f"{round(suggested.confidence * 100)} %), à confirmer",
+                    where,
+                )
+                tables[join.source] = set(joined.columns)
+                continue
             reverse = ctx.relation(join.source, join.to_column, join.from_source, join.from_column)
             if reverse is not None:
                 issues.error(
@@ -237,7 +315,20 @@ def _check_fact(
             )
             continue
         internal = dim.extracted and dim.source == fk.source
-        if not internal and (
+        suggested = (
+            ctx.suggestion(fk.source, fk.column, dim.source, dim.natural_key[0])
+            if len(dim.natural_key) == 1
+            else None
+        )
+        if not internal and suggested is not None:
+            issues.error(
+                "unconfirmed_relation",
+                f"{fact.name} : relation suggérée {fk.source}.{fk.column} → "
+                f"{dim.source}.{dim.natural_key[0]} (confiance "
+                f"{round(suggested.confidence * 100)} %), à confirmer",
+                where,
+            )
+        elif not internal and (
             len(dim.natural_key) != 1
             or ctx.relation(fk.source, fk.column, dim.source, dim.natural_key[0]) is None
         ):

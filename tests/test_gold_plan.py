@@ -67,10 +67,11 @@ def _fact(model: GoldModel) -> Fact:
 
 def test_heuristic_star_schema(model: GoldModel, ctx: GoldContext) -> None:
     dims = {d.name: d for d in model.dimensions}
-    assert sorted(dims) == ["dim_clients", "dim_produits"]
-    assert dims["dim_clients"].natural_key == ["id_client"]
-    assert dims["dim_clients"].surrogate_key == "client_key"
-    assert dims["dim_clients"].scd is ScdType.SCD2
+    assert sorted(dims) == ["dim_client", "dim_produit"]
+    assert dims["dim_client"].natural_key == ["id_client"]
+    assert dims["dim_client"].surrogate_key == "client_key"
+    # No version of the clients differs from another yet: overwritten, not historized.
+    assert dims["dim_client"].scd is ScdType.SCD1
 
     [fact] = model.facts
     assert (fact.name, fact.source, fact.grain) == (
@@ -107,7 +108,7 @@ def test_unconfirmed_relation_is_refused(model: GoldModel, ctx: GoldContext) -> 
 def test_orphan_dimension(model: GoldModel, ctx: GoldContext) -> None:
     orphan = model.model_copy(deep=True)
     _fact(orphan).foreign_keys = [
-        fk for fk in _fact(orphan).foreign_keys if fk.dimension != "dim_produits"
+        fk for fk in _fact(orphan).foreign_keys if fk.dimension != "dim_produit"
     ]
     assert "orphan_dimension" in _codes(orphan, ctx)
 
@@ -199,11 +200,11 @@ def test_lifecycle(shop: tuple[AppState, Project]) -> None:
     fixed = service.patch(
         project.id,
         GoldPlanPatch(
-            remove_measures={"fct_ventes": ["y"]}, dimension_scd={"dim_produits": ScdType.SCD1}
+            remove_measures={"fct_ventes": ["y"]}, dimension_scd={"dim_produit": ScdType.SCD1}
         ),
     )
     assert not fixed.errors
-    assert fixed.dimension("dim_produits").scd is ScdType.SCD1  # type: ignore[union-attr]
+    assert fixed.dimension("dim_produit").scd is ScdType.SCD1  # type: ignore[union-attr]
     approved = service.approve(project.id)
     assert approved.status is PlanStatus.APPROVED
     assert state.catalog.effective_gold_plan(project.id) == approved
@@ -244,7 +245,8 @@ def test_llm_proposal_is_validated_and_corrected(
     assert not plan.errors
     assert "rejected by validation" in provider.prompts[1]
     assert "invalid_expression" in provider.prompts[1]
-    assert '"relations"' in provider.prompts[0] and "suggested" not in provider.prompts[0]
+    assert '"relations"' in provider.prompts[0]
+    assert '"status":"suggested"' not in provider.prompts[0]  # all of them are confirmed
 
 
 def test_llm_failure_falls_back_to_heuristic(shop: tuple[AppState, Project]) -> None:
@@ -274,7 +276,7 @@ def test_gold_api(shop: tuple[AppState, Project]) -> None:
             assert not [i for i in issues.json() if i["severity"] == "error"]
             patched = client.patch(
                 f"/projects/{project.id}/gold-plan",
-                json={"dimension_scd": {"dim_clients": "scd1"}},
+                json={"dimension_scd": {"dim_client": "scd1"}},
             )
             assert patched.json()["version"] == version + 1
             approved = client.post(f"/projects/{project.id}/gold-plan/approve")

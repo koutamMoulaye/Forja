@@ -6,6 +6,7 @@ from pathlib import Path
 
 from forja_api.state import AppState
 from forja_core.config import Settings
+from forja_core.gold.plan import GoldPlanPatch, ScdType
 from forja_core.jobs.models import JobStatus, JobType, RunRequest
 from forja_core.models import Project, ProjectCreate
 from tests.fixtures import ecommerce as ec
@@ -52,6 +53,9 @@ def build_gold_shop(settings: Settings, ecommerce_dir: Path) -> tuple[AppState, 
     for relation in state.catalog.list_relations(project.id):
         state.relations.confirm(relation.id)
     state.gold.propose(project.id, use_llm=False)  # deterministic star schema
+    # The clients never changed yet (SCD1 is proposed): historized by choice, so that the
+    # SCD2 build is exercised.
+    state.gold.patch(project.id, GoldPlanPatch(dimension_scd={"dim_client": ScdType.SCD2}))
     state.gold.approve(project.id)
     run(state, project, RunRequest(type=JobType.BUILD_GOLD))
     return state, project

@@ -186,7 +186,7 @@ httpOnly ; voir [`docs/security.md`](security.md#interface-web).
 modèle en étoile et diffusion en compartiments repliables, mise en page automatique par
 ELK dans un Web Worker, zoom sémantique, filtres, minimap. Un clic ouvre l'inspecteur
 (Aperçu, Colonnes, Règles, Qualité, Historique), partageable par l'adresse
-(`?node=dim_clients&tab=columns`) ; ⌘K cherche les nœuds ; « Lancer un run » (complet,
+(`?node=dim_client&tab=columns`) ; ⌘K cherche les nœuds ; « Lancer un run » (complet,
 nettoyage ou modèle) fait passer les tables d'« En attente » à « En cours » puis
 « Réussi ». Clavier : `+`, `-`, `0` (ajuster), flèches entre les nœuds, Entrée, Échap.
 Un projet vide propose de déposer des fichiers. Pour vérifier la fluidité,

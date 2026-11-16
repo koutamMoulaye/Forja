@@ -31,6 +31,12 @@ def _dimension(dim: Dimension) -> str:
         + f", clé de substitution {dim.surrogate_key} (empreinte déterministe de la clé "
         f"naturelle), membre « inconnu » ({UNKNOWN_KEY}) pour les clés absentes des faits. "
     )
+    for lookup in dim.lookups:
+        names = ", ".join(a.name for a in lookup.attributes)
+        text += (
+            f"Table de référence {lookup.source} fusionnée par {lookup.from_column} → "
+            f"{lookup.to_column} ({names}). "
+        )
     if dim.scd is ScdType.SCD2:
         return text + (
             "Historisée en SCD2 (valid_from, valid_to, is_current) : chaque changement "
@@ -47,7 +53,10 @@ def _dimension(dim: Dimension) -> str:
         levels = _hierarchy(dim)
         if levels:
             text += f"Hiérarchie géographique : {' > '.join(levels)}. "
-    return text + "SCD1 : les attributs sont écrasés par leur dernière valeur."
+    return text + (
+        "SCD1 : les attributs sont écrasés par leur dernière valeur (aucun changement "
+        "observé entre les versions de la source)."
+    )
 
 
 _GEOGRAPHY = ("ville", "commune", "departement", "region", "pays")

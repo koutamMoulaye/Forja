@@ -50,12 +50,26 @@ class DimensionAttribute(_Strict):
     description: str = ""
 
 
+class DimensionLookup(_Strict):
+    """A reference table merged into a dimension (a translation of category names): its
+    attributes become attributes of the dimension, read along a many-to-one relation."""
+
+    source: str = Field(description="Silver source of the reference table")
+    from_column: str = Field(description="Column of the dimension source holding the code")
+    to_column: str = Field(description="Key of the reference table")
+    attributes: list[DimensionAttribute] = Field(default_factory=list)
+
+
 class Dimension(_Strict):
     name: str = Field(description="dim_<entity>")
     source: str = Field(description="Silver source name")
     natural_key: list[str] = Field(min_length=1, description="Silver key column(s)")
     surrogate_key: str = Field(description="Deterministic hash of the natural key")
     attributes: list[DimensionAttribute] = Field(default_factory=list)
+    lookups: list[DimensionLookup] = Field(
+        default_factory=list,
+        description="Reference tables merged into the dimension (no dimension of their own)",
+    )
     scd: ScdType = ScdType.SCD1
     extracted: bool = Field(
         default=False,

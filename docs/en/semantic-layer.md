@@ -47,7 +47,7 @@ Generation rules:
 
 | Type | Source | Example |
 |---|---|---|
-| `standard` | a Gold dimension related to the fact by a foreign key | `client` (dim_clients, `client_key`) |
+| `standard` | a Gold dimension related to the fact by a foreign key | `client` (dim_client, `client_key`) |
 | `degenerate` | the degenerate dimensions kept on the fact | `commande` (id_commande, num_ligne, statut) |
 | `time` | one role of `dim_date` per date key of the fact | `date_commande` |
 

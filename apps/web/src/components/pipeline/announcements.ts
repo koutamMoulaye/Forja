@@ -11,7 +11,7 @@ const SPOKEN: Partial<Record<string, string>> = {
 
 /**
  * Text for an aria-live region: the nodes whose run state changed since the previous
- * graph (« dim_clients : en cours », « fct_ventes : réussi »).
+ * graph (« dim_client : en cours », « fct_ventes : réussi »).
  */
 export function useRunAnnouncements(graph: ProjectGraph): string {
   const previous = useRef<Map<string, string> | null>(null);

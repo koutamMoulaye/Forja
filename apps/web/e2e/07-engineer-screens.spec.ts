@@ -129,8 +129,8 @@ test("model: confirm a relation, validate the model, build it", async ({ page })
   await expect(aside).toContainText("Rien à résoudre");
 
   // A change of historization makes a new draft to validate, then to build.
-  await page.getByTestId("star-dim_produits").click();
-  const scd = aside.getByRole("group", { name: "Historisation de dim_produits" });
+  await page.getByTestId("star-dim_produit").click();
+  const scd = aside.getByRole("group", { name: "Historisation de dim_produit" });
   const current = await scd.locator('[aria-pressed="true"]').innerText();
   await scd
     .getByRole("button", { name: current.includes("SCD2") ? "SCD1, écrasée" : "SCD2, historisée" })
@@ -229,13 +229,13 @@ test("settings: create then revoke a personal API key", async ({ page }) => {
 test("serving: export a table, see how to connect a BI tool", async ({ page }) => {
   const projectId = await asEngineer(page);
   await page.goto(`/projects/${projectId}/serving`);
-  const row = page.getByTestId("serving-row-dim_clients");
+  const row = page.getByTestId("serving-row-dim_client");
   await expect(row).toBeVisible();
   await expect(page.getByTestId("serving-path")).toContainText(".duckdb");
   await row.getByRole("button", { name: "Exporter" }).click();
   const download = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: "Exporter en CSV" }).click();
-  expect((await download).suggestedFilename()).toBe("dim_clients.csv");
+  expect((await download).suggestedFilename()).toBe("dim_client.csv");
   await page.getByRole("button", { name: "Superset" }).click();
   await expect(page.getByTestId("connect-panel")).toContainText("duckdb:////forja/serving/");
   await captureThemes(page, "serving");
