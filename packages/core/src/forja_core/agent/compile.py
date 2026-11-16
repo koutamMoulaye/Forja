@@ -96,6 +96,8 @@ class _Builder:
         self.spec = spec
         self.fact = fact
         self.joins: dict[str, SemanticDimension] = {}
+        # Columns read from each dimension reached through a bridge.
+        self.bridged: dict[str, list[str]] = {}
 
     def dimension(self, name: str) -> SemanticDimension:
         dim = self.layer.dimension(name)
@@ -109,6 +111,10 @@ class _Builder:
         assert found is not None
         dim, attribute = found
         self.dimension(dim.name)
+        if dim.bridge is not None:
+            self.bridged.setdefault(dim.name, [])
+            if attribute.column not in self.bridged[dim.name]:
+                self.bridged[dim.name].append(attribute.column)
         alias = FACT_ALIAS if dim.kind == "degenerate" else dim.name
         return _column(alias, attribute.column)
 
@@ -127,6 +133,17 @@ class _Builder:
         if item.operator is FilterOperator.CONTAINS:
             return f"contains(lower(cast({column} as varchar)), lower({literal(str(values[0]))}))"
         return f"{column} {_OPERATORS[item.operator]} {literal(values[0])}"
+
+
+def _place(dim: SemanticDimension, display: str) -> str | None:
+    """The column telling apart two members of the same name: the finest level of a
+    geography (the city), or else another text attribute."""
+    for hierarchy in dim.hierarchies:
+        for level in reversed(hierarchy.levels):
+            attribute = dim.attribute(level)
+            if level != display and attribute is not None and attribute.pii is None:
+                return attribute.column
+    return None
 
 
 def _aggregate(metric: Metric, column: str, last_key: str | None) -> str:
@@ -153,6 +170,7 @@ def compile_spec(
     spec: MartSpec, layer: SemanticLayer, fact: str, *, include_limit: bool = True
 ) -> CompiledMart:
     """``spec`` must have been validated (refs resolved, time dimension set)."""
+    layer = layer.for_fact(fact)
     builder = _Builder(layer, spec, fact)
     columns: list[MartColumn] = []
     axis_select: list[str] = []
@@ -180,6 +198,11 @@ def compile_spec(
                 ref=f"time:{spec.time_dimension}:{spec.time_grain.value}",
             )
         )
+    # Members named by their name (a museum): grouped by their key, so that two museums
+    # with the same name are never added up, and named with their place when their
+    # names repeat in the result (« Musée des Beaux-Arts (Rennes) »).
+    group_keys: list[str] = []
+    shown: dict[str, str] = {}
     for ref in spec.axes:
         found = layer.attribute(ref)
         assert found is not None
@@ -187,6 +210,26 @@ def compile_spec(
         name = output_name(attribute.name, f"{dim.name}_{attribute.name}")
         axis_select.append(f"{builder.attribute_sql(ref)} as {_q(name)}")
         axis_names.append(name)
+        if (
+            dim.kind == "standard"
+            and dim.bridge is None
+            and dim.table_key
+            and attribute.name == dim.display_attribute
+            and attribute.data_type == "text"
+        ):
+            key_name = f"_key_{name}"
+            axis_select.append(f"{_column(dim.name, dim.table_key)} as {_q(key_name)}")
+            group_keys.append(key_name)
+            place = _place(dim, attribute.name)
+            if place is not None:
+                place_name = f"_place_{name}"
+                axis_select.append(f"{_column(dim.name, place)} as {_q(place_name)}")
+                group_keys.append(place_name)
+                shown[name] = (
+                    f"case when count(*) over (partition by {_q(name)}) > 1 then {_q(name)} || "
+                    f"' (' || coalesce(cast({_q(place_name)} as varchar), '?') || ')' "
+                    f"else {_q(name)} end"
+                )
         label = dim.label if attribute.name == dim.display_attribute else attribute.label
         columns.append(
             MartColumn(
@@ -260,7 +303,7 @@ def compile_spec(
             return f"round({ratio}, 2)" if metric.format is MetricFormat.CURRENCY else ratio
         return _aggregate(metric, _q("_m_" + metric.name), last_key)
 
-    select = [_q(n) for n in axis_names]
+    select = [f"{shown[n]} as {_q(n)}" if n in shown else _q(n) for n in axis_names]
     for name in spec.metrics:
         metric = layer.metric(name)
         assert metric is not None
@@ -292,19 +335,14 @@ def compile_spec(
         ]
         lines.append(f"{INDENT}from {table.format(fact)} as {FACT_ALIAS}")
         for dim in dims.values():
-            assert dim.fact_key and dim.table_key
-            condition = f"{_column(dim.name, dim.table_key)} = {_column(FACT_ALIAS, dim.fact_key)}"
-            lines.append(
-                f"{INDENT}left join {table.format(dim.table)} as {_q(dim.name)}\n"
-                f"{INDENT * 2}on {condition}"
-            )
+            lines.append(_join(dim, table, builder.bridged.get(dim.name, [])))
         if where:
             lines.append(f"{INDENT}where " + f"\n{INDENT * 2}and ".join(where))
         lines += ["", ")", "", "select"]
         lines += [f"{INDENT}{c}," for c in select[:-1]] + [f"{INDENT}{select[-1]}"]
         lines.append("from base")
         if axis_names:
-            lines.append("group by " + ", ".join(_q(n) for n in axis_names))
+            lines.append("group by " + ", ".join(_q(n) for n in [*axis_names, *group_keys]))
         if having and with_having:
             lines.append("having " + " and ".join(having))
         order = [f"{_q(o.field.split('.')[-1])} {o.direction}" for o in spec.order_by]
@@ -331,22 +369,45 @@ def compile_spec(
         columns=columns,
         fact=fact,
         unlimited_sql=unlimited,
-        base_sql=_base_only(base_columns, fact, joins, where),
+        base_sql=_base_only(fact, joins, where, builder.bridged),
         dimensions=[d.name for d in joins.values() if d.kind == "standard"],
     )
 
 
+def _join(dim: SemanticDimension, table: str, bridged: list[str]) -> str:
+    """The join of a dimension to the fact: by its key, or through the fact sharing a key
+    with this one (one row per key and distinct value read, never one per line)."""
+    assert dim.table_key
+    if dim.bridge is None:
+        assert dim.fact_key
+        condition = f"{_column(dim.name, dim.table_key)} = {_column(FACT_ALIAS, dim.fact_key)}"
+        return (
+            f"{INDENT}left join {table.format(dim.table)} as {_q(dim.name)}\n"
+            f"{INDENT * 2}on {condition}"
+        )
+    bridge = dim.bridge
+    read = ", ".join(f"d.{_q(c)}" for c in bridged) or f"d.{_q(dim.table_key)}"
+    return (
+        f"{INDENT}left join (\n"
+        f"{INDENT * 2}select distinct b.{_q(bridge.key)} as _bridge_key, {read}\n"
+        f"{INDENT * 2}from {table.format(bridge.fact)} as b\n"
+        f"{INDENT * 2}join {table.format(dim.table)} as d on d.{_q(dim.table_key)} = "
+        f"b.{_q(bridge.fact_key)}\n"
+        f"{INDENT}) as {_q(dim.name)}\n"
+        f"{INDENT * 2}on {_q(dim.name)}._bridge_key = {_column(FACT_ALIAS, bridge.key)}"
+    )
+
+
 def _base_only(
-    base_columns: list[str], fact: str, joins: dict[str, SemanticDimension], where: list[str]
+    fact: str,
+    joins: dict[str, SemanticDimension],
+    where: list[str],
+    bridged: dict[str, list[str]],
 ) -> str:
     """The fact rows in the scope of the mart (for the reconciliation controls)."""
     lines = [f"select {FACT_ALIAS}.* from {_q(fact)} as {FACT_ALIAS}"]
     for dim in joins.values():
-        assert dim.fact_key and dim.table_key
-        lines.append(
-            f"left join {_q(dim.table)} as {_q(dim.name)} "
-            f"on {_column(dim.name, dim.table_key)} = {_column(FACT_ALIAS, dim.fact_key)}"
-        )
+        lines.append(_join(dim, '"{}"', bridged.get(dim.name, [])).strip())
     if where:
         lines.append("where " + " and ".join(where))
     return "\n".join(lines)

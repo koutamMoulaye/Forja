@@ -171,6 +171,89 @@ ENGLISH_PHRASES: dict[str, list[str]] = {
     "postal_code": ["code postal"], "order_count": ["nombre de commandes"],
 }  # fmt: skip
 _FRENCH_VOCABULARY = (METRIC_SYNONYMS, ATTRIBUTE_SYNONYMS, DIMENSION_SYNONYMS)
+
+# Labels of columns named in English, in French. Phrases first (their French word order
+# differs), then words, read « head de modifier »: ``customer_city`` → « Ville du client »
+# (inside the client dimension, « Ville »). Generic vocabulary of business exports.
+LABEL_PHRASES: dict[str, str] = {
+    "zip_code_prefix": "code postal", "zip_code": "code postal", "postal_code": "code postal",
+    "payment_type": "mode de paiement", "payment_method": "mode de paiement",
+    "payment_value": "montant payé", "payment_installments": "nombre d'échéances",
+    "payment_sequential": "rang du paiement", "freight_value": "frais de port",
+    "order_status": "statut de la commande", "order_item_id": "numéro de ligne",
+    "category_name_english": "catégorie (anglais)", "category_name": "catégorie",
+    "review_score": "note", "unit_price": "prix unitaire", "first_name": "prénom",
+    "last_name": "nom de famille", "photos_qty": "nombre de photos",
+    "name_lenght": "longueur du nom", "name_length": "longueur du nom",
+    "description_lenght": "longueur de la description",
+    "description_length": "longueur de la description", "weight_g": "poids (g)",
+    "length_cm": "longueur (cm)", "height_cm": "hauteur (cm)", "width_cm": "largeur (cm)",
+    "comment_title": "titre du commentaire", "comment_message": "commentaire",
+    "unique_id": "identifiant unique", "item_id": "numéro de ligne",
+}  # fmt: skip
+LABEL_WORDS: dict[str, str] = {
+    "state": "état", "city": "ville", "country": "pays", "region": "région",
+    "category": "catégorie", "name": "nom", "type": "type", "value": "valeur",
+    "price": "prix", "freight": "frais de port", "status": "statut", "score": "note",
+    "amount": "montant", "quantity": "quantité", "qty": "quantité", "cost": "coût",
+    "discount": "remise", "weight": "poids", "length": "longueur", "height": "hauteur",
+    "width": "largeur", "description": "description", "title": "titre",
+    "comment": "commentaire", "message": "message", "payment": "paiement", "order": "commande",
+    "customer": "client", "seller": "vendeur", "product": "produit", "review": "avis",
+    "item": "ligne", "brand": "marque", "channel": "canal", "segment": "segment",
+    "address": "adresse", "phone": "téléphone", "email": "e-mail", "store": "magasin",
+    "supplier": "fournisseur", "date": "date", "year": "année", "month": "mois",
+    "creation": "création", "answer": "réponse", "id": "identifiant", "code": "code",
+    "unique": "unique", "english": "anglais", "label": "libellé",
+}  # fmt: skip
+# Words naming the entity a column belongs to (dropped inside that entity's dimension).
+ENTITY_ENGLISH: dict[str, frozenset[str]] = {
+    "client": frozenset({"customer", "client", "buyer"}),
+    "produit": frozenset({"product"}),
+    "vendeur": frozenset({"seller", "vendor"}),
+    "fournisseur": frozenset({"supplier"}),
+    "magasin": frozenset({"store", "shop"}),
+    "commande": frozenset({"order"}),
+    "paiement": frozenset({"payment"}),
+    "avis": frozenset({"review"}),
+    "geolocalisation": frozenset({"geolocation"}),
+}
+
+
+def english_label(name: str, entity: str | None = None) -> str | None:
+    """French label of a column named in English, or None when a word is unknown.
+    Inside a dimension, the words naming its entity are dropped: ``customer_state`` in
+    the client dimension is « État »."""
+    words = [w for w in name_words(name) if w]
+    if entity is not None and len(words) > 1:
+        own = ENTITY_ENGLISH.get(entity, frozenset())
+        rest = [w for w in words if w not in own]
+        words = rest or words
+    joined = "_".join(words)
+    if joined in LABEL_PHRASES:
+        text = LABEL_PHRASES[joined]
+        return text[:1].upper() + text[1:]
+    for size in range(len(words) - 1, 0, -1):  # a known phrase at the end
+        tail = "_".join(words[-size:])
+        head = words[:-size]
+        if tail in LABEL_PHRASES and all(w in LABEL_WORDS for w in head):
+            text = f"{LABEL_PHRASES[tail]} {_of(' '.join(LABEL_WORDS[w] for w in head))}"
+            return text[:1].upper() + text[1:]
+    if not words or any(w not in LABEL_WORDS for w in words):
+        return None
+    french = [LABEL_WORDS[w] for w in words]
+    if len(french) > 1 and words[-1] in ("name", "label"):
+        french = french[:-1]  # « category name » is the category
+    text = french[-1] if len(french) == 1 else f"{french[-1]} {_of(' '.join(french[:-1]))}"
+    return text[:1].upper() + text[1:]
+
+
+def column_label(name: str, entity: str | None = None) -> str:
+    """The French label of a column: its English translation when every word is known,
+    the French reading of its name otherwise."""
+    return english_label(name, entity) or label(name)
+
+
 MAX_TRANSLATIONS = 6
 
 
@@ -349,6 +432,42 @@ def _feminine(word: str) -> str:
     if word.endswith("el"):
         return word + "le"
     return word + "e"
+
+
+# Feminine nouns among measure labels: « Note moyenne », « Durée moyenne ».
+_FEMININE = frozenset(
+    {"note", "duree", "valeur", "quantite", "remise", "marge", "distance", "satisfaction",
+     "evaluation", "consommation", "frequentation", "longueur", "hauteur", "largeur", "taille",
+     "vente", "depense", "recette"}
+)  # fmt: skip
+SCORE_SYNONYMS: dict[str, list[str]] = {
+    "note": ["note moyenne", "note moyenne des avis", "moyenne des notes", "satisfaction",
+             "note des avis", "notes"],
+}  # fmt: skip
+
+
+def is_feminine(noun: str) -> bool:
+    head = strip_accents(noun.split(" ")[0].lower())
+    return head in _FEMININE or head in _FEMININE_ENTITIES
+
+
+def adjective(word: str, noun: str) -> str:
+    """« moyen » or « moyenne » after a noun: « Note moyenne », « Prix moyen »."""
+    head = strip_accents(noun.split(" ")[0].lower())
+    return word + "ne" if head in _FEMININE and word.endswith("en") else word
+
+
+def of_entity(entity: str) -> str:
+    """« du client », « de la commande », « de l'avis »: an entity after « de »."""
+    words = entity.replace("_", " ")
+    if words.startswith(_VOWELS):
+        return f"de l'{words}"
+    if strip_accents(words.split(" ")[0]) in _FEMININE_ENTITIES:
+        return f"de la {words}"
+    return f"du {words}"
+
+
+_FEMININE_ENTITIES = frozenset({"commande", "ligne", "vente", "facture", "categorie", "ville"})
 
 
 def plural(word: str) -> str:

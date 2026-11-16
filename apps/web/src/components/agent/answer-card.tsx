@@ -401,6 +401,18 @@ export function AnswerCard({
             {insight?.sentence ?? iteration.summary}
           </p>
         </div>
+        {insight?.details?.length ? (
+          <details className="group -mt-2 pl-11" data-testid="answer-details">
+            <summary className="cursor-pointer list-none text-meta font-medium text-acc-tx">
+              Détails ({insight.details.length})
+            </summary>
+            <ul className="m-0 mt-1.5 flex list-disc flex-col gap-1 pl-5 text-[14px] text-tx2">
+              {insight.details.map((detail) => (
+                <li key={detail}>{detail}</li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
 
         <Blocking iteration={iteration} />
 

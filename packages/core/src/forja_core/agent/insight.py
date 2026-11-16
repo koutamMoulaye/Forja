@@ -62,7 +62,13 @@ class InsightSeries(BaseModel):
 class Insight(BaseModel):
     """The answer in the conversation: a sentence and the data of its visual."""
 
-    sentence: str = Field(description="Computed from the result, in French")
+    sentence: str = Field(
+        description="Computed from the result, in French: at most three short sentences, "
+        "one idea each, each starting with a capital"
+    )
+    details: list[str] = Field(
+        default_factory=list, description="Further facts, one per line, shown on demand"
+    )
     visual: Visual
     metric: str = Field(description="Column of the metric shown")
     metric_label: str
@@ -162,6 +168,49 @@ def _in(label: str) -> str:
     return f"au {label}" if label.startswith(("T", "S")) and label[1:2].isdigit() else f"en {label}"
 
 
+MAX_SENTENCES = 3
+
+
+def capitalized(text: str) -> str:
+    """« musée archéologique… » at the start of a sentence: « Musée archéologique… »."""
+    return text[:1].upper() + text[1:] if text else text
+
+
+def compose(sentences: list[str], details: list[str]) -> tuple[str, list[str]]:
+    """At most ``MAX_SENTENCES`` sentences, each capitalized and ended; the rest goes to
+    the details shown on demand."""
+    ended = [capitalized(s.strip().rstrip(".")) + "." for s in sentences if s.strip()]
+    extra = [capitalized(d.strip().rstrip(".")) + "." for d in details if d.strip()]
+    return " ".join(ended[:MAX_SENTENCES]), ended[MAX_SENTENCES:] + extra
+
+
+def trend_parts(points: list[InsightPoint], number: Any) -> tuple[str, list[str]]:
+    """The movement of a series (start, end, change), and its other facts (high point,
+    low point, largest change), one per item."""
+    known = [p for p in points if p.value is not None]
+    if len(known) < 2:
+        return "", []
+    first, last = known[0], known[-1]
+    text = f"de {number(first.value)} ({first.label}) à {number(last.value)} ({last.label})"
+    if first.value:
+        text += f", soit {_signed((last.value - first.value) / abs(first.value))}"  # type: ignore[operator]
+    facts: list[str] = []
+    if len(known) >= 3:
+        high = max(known, key=lambda p: p.value or 0)
+        low = min(known, key=lambda p: p.value or 0)
+        facts.append(f"point haut {_in(high.label)} ({number(high.value)})")
+        facts.append(f"point bas {_in(low.label)} ({number(low.value)})")
+        steps = [
+            (after, (after.value - before.value) / abs(before.value))  # type: ignore[operator]
+            for before, after in pairwise(known)
+            if before.value
+        ]
+        if steps:
+            moved, change = max(steps, key=lambda step: abs(step[1]))
+            facts.append(f"plus forte variation {_in(moved.label)} ({_signed(change)})")
+    return text, facts
+
+
 def trend(points: list[InsightPoint], number: Any) -> str:
     """What a series does over time, computed: start and end, change, high and low
     points, and the largest change from one point to the next (« point bas en 2020,
@@ -255,31 +304,35 @@ def build_insight(
     grouped = single and complete and row_count > MAX_BARS and total is not None and positive
     visual: Visual = "bars" if single and (1 < row_count <= MAX_BARS or grouped) else "table"
     members = _plural(axis.label)
+    sentences: list[str] = []
+    details: list[str] = []
     if not ranked:
-        sentence = f"{label}{period} : aucune ligne."
+        sentences.append(f"{label}{period} : aucune ligne")
     elif total is not None and total > 0 and positive:
         top, top_value = ranked[0]
         lead = "a la valeur la plus basse" if lowest else "arrive en tête"
-        sentence = (
-            f"{label}{period} : {number(total)} au total sur {row_count} {members}. "
+        sentences.append(f"{label}{period} : {number(total)} au total sur {row_count} {members}")
+        sentences.append(
             f"{top} {lead} avec {number(top_value)} ({_percent((top_value or 0) / total)})"
         )
         if row_count > 3 and len(ranked) >= 3:
             share = sum(v or 0 for _, v in ranked[:3]) / total
             names = ", ".join(name for name, _ in ranked[:3])
             first = "derniers" if lowest else "premiers"
-            sentence += f" ; les trois {first} ({names}) en font {_percent(share)}"
+            sentences.append(f"Les trois {first} en font {_percent(share)}")
+            details.append(f"Les trois {first} : {names}")
         if grouped:
             share = sum(v or 0 for _, v in ranked[:TOP_BARS]) / total
-            sentence += f" ; les {TOP_BARS} premiers, {_percent(share)}"
-        sentence += "."
+            details.append(f"Les {TOP_BARS} premiers en font {_percent(share)}")
     else:
         top, top_value = ranked[0]
         lead = "a la valeur la plus basse" if lowest else "arrive en tête"
         across = f"{row_count} {members}" if single else f"{row_count} lignes"
-        sentence = f"{label}{period} : {top} {lead} avec {number(top_value)}, sur {across}."
+        sentences.append(f"{label}{period} : {top} {lead} avec {number(top_value)}")
+        details.append(f"Sur {across}")
     if len(metrics) > 1 and ranked and total:
-        sentence += " " + _compare(rows, metrics, formatter, layer)
+        details.append(_compare(rows, metrics, formatter, layer))
+    sentence, details = compose(sentences, details)
     shown = points
     others = 0
     if grouped:
@@ -297,7 +350,8 @@ def build_insight(
         else f"{len(shown)} {members}"
     )
     return Insight(
-        sentence=sentence.strip(),
+        sentence=sentence,
+        details=details,
         visual=visual,
         metric=metric.name,
         metric_label=label,
@@ -349,12 +403,10 @@ def _line(
     additive: bool,
 ) -> Insight:
     grain = spec.time_grain
+    # Rows without a date are no point of a line (they would sit after the last year).
     ordered = sorted(
-        rows,
-        key=lambda r: (
-            r.get(time_axis.name) is None,
-            str(r.get(time_axis.name)) if r.get(time_axis.name) is not None else "",
-        ),
+        (r for r in rows if r.get(time_axis.name) is not None),
+        key=lambda r: str(r.get(time_axis.name)),
     )
     labels = [time_label(r.get(time_axis.name), grain) for r in ordered]
     series = [
@@ -370,28 +422,30 @@ def _line(
         )
         for column in metrics
     ]
-    clauses: list[str] = []
-    for column, item in zip(metrics, series, strict=True):
-        described = trend(item.points, formatter(column))
-        name = column.label if not clauses else _lower(column.label)
-        when = period if not clauses else ""
-        clauses.append(f"{name}{when} : {described}" if described else name)
-    sentence = (
-        " ; ".join(clauses)
-        if len(clauses) == 1
-        else ". ".join(c[:1].upper() + c[1:] for c in clauses)
-    )
-    sentence += "."
+    sentences: list[str] = []
+    details: list[str] = []
+    for index, (column, item) in enumerate(zip(metrics, series, strict=True)):
+        described, facts = trend_parts(item.points, formatter(column))
+        when = period if index == 0 else ""
+        sentences.append(f"{column.label}{when} : {described}" if described else column.label)
+        prefix = f"{column.label} : " if len(metrics) > 1 else ""
+        details += [f"{prefix}{fact}" for fact in facts]
+    if len(metrics) == 1 and details:
+        # One series: its high and low points are said, the rest is on demand.
+        sentences.append(", ".join(details[:2]))
+        details = details[2:]
     if len(metrics) > 1:
         compared = _compare(ordered, metrics, formatter, layer)
         if compared:
-            sentence += " " + compared
+            details.insert(0, compared)
+    sentence, details = compose(sentences, details)
     first = series[0]
     known = [p for p in first.points if p.value is not None]
     total = sum(p.value or 0 for p in known) if additive else None
     names = ", ".join(_lower(s.label) for s in series)
     return Insight(
         sentence=sentence,
+        details=details,
         visual="line",
         metric=metrics[0].name,
         metric_label=metrics[0].label,
