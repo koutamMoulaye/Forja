@@ -436,12 +436,18 @@ class IngestionService:
 
     def _profile(self, source_id: str, name: str, version: SourceVersion) -> ProfileReport | None:
         try:
+            try:
+                earlier = self.catalog.list_versions(source_id)
+            except SourceNotFoundError:  # a new source: registered after its first profile
+                earlier = []
+            history = [self.workspace.resolve(v.bronze_path) for v in earlier if v.id != version.id]
             return self.profiler.profile(
                 source_id=source_id,
                 source_name=name,
                 parquet_path=self.workspace.resolve(version.bronze_path),
                 version_id=version.id,
                 version=version.version,
+                history=history,
             )
         except ForjaError as exc:
             log.error("profiling_failed", source_id=source_id, error=exc.message)

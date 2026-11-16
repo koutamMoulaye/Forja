@@ -29,6 +29,11 @@ IDENTIFIER_TOKENS = frozenset(
     {"id", "ident", "identifiant", "code", "cd", "ref", "reference", "num", "numero", "no",
      "key", "cle", "uid", "uuid", "siren", "siret", "matricule"}
 )  # fmt: skip
+# A rank within a parent: the line of an order, the n-th payment of an order.
+SEQUENCE_TOKENS = frozenset(
+    {"seq", "sequence", "sequential", "sequentiel", "sequentielle", "ligne", "line", "lineno",
+     "item", "rang", "rank", "position", "pos", "index", "idx", "nr", "numligne"}
+)  # fmt: skip
 YEAR_TOKENS = frozenset({"annee", "year", "an", "exercice", "millesime", "yr"})
 MONTH_TOKENS = frozenset({"mois", "month", "periode", "period"})
 QUARTER_TOKENS = frozenset({"trimestre", "quarter", "trim"})
@@ -59,12 +64,25 @@ def name_words(name: str) -> list[str]:
     return words
 
 
+def variant_key(value: str) -> str:
+    """The spelling-free form of a label: « Île-de-France », « ILE DE FRANCE » and
+    « ile  de france » share ``ile de france``."""
+    text = strip_accents(value).lower()
+    text = re.sub("[-_'’.]+", " ", text)  # noqa: RUF001 (typographic apostrophe)
+    return " ".join(text.split())
+
+
 def name_tokens(name: str) -> set[str]:
     return set(name_words(name))
 
 
 def is_identifier_name(name: str) -> bool:
     return bool(name_tokens(name) & IDENTIFIER_TOKENS)
+
+
+def is_sequence_name(name: str) -> bool:
+    """``payment_sequential``, ``line_number``, ``rang``: a number ranking rows of a parent."""
+    return bool(name_tokens(name) & SEQUENCE_TOKENS)
 
 
 def is_period_name(name: str) -> bool:

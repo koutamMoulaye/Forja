@@ -14,7 +14,7 @@ from typing import Any
 from forja_core.config import Settings
 from forja_core.errors import PlanValidationError
 from forja_core.models import Source
-from forja_core.profiling.grain import is_measure_key, key_rank
+from forja_core.profiling.grain import KeyRole, is_measure_key, key_rank, key_role
 from forja_core.profiling.models import (
     ColumnProfile,
     ConfidenceLevel,
@@ -254,6 +254,9 @@ def _default_column(
     return plan_column
 
 
+_NOT_AN_IDENTIFIER = 3
+
+
 def _key_rank(column: ColumnPlan, position: int) -> tuple[int, int, int]:
     name = column.target_column
     if name == "id":
@@ -281,10 +284,25 @@ def choose_primary_key(profile: ProfileReport, columns: list[ColumnPlan]) -> Pri
     simple = [
         k.columns[0] for k in profile.candidate_keys if k.kind == "simple" and usable(k.columns)
     ]
+    profiles = {c.name: c for c in profile.columns}
     if simple:
         best = min(simple, key=lambda name: _key_rank(by_name[name], position[name]))
+        if _key_rank(by_name[best], 0)[0] < _NOT_AN_IDENTIFIER:
+            return PrimaryKeyPlan(columns=[best])
+        # A date or a measure unique by chance (an answer timestamp) is no key when
+        # identifiers are unique together (a review and its order).
+        identified = [
+            k
+            for k in profile.candidate_keys
+            if k.kind == "composite"
+            and k.uniqueness >= 1
+            and usable(k.columns)
+            and all(key_role(profiles[c]) <= KeyRole.SEQUENCE for c in k.columns if c in profiles)
+        ]
+        if identified:
+            chosen = min(identified, key=lambda k: key_rank(k.columns, profiles))
+            return PrimaryKeyPlan(columns=list(chosen.columns))
         return PrimaryKeyPlan(columns=[best])
-    profiles = {c.name: c for c in profile.columns}
     # Ranked by the profiler: entity x period first. Numbers unique together by chance
     # (two measures) are never a key.
     composite = [
@@ -384,6 +402,15 @@ def build_plan(
         ),
     )
     plan.primary_key = choose_primary_key(profile, columns)
+    # Labels written several ways: the variants become the usual spelling (refusable).
+    by_source = {c.source_column: c for c in columns}
+    for variants in profile.variants:
+        target = by_source.get(variants.column)
+        if target is None or not target.from_text or target.target_type is not SilverType.VARCHAR:
+            continue
+        for spelling in variants.spellings:
+            if spelling != variants.canonical:
+                target.harmonize[spelling] = variants.canonical
     attach_conflicts(plan, profile)
     sync_key_rules(plan)
     return refresh_explanations(plan)
@@ -430,6 +457,15 @@ def refresh_plan(
         updated = old.model_copy(deep=True)
         updated.stats = column.stats
         updated.present_in_latest = True
+        # A label written a new way in this version joins the approved harmonization.
+        added = {k: v for k, v in column.harmonize.items() if k not in old.harmonize}
+        if added:
+            updated.harmonize = {**old.harmonize, **added}
+            shown = ", ".join(f"« {k} » → « {v} »" for k, v in sorted(added.items()))
+            warnings.append(
+                f"La colonne « {column.source_column} » écrit des libellés autrement en "
+                f"version {fresh.based_on_source_version} : {shown} ; harmonisation à vérifier."
+            )
         if old.source_type != column.source_type:
             warnings.append(
                 f"La colonne « {column.source_column} » est désormais de type "
@@ -570,6 +606,8 @@ def apply_patch(
             column.pii_treatment = change.pii_treatment
         if change.null_values is not None:
             column.cast.null_values = [v.strip().lower() for v in change.null_values]
+        if change.harmonize is not None:
+            column.harmonize = {k.strip(): v.strip() for k, v in change.harmonize.items()}
         for kind, enabled in (change.rules or {}).items():
             rule = column.rule(kind)
             if rule is None:

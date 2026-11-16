@@ -118,6 +118,11 @@ class ColumnPlan(BaseModel):
         description="Placeholders found at profiling (inconnu, nc...), treated as empty "
         "while they are among the null values",
     )
+    harmonize: dict[str, str] = Field(
+        default_factory=dict,
+        description="Spellings of a label replaced by its usual one (« ILE DE FRANCE » → "
+        "« Île-de-France »): variants found at profiling, a rule that can be refused",
+    )
     description: str = ""
     explanation: str = ""
 
@@ -206,6 +211,9 @@ class ColumnPatch(BaseModel):
     normalization: Normalization | None = None
     pii_treatment: PiiTreatment | None = None
     null_values: list[str] | None = None
+    harmonize: dict[str, str] | None = Field(
+        default=None, description="Spellings replaced by the usual one; {} keeps them as written"
+    )
     rules: dict[RuleKind, bool] | None = Field(
         default=None, description="Enable or disable validity rules"
     )
