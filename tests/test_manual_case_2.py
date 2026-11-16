@@ -10,6 +10,7 @@ roles, business vocabulary), and the single-file projects keep their own tests.
 from __future__ import annotations
 
 import csv
+import time
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
@@ -303,12 +304,13 @@ class _Scripted(LLMProvider):
     name = "scripted"
 
     def __init__(self, answer: str) -> None:
-        super().__init__(LLMSettings(model="m", max_attempts=1), sleep=lambda _: None)
+        super().__init__(LLMSettings(model="m", max_attempts=1, cache=False), sleep=lambda _: None)
         self.answer = answer
 
     def _complete(
         self, *, system: str, prompt: str, response_schema: dict[str, Any], schema_name: str
     ) -> Completion:
+        time.sleep(0.05)  # a call takes time: its throughput can be measured
         return Completion(self.answer, 1200, 800)
 
 
@@ -348,8 +350,6 @@ def test_mt54_ai_proposal_is_an_alternative(
 
 
 def test_mt54_heuristic_proposal_is_fast(case: tuple[AppState, Project, Path]) -> None:
-    import time
-
     state, project, _ = case
     started = time.perf_counter()
     state.gold.propose(project.id, use_llm=False)
